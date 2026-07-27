@@ -4,6 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import { spawn } from "node:child_process";
 import { requireBenchmarkAuth } from "../middleware/benchmark-auth";
+import { sendApiError } from "../lib/api-error-envelope";
 
 const router: IRouter = Router();
 const projectRoot = path.resolve(__dirname, "../../..");
@@ -226,10 +227,10 @@ function invokeBenchmarkBridge(
   });
 }
 
-router.get("/benchmark/data/live", (_req, res) => {
+router.get("/benchmark/data/live", (req, res) => {
   const live = readJsonFile<Record<string, unknown>>(path.join(reportsDir, "benchmark-live.json"));
   if (!live) {
-    res.status(404).json({ error: "No live benchmark data yet." });
+    sendApiError(res, 404, "BENCHMARK_NO_DATA", "No live benchmark data yet.", { requestId: String(req.id) });
     return;
   }
   res.setHeader("Cache-Control", "no-store");
@@ -263,7 +264,7 @@ router.get("/benchmark/state", async (_req, res) => {
 router.post("/benchmark/clear-lock", requireBenchmarkAuth, async (req, res) => {
   const bridged = await invokeBenchmarkBridge("clear-lock");
   if (!bridged.ok) {
-    res.status(bridged.status ?? 500).json({ ok: false, error: bridged.error });
+    sendApiError(res, bridged.status ?? 500, "BENCHMARK_BRIDGE_ERROR", bridged.error ?? "Benchmark bridge failed", { requestId: String(req.id) });
     return;
   }
   apiUpCache = null;
@@ -278,7 +279,7 @@ router.post("/benchmark/run", requireBenchmarkAuth, async (req, res) => {
     dryRun: Boolean(body.dryRun),
   });
   if (!bridged.ok) {
-    res.status(bridged.status ?? 500).json({ ok: false, error: bridged.error });
+    sendApiError(res, bridged.status ?? 500, "BENCHMARK_BRIDGE_ERROR", bridged.error ?? "Benchmark bridge failed", { requestId: String(req.id) });
     return;
   }
 
@@ -295,7 +296,7 @@ router.post("/benchmark/chat", requireBenchmarkAuth, async (req, res) => {
   const body = req.body as { message?: string; forceRun?: boolean };
   const message = String(body.message ?? "").trim();
   if (!message) {
-    res.status(400).json({ ok: false, error: "Type a request, e.g. '40 human' or 'smoke'" });
+    sendApiError(res, 400, "BENCHMARK_BAD_REQUEST", "Type a request, e.g. '40 human' or 'smoke'", { requestId: String(req.id) });
     return;
   }
 
@@ -304,7 +305,7 @@ router.post("/benchmark/chat", requireBenchmarkAuth, async (req, res) => {
     forceRun: body.forceRun !== false,
   });
   if (!bridged.ok) {
-    res.status(bridged.status ?? 500).json({ ok: false, error: bridged.error });
+    sendApiError(res, bridged.status ?? 500, "BENCHMARK_BRIDGE_ERROR", bridged.error ?? "Benchmark bridge failed", { requestId: String(req.id) });
     return;
   }
 

@@ -18,6 +18,7 @@ import { getSessionSnapshotCacheStats } from "../core/cache/session-snapshot-cac
 import { deploymentVersion } from "../lib/deployment-version";
 import { normalizeEvalToken } from "../lib/eval-token-normalize";
 import { expectedEvalToken, safeTokenEqual } from "../lib/eval-token";
+import { sendApiError } from "../lib/api-error-envelope";
 
 const router: IRouter = Router();
 
@@ -49,12 +50,12 @@ function adminRoutesEnabled(): boolean {
 
 function requireEvalToken(req: Request, res: Response): boolean {
   if (!adminRoutesEnabled()) {
-    res.status(404).json({ error: "Not found" });
+    sendApiError(res, 404, "NOT_FOUND", "Not found", { requestId: String(req.id) });
     return false;
   }
   const expected = expectedEvalToken();
   if (!expected) {
-    res.status(503).json({ error: "PLAYLIST_EVAL_TOKEN not configured" });
+    sendApiError(res, 503, "EVAL_NOT_CONFIGURED", "PLAYLIST_EVAL_TOKEN not configured", { requestId: String(req.id) });
     return false;
   }
   const token = normalizeEvalToken(
@@ -62,7 +63,7 @@ function requireEvalToken(req: Request, res: Response): boolean {
       ?? requestHeader(req, "x-eval-token"),
   );
   if (!safeTokenEqual(token, expected)) {
-    res.status(403).json({ error: "Invalid evaluation token" });
+    sendApiError(res, 403, "EVAL_TOKEN_INVALID", "Invalid evaluation token", { requestId: String(req.id) });
     return false;
   }
   return true;
@@ -85,7 +86,7 @@ router.post("/eval/admin/alias-queue/:term/approve", async (req, res) => {
   const term = String(req.params.term ?? "");
   const row = await approveAliasPromotion(term);
   if (!row) {
-    res.status(404).json({ error: "Alias promotion not found" });
+    sendApiError(res, 404, "ALIAS_NOT_FOUND", "Alias promotion not found", { requestId: String(req.id) });
     return;
   }
   res.json({ commit: deploymentVersion(), approved: row });
@@ -96,7 +97,7 @@ router.post("/eval/admin/alias-queue/:term/reject", async (req, res) => {
   const term = String(req.params.term ?? "");
   const row = await rejectAliasPromotion(term);
   if (!row) {
-    res.status(404).json({ error: "Alias promotion not found" });
+    sendApiError(res, 404, "ALIAS_NOT_FOUND", "Alias promotion not found", { requestId: String(req.id) });
     return;
   }
   res.json({ commit: deploymentVersion(), rejected: row });

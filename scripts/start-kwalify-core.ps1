@@ -817,10 +817,6 @@ if ($Mode -eq "selfhost") {
   Write-Host "  KEEP OPEN: Kwalify API + Cloudflare Tunnel windows"
   Write-Host "  Stop:      stop-kwalify.bat (or Desktop shortcut)"
   Write-Host ""
-  $benchRedirect = Join-Path $Root "scripts\ensure-benchmark-redirect.ps1"
-  if (Test-Path -LiteralPath $benchRedirect) {
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $benchRedirect -Root $Root | Out-Null
-  }
   if ($transcriptStarted) { try { Stop-Transcript | Out-Null } catch {} }
   exit 0
 }

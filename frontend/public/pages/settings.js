@@ -1,4 +1,4 @@
-import { esc, initTheme, showToast, toggleTheme, apiJson } from "../lib/shared.js";
+import { esc, initTheme, showToast, toggleTheme, apiJson, confirmDialog } from "../lib/shared.js";
 import { loadUserPrefs, saveUserPref } from "../lib/user-prefs.js";
 
 initTheme();
@@ -158,10 +158,10 @@ function render(user, cacheStatus) {
   });
 
   document.getElementById("settingsDeleteAccount")?.addEventListener("click", async () => {
-    if (!confirm("Delete all your Kwalify data? This cannot be undone.")) return;
+    if (!(await confirmDialog("Delete all your Kwalify data? This cannot be undone.", { title: "Delete account data", confirmLabel: "Delete everything", danger: true }))) return;
     const r = await apiJson("/auth/account", { method: "DELETE" });
     if (r.ok) window.location.href = "/";
-    else alert(r.data?.error || "Could not delete account.");
+    else showToast(r.data?.error || "Could not delete account.", "error");
   });
 
   async function pollSyncStatus() {

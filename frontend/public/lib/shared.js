@@ -93,6 +93,40 @@ export function spi() {
   return spiBadge({ size: 16, fill: "currentColor", wrapClass: "" });
 }
 
+/** In-app confirm dialog (replaces window.confirm). */
+export function confirmDialog(message, { title = "Confirm", confirmLabel = "OK", danger = false } = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "kwalify-confirm-overlay";
+    overlay.innerHTML = `
+      <div class="kwalify-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="kwalifyConfirmTitle">
+        <h2 id="kwalifyConfirmTitle" class="kwalify-confirm-title">${esc(title)}</h2>
+        <p class="kwalify-confirm-msg">${esc(message)}</p>
+        <div class="kwalify-confirm-actions">
+          <button type="button" class="btn btn-ghost btn-sm" data-act="cancel">Cancel</button>
+          <button type="button" class="btn btn-sm ${danger ? "btn-danger" : "btn-green"}" data-act="ok">${esc(confirmLabel)}</button>
+        </div>
+      </div>`;
+    const close = (val) => {
+      overlay.remove();
+      document.removeEventListener("keydown", onKey);
+      resolve(val);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") close(false);
+    };
+    document.addEventListener("keydown", onKey);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) close(false);
+      const btn = e.target.closest("[data-act]");
+      if (!btn) return;
+      close(btn.dataset.act === "ok");
+    });
+    document.body.appendChild(overlay);
+    overlay.querySelector('[data-act="ok"]')?.focus();
+  });
+}
+
 export function showToast(message, kind = "info") {
   let el = document.getElementById("kwalifyToast");
   if (!el) {

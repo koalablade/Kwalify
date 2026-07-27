@@ -227,6 +227,20 @@ p { margin: 0; }
     scrollbar-width: none;
   }
   .nav-right::-webkit-scrollbar { display: none; }
+  .nav-menu-toggle { display: inline-flex; }
+  .nav-right--collapsed .nav-link,
+  .nav-right--collapsed .nav-library-panel,
+  .nav-right--collapsed .nav-profile-wrap { display: none; }
+  .nav-right:not(.nav-right--collapsed) {
+    position: absolute; right: 12px; top: 52px; flex-direction: column;
+    align-items: stretch; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius-md); padding: 12px; box-shadow: var(--shadow-lg); z-index: 50;
+  }
+}
+.nav-menu-toggle {
+  display: none; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--card); color: var(--text);
 }
 
 .nav-link {
@@ -805,6 +819,20 @@ p { margin: 0; }
 
 .kwalify-toast--success { border-color: rgba(29, 185, 84, 0.35); }
 .kwalify-toast--error { border-color: rgba(239, 68, 68, 0.35); }
+
+.kwalify-confirm-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.kwalify-confirm-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 20px 22px; max-width: 400px; width: 100%;
+}
+.kwalify-confirm-title { margin: 0 0 8px; font-size: 1.1rem; }
+.kwalify-confirm-msg { margin: 0 0 16px; color: var(--muted); line-height: 1.45; }
+.kwalify-confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.btn-danger { background: #dc2626; color: #fff; border: none; }
 
 .profile-dropdown-danger { color: var(--muted-2); font-size: 13px; }
 .profile-dropdown-danger:hover { color: #f87171; background: rgba(248,113,113,0.08); }

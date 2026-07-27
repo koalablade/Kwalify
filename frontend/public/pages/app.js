@@ -1,5 +1,5 @@
 // ── Kwalify · Single app entry point ─────────────────────────────────────────
-import { esc, initTheme, fmtDateShort as fmtDate, spiBadge, toggleTheme, showToast, userFacingApiError } from "../lib/shared.js";
+import { esc, initTheme, fmtDateShort as fmtDate, spiBadge, toggleTheme, showToast, userFacingApiError, confirmDialog } from "../lib/shared.js";
 import { loadUserPrefs, saveUserPref, markOnboardingDone } from "../lib/user-prefs.js";
 
 initTheme();
@@ -506,7 +506,8 @@ function navHtml(user) {
   return `
   <nav class="nav" aria-label="Main navigation">
     ${navLogoHtml()}
-    <div class="nav-right" id="navRight">
+    <button type="button" class="nav-menu-toggle" id="navMenuToggle" aria-expanded="false" aria-controls="navRight" aria-label="Open menu">☰</button>
+    <div class="nav-right nav-right--collapsed" id="navRight">
       <a href="/gallery" class="nav-link">Gallery <span class="nav-link-arrow">→</span></a>
       <a href="/settings" class="nav-link">Settings</a>
       <div class="nav-library-panel">
@@ -2641,6 +2642,37 @@ function updateMoodPanelFromServer(data) {
 }
 
 // ── Event wiring ──────────────────────────────────────────────────────────────
+function trapOnboardingFocus() {
+  const overlay = document.getElementById("onboardingOverlay");
+  if (!overlay) return;
+  const focusables = () =>
+    [...overlay.querySelectorAll("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")]
+      .filter((el) => !el.disabled);
+  const onKey = (e) => {
+    if (e.key === "Escape") {
+      markOnboardingDone();
+      _savedPrefs.onboardingDone = true;
+      document.removeEventListener("keydown", onKey);
+      renderApp();
+      return;
+    }
+    if (e.key !== "Tab") return;
+    const list = focusables();
+    if (!list.length) return;
+    const first = list[0];
+    const last = list[list.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+  document.addEventListener("keydown", onKey);
+  focusables()[0]?.focus();
+}
+
 function wireAppEvents() {
   // Profile dropdown
   document.getElementById("profileBtn")?.addEventListener("click", (e) => {
@@ -2650,8 +2682,19 @@ function wireAppEvents() {
     const btn = document.getElementById("profileBtn");
     if (btn) btn.setAttribute("aria-expanded", state.profileOpen ? "true" : "false");
   });
+  document.getElementById("navMenuToggle")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const nav = document.getElementById("navRight");
+    const collapsed = nav?.classList.toggle("nav-right--collapsed");
+    const toggle = document.getElementById("navMenuToggle");
+    if (toggle) toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  });
   if (!globalAppListenersWired) {
     document.addEventListener("click", (e) => {
+      if (!document.getElementById("navRight")?.contains(e.target) && !document.getElementById("navMenuToggle")?.contains(e.target)) {
+        document.getElementById("navRight")?.classList.add("nav-right--collapsed");
+        document.getElementById("navMenuToggle")?.setAttribute("aria-expanded", "false");
+      }
       if (!document.getElementById("profileWrap")?.contains(e.target)) {
         state.profileOpen = false;
         document.getElementById("profileDropdown")?.classList.remove("open");
@@ -2739,7 +2782,7 @@ function wireAppEvents() {
 
   document.getElementById("logoutBtn")?.addEventListener("click", logout);
   document.getElementById("deleteAccountBtn")?.addEventListener("click", async () => {
-    if (!confirm("Delete all your Kwalify data (playlists, liked-song cache, feedback)? This cannot be undone.")) return;
+    if (!(await confirmDialog("Delete all your Kwalify data (playlists, liked-song cache, feedback)? This cannot be undone.", { title: "Delete account data", confirmLabel: "Delete everything", danger: true }))) return;
     try {
       const r = await api("/auth/account", { method: "DELETE" });
       if (r.ok) {
@@ -2906,6 +2949,8 @@ function wireAppEvents() {
     _savedPrefs.onboardingDone = true;
     renderApp();
   });
+
+  trapOnboardingFocus();
 
   document.querySelectorAll(".feedback-track-btn[data-track-index]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -3102,7 +3147,7 @@ async function loadPlaylists() {
 }
 
 async function deletePlaylist(id) {
-  if (!confirm("Delete this playlist?")) return;
+  if (!(await confirmDialog("Delete this playlist?", { title: "Delete playlist", confirmLabel: "Delete", danger: true }))) return;
   const r = await api(`/playlists/${id}`, { method: "DELETE" })
     .catch((err) => ({ ok: false, status: 0, data: { error: err.message } }));
   if (r.ok) {

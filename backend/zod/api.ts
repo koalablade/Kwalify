@@ -93,7 +93,7 @@ export const GeneratePlaylistBody = zod.object({
 })
 
 export const GeneratePlaylistResponse = zod.object({
-  "playlistId": zod.string(),
+  "playlistId": zod.union([zod.string(), zod.number()]),
   "playlistUrl": zod.string(),
   "name": zod.string(),
   "vibe": zod.string(),
@@ -129,7 +129,7 @@ export const GeneratePlaylistResponse = zod.object({
  */
 export const GetHistoryResponseItem = zod.object({
   "id": zod.number(),
-  "playlistId": zod.string(),
+  "playlistId": zod.union([zod.string(), zod.number()]),
   "playlistUrl": zod.string(),
   "name": zod.string(),
   "vibe": zod.string(),

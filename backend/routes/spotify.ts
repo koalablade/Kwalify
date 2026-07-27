@@ -35,6 +35,7 @@ import { recordSyncFailure } from "../lib/ops-metrics";
 import { invalidateSemanticProfileCache } from "../lib/semantic-profile-store";
 import { getFeatures } from "../lib/env";
 import { generateMockSpotifyLibrary } from "../lib/mock-spotify";
+import { sendApiError } from "../lib/api-error-envelope";
 
 const router: IRouter = Router();
 
@@ -60,11 +61,11 @@ router.get("/spotify/cache-status", async (req, res): Promise<void> => {
   }
   // Guard: Spotify must be configured for any sync-related endpoint to work.
   if (!getFeatures().spotify.enabled) {
-    res.status(503).json({ error: "Spotify is not configured on this server." });
+    sendApiError(res, 503, "SPOTIFY_DISABLED", "Spotify is not configured on this server.", { requestId: String(req.id) });
     return;
   }
   if (!req.session.spotifyUserId) {
-    res.status(401).json({ error: "Not authenticated" });
+    sendApiError(res, 401, "NOT_AUTHENTICATED", "Not authenticated", { requestId: String(req.id) });
     return;
   }
 
@@ -162,11 +163,11 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
     return;
   }
   if (!getFeatures().spotify.enabled) {
-    res.status(503).json({ error: "Spotify is not configured on this server." });
+    sendApiError(res, 503, "SPOTIFY_DISABLED", "Spotify is not configured on this server.", { requestId: String(req.id) });
     return;
   }
   if (!req.session.spotifyTokens || !req.session.spotifyUserId) {
-    res.status(401).json({ error: "Not authenticated" });
+    sendApiError(res, 401, "NOT_AUTHENTICATED", "Not authenticated", { requestId: String(req.id) });
     return;
   }
 
@@ -174,9 +175,9 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
 
   const lastStart = syncStartCooldown.get(userId) ?? 0;
   if (Date.now() - lastStart < SYNC_START_COOLDOWN_MS) {
-    res.status(429).json({
-      error: "Sync started recently. Please wait about a minute before starting another.",
-      started: false,
+    sendApiError(res, 429, "SYNC_COOLDOWN", "Sync started recently. Please wait about a minute before starting another.", {
+      requestId: String(req.id),
+      retryAfterSeconds: Math.ceil((SYNC_START_COOLDOWN_MS - (Date.now() - lastStart)) / 1000),
     });
     return;
   }
@@ -233,10 +234,7 @@ router.post("/spotify/sync", async (req, res): Promise<void> => {
   } catch (err) {
     activeSyncs.delete(userId);
     logger.error({ err, userId }, "Failed to start Spotify sync");
-    res.status(500).json({
-      error: "Failed to start sync. Please try again shortly.",
-      started: false,
-    });
+    sendApiError(res, 500, "SYNC_START_FAILED", "Failed to start sync. Please try again shortly.", { requestId: String(req.id) });
     return;
   }
 

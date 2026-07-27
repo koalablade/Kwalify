@@ -2,9 +2,9 @@
 
 Single reference for running Kwalify from a terminal when Cursor (or any IDE) is unavailable.
 
-**Project root:** the folder containing `start-kwalify.bat` and `package.json`
+**Project root:** the folder containing `start.bat` (or `start-kwalify.bat`) and `package.json`
 
-**Windows (recommended):** double-click `start-kwalify.bat` — see [FIRST-TIME-SETUP.txt](../FIRST-TIME-SETUP.txt).
+**Windows (recommended):** double-click `start.bat` — see [FIRST-TIME-SETUP.txt](../FIRST-TIME-SETUP.txt).
 
 **Shell note (PowerShell):** run commands one at a time, or use `;` instead of `&&`.
 
@@ -14,7 +14,7 @@ Single reference for running Kwalify from a terminal when Cursor (or any IDE) is
 
 ```powershell
 cd path\to\Kwalify
-# Or just double-click start-kwalify.bat (handles npm ci, build, certs, hosts)
+# Or just double-click start.bat (handles npm ci, build, certs, hosts)
 npm ci
 npm run build
 ```
@@ -29,7 +29,7 @@ Copy `.env.example` to `.env` if the launcher has not created one yet.
 
 | Task | Command |
 |------|---------|
-| **Start Kwalify (Windows)** | `start-kwalify.bat` |
+| **Start Kwalify (Windows)** | `start.bat` |
 | **Stop Kwalify** | `stop-kwalify.bat` |
 | Typecheck | `npm run typecheck` |
 | Build | `npm run build` |
@@ -275,7 +275,7 @@ Run `npm run` with no args to list all scripts. Common groups:
 
 - **CI:** `ci:prompt-reliability*`, `ci:frontend-modules`, `ci:convergence-overlap`, `ci:semantic-scenes`
 - **Coherence:** `coherence:*`
-- **Benchmark:** `benchmark:prompt-reliability`, `benchmark:pairwise-signatures`, `benchmark:semantic-scenes` (via package)
+- **Benchmark:** `benchmark:smoke`, `benchmark:prompt-reliability`, `benchmark:pairwise-signatures`, `benchmark:semantic-scenes` (via package)
 - **Regression:** `regression:prompt-reliability`, `regression:playlists`, `regression:coherence-live`
-- **Smoke:** `smoke:deploy`, `smoke:static`, `smoke:shutdown`
+- **Smoke:** `smoke:deploy`, `smoke:static`, `smoke:shutdown`, `test:smoke`, `test:benchmark-bats`
 - **Ops:** `validation:production`, `audit:*`, `quality:*`, `backfill:audio-features`

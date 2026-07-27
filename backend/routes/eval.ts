@@ -6,6 +6,7 @@ import {
   buildFailureAnalyticsReport,
   formatFailureAnalyticsReportMarkdown,
 } from "../lib/playlist-failure-analytics";
+import { sendApiError } from "../lib/api-error-envelope";
 
 const router: IRouter = Router();
 
@@ -64,7 +65,7 @@ router.post("/eval/ping", (req, res) => {
 router.get("/eval/failure-analytics/report", async (req, res): Promise<void> => {
   const expected = expectedEvalToken();
   if (!expected) {
-    res.status(503).json({ error: "PLAYLIST_EVAL_TOKEN is not configured." });
+    sendApiError(res, 503, "EVAL_NOT_CONFIGURED", "PLAYLIST_EVAL_TOKEN is not configured.", { requestId: String(req.id) });
     return;
   }
   const token = normalizeEvalToken(
@@ -72,7 +73,7 @@ router.get("/eval/failure-analytics/report", async (req, res): Promise<void> => 
       ?? requestHeader(req, "x-eval-token"),
   );
   if (!safeTokenEqual(token, expected)) {
-    res.status(403).json({ error: "Evaluation token was missing or invalid." });
+    sendApiError(res, 403, "EVAL_TOKEN_INVALID", "Evaluation token was missing or invalid.", { requestId: String(req.id) });
     return;
   }
 
@@ -88,7 +89,7 @@ router.get("/eval/failure-analytics/report", async (req, res): Promise<void> => 
     }
     res.json(report);
   } catch (err) {
-    res.status(500).json({ error: "Failed to build failure analytics report." });
+    sendApiError(res, 500, "FAILURE_ANALYTICS_ERROR", "Failed to build failure analytics report.", { requestId: String(req.id) });
   }
 });
 

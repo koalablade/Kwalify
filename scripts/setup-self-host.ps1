@@ -134,7 +134,7 @@ if ($Firewall) {
 
 if ($Startup) {
   Write-Step "Auto-start at login"
-  & (Join-Path $Root "scripts\register-startup-task.ps1")
+  & (Join-Path $Root "scripts\register-startup-task.ps1") -Confirm
 }
 
 Write-Step "Daily database backup (3:00 AM)"

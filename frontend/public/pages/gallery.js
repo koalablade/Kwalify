@@ -1,5 +1,5 @@
 // ── Kwalify · Gallery ─────────────────────────────────────────────────────────
-import { esc, fmtDate, initTheme, spiBadge, toggleTheme, apiJson, showToast } from "../lib/shared.js";
+import { esc, fmtDate, initTheme, spiBadge, toggleTheme, apiJson, showToast, confirmDialog } from "../lib/shared.js";
 
 // After Spotify login, app.js boot should redirect to sessionStorage.returnTo when set.
 const galleryDebug = new URLSearchParams(window.location.search).get("debug") === "1";
@@ -366,7 +366,7 @@ function togglePlaylistSelection(id) {
 async function deleteSelectedPlaylists() {
   const ids = [...selectedPlaylistIds];
   if (!ids.length) return;
-  if (!confirm(`Delete ${ids.length} playlist${ids.length === 1 ? "" : "s"}?`)) return;
+  if (!(await confirmDialog(`Delete ${ids.length} playlist${ids.length === 1 ? "" : "s"}?`, { title: "Delete playlists", confirmLabel: "Delete", danger: true }))) return;
   deletingPlaylists = true;
   renderGallery();
   const results = await Promise.all(
