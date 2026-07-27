@@ -20,6 +20,7 @@ import { getPublicBaseUrl } from "../lib/public-url";
 import { deleteUserData } from "../lib/delete-user-data";
 import { checkRateLimit } from "../lib/rate-limit";
 import { pool } from "../lib/pg-pool";
+import { sendApiError } from "../lib/api-error-envelope";
 
 const router: IRouter = Router();
 
@@ -49,11 +50,11 @@ function getRedirectUri(): string {
 /** Returns false and sends 503 if Spotify credentials were not provided at startup. */
 function requireSpotify(res: any): boolean {
   if (getFeatures().devMode.useMockSpotify) {
-    res.status(503).json({ error: "Spotify auth is disabled in mock dev mode." });
+    sendApiError(res, 503, "SPOTIFY_MOCK_MODE", "Spotify auth is disabled in mock dev mode.");
     return false;
   }
   if (!getFeatures().spotify.enabled) {
-    res.status(503).json({ error: "Spotify is not configured on this server." });
+    sendApiError(res, 503, "SPOTIFY_DISABLED", "Spotify is not configured on this server.");
     return false;
   }
   return true;

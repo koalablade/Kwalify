@@ -36,7 +36,7 @@ Env thresholds:
 
 **Logs:** Render log stream → filter `[ops-alert]` or `alertType`. Optional: Sentry via `SENTRY_DSN` (future — hook pino transport when added).
 
-**CI:** `.github/workflows/uptime-smoke.yml` runs deploy smoke daily and fails on health/readyz regression.
+**CI:** `.github/workflows/deploy-smoke.yml` runs deploy smoke every 6–12 hours and fails on health/readyz regression.
 
 ## Render
 

@@ -93,6 +93,17 @@ jobs:
       - name: Production validation dry-run
         run: npm run validation:production -- --dry-run
 
+  launcher-scripts-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Benchmark launcher bat smoke
+        shell: pwsh
+        run: ./scripts/test-benchmark-bats.ps1
+      - name: Start script syntax smoke
+        shell: pwsh
+        run: ./scripts/test-start-syntax.ps1
+
   deploy-smoke-pr:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest

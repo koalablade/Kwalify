@@ -113,7 +113,7 @@ $marker = Join-Path $Root ".kwalify-startup-tasks-done"
 if (-not (Test-Path -LiteralPath $marker)) {
   Step "One-time startup tasks"
   try { & (Join-Path $Root "scripts\schedule-db-backup.ps1") } catch {}
-  try { & (Join-Path $Root "scripts\register-startup-task.ps1") } catch {}
+  # Startup-at-logon is opt-in: scripts\register-startup-task.ps1 -Confirm
   Set-Content -LiteralPath $marker -Value (Get-Date -Format o) -Encoding ASCII
 }
 

@@ -1,5 +1,7 @@
 # Kwalify — Full Application Audit Report
 
+> **Historical snapshot (June 2025).** Many findings below were fixed in later commits (shared frontend utils, sync count, history error handling, CSP, benchmark consolidation). Use the live codebase and `npm run test:smoke` as source of truth.
+
 **Date:** June 2025  
 **Scope:** Full read-only audit of the entire codebase. No code changes.
 

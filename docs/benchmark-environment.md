@@ -35,7 +35,7 @@ Workflows using this action:
 - `.github/workflows/live-benchmark-40m.yml`
 - `.github/workflows/production-validation.yml` (live step)
 - `.github/workflows/deploy-smoke.yml`
-- `.github/workflows/uptime-smoke.yml`
+- `.github/workflows/deploy-smoke.yml`
 - `.github/workflows/ci.yml` (`deploy-smoke-pr`, `coherence-live`, `nightly-eval`)
 
 Each live job runs `npm run validate:benchmark-env` before benchmarks.

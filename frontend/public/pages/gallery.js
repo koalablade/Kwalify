@@ -294,9 +294,8 @@ function renderCards(playlists) {
       const cardClass = `gallery-card ${deleteMode ? "gallery-card--selectable" : ""} ${openHref ? "gallery-card--link" : ""} ${selected ? "selected" : ""}`.trim();
       const cardAttrs = deleteMode
         ? `data-select-playlist-id="${p.id}" role="button" tabindex="0"`
-        : (openHref ? `data-open-href="${esc(openHref)}" role="link" tabindex="0"` : "");
-      return `
-      <div class="${cardClass}" ${cardAttrs}>
+        : "";
+      const inner = `
         ${deleteMode ? `<div class="gallery-select-check">${selected ? "✓" : ""}</div>` : ""}
         ${mosaicHtml(arts)}
         <div class="gallery-card-body">
@@ -306,10 +305,16 @@ function renderCards(playlists) {
           ${note ? `<div class="gallery-generator-note">${esc(note)}</div>` : ""}
           <div class="gallery-card-meta">${count} tracks · ${fmtDate(p.createdAt)}</div>
           ${deleteMode ? "" : `<div class="gallery-card-actions">
-            ${p.spotifyUrl ? `<a href="${esc(p.spotifyUrl)}" target="_blank" rel="noopener" class="btn btn-green btn-sm">${spi()} Spotify</a>` : ""}
-            ${openHref ? `<a href="${esc(openHref)}" class="btn btn-ghost btn-sm">Open</a>` : ""}
+            ${p.spotifyUrl ? `<a href="${esc(p.spotifyUrl)}" target="_blank" rel="noopener" class="btn btn-green btn-sm" onclick="event.stopPropagation()">${spi()} Spotify</a>` : ""}
+            ${openHref ? `<span class="btn btn-ghost btn-sm">Open</span>` : ""}
           </div>`}
-        </div>
+        </div>`;
+      if (openHref && !deleteMode) {
+        return `<a class="${cardClass}" href="${esc(openHref)}">${inner}</a>`;
+      }
+      return `
+      <div class="${cardClass}" ${cardAttrs}>
+        ${inner}
       </div>`;
     }).join("")}
   </div>`;
@@ -428,21 +433,6 @@ function wireGalleryEvents() {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         togglePlaylistSelection(id);
-      }
-    });
-  });
-  document.querySelectorAll("[data-open-href]").forEach((card) => {
-    const href = card.dataset.openHref;
-    if (!href) return;
-    const open = () => { window.location.href = href; };
-    card.addEventListener("click", (e) => {
-      if (e.target.closest("a, button")) return;
-      open();
-    });
-    card.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        open();
       }
     });
   });

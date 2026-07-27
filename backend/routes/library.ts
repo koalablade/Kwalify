@@ -8,6 +8,7 @@ import { computeLibrarySummary } from "../lib/library-summary";
 import { getFeatures } from "../lib/env";
 import { generateMockSpotifyLibrary } from "../lib/mock-spotify";
 import { getCachedLikedSongs, setCachedLikedSongs } from "../lib/liked-songs-cache";
+import { sendApiError } from "../lib/api-error-envelope";
 
 const router: IRouter = Router();
 
@@ -23,7 +24,7 @@ router.get("/library/summary", async (req, res): Promise<void> => {
   }
 
   if (!req.session.spotifyUserId) {
-    res.status(401).json({ error: "Not authenticated" });
+    sendApiError(res, 401, "NOT_AUTHENTICATED", "Not authenticated", { requestId: String(req.id) });
     return;
   }
 
@@ -183,7 +184,7 @@ router.get("/library/chapters", async (req, res): Promise<void> => {
   }
 
   if (!req.session.spotifyUserId) {
-    res.status(401).json({ error: "Not authenticated" });
+    sendApiError(res, 401, "NOT_AUTHENTICATED", "Not authenticated", { requestId: String(req.id) });
     return;
   }
 

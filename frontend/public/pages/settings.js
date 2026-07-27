@@ -39,7 +39,7 @@ function render(user, cacheStatus) {
         <label>Vibe mode</label>
         <div class="mode-group">
           ${["strict", "balanced", "chaotic"].map((m) => `
-            <button type="button" class="mode-btn ${prefs.mode === m ? "active" : ""}" data-pref-mode="${m}">${m.charAt(0).toUpperCase() + m.slice(1)}</button>
+            <button type="button" class="mode-btn ${prefs.mode === m ? "active" : ""}" data-pref-mode="${m}" aria-pressed="${prefs.mode === m ? "true" : "false"}">${m.charAt(0).toUpperCase() + m.slice(1)}</button>
           `).join("")}
         </div>
       </div>
@@ -51,7 +51,7 @@ function render(user, cacheStatus) {
         <label>Familiarity (liked-songs mode)</label>
         <div class="familiarity-group">
           ${["safe", "balanced", "discovery"].map((f) => `
-            <button type="button" class="familiarity-btn ${prefs.familiarity === f ? "active" : ""}" data-pref-fam="${f}">${f.charAt(0).toUpperCase() + f.slice(1)}</button>
+            <button type="button" class="familiarity-btn ${prefs.familiarity === f ? "active" : ""}" data-pref-fam="${f}" aria-pressed="${prefs.familiarity === f ? "true" : "false"}">${f.charAt(0).toUpperCase() + f.slice(1)}</button>
           `).join("")}
         </div>
       </div>
@@ -108,7 +108,10 @@ function render(user, cacheStatus) {
     btn.addEventListener("click", () => {
       prefs.mode = btn.dataset.prefMode;
       saveUserPref("mode", prefs.mode);
-      document.querySelectorAll("[data-pref-mode]").forEach((b) => b.classList.toggle("active", b.dataset.prefMode === prefs.mode));
+      document.querySelectorAll("[data-pref-mode]").forEach((b) => {
+        b.classList.toggle("active", b.dataset.prefMode === prefs.mode);
+        b.setAttribute("aria-pressed", b.dataset.prefMode === prefs.mode ? "true" : "false");
+      });
       flash();
     });
   });
@@ -117,7 +120,10 @@ function render(user, cacheStatus) {
     btn.addEventListener("click", () => {
       prefs.familiarity = btn.dataset.prefFam;
       saveUserPref("familiarity", prefs.familiarity);
-      document.querySelectorAll("[data-pref-fam]").forEach((b) => b.classList.toggle("active", b.dataset.prefFam === prefs.familiarity));
+      document.querySelectorAll("[data-pref-fam]").forEach((b) => {
+        b.classList.toggle("active", b.dataset.prefFam === prefs.familiarity);
+        b.setAttribute("aria-pressed", b.dataset.prefFam === prefs.familiarity ? "true" : "false");
+      });
       flash();
     });
   });

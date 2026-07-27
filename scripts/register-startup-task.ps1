@@ -1,5 +1,13 @@
-# Register Kwalify to start at user logon (self-host mode).
+# Register Kwalify to start at user logon (self-host mode). Opt-in only.
+param(
+  [switch]$Confirm
+)
+
 $ErrorActionPreference = "Stop"
+if (-not $Confirm) {
+  Write-Host "Skipped: pass -Confirm to register logon startup task." -ForegroundColor Yellow
+  exit 0
+}
 $Root = Split-Path -Parent $PSScriptRoot
 $TaskName = "Kwalify-SelfHost-Start"
 $Launcher = Join-Path $Root "start.bat"

@@ -6,6 +6,7 @@ import playlistCrudRouter from "../controllers/playlist-crud.controller";
 import historyRouter from "./history";
 import libraryRouter from "./library";
 import benchmarkUiRouter from "./benchmark-ui";
+import internalRouter from "./internal";
 
 const router: IRouter = Router();
 const mountedRouteGroups = new Set<string>();
@@ -25,5 +26,6 @@ mountRouteGroup("playlist-crud", playlistCrudRouter);
 mountRouteGroup("history", historyRouter);
 mountRouteGroup("library", libraryRouter);
 mountRouteGroup("benchmark", benchmarkUiRouter);
+mountRouteGroup("internal", internalRouter);
 
 export default router;

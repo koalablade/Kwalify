@@ -2,12 +2,13 @@ import { Router, type IRouter } from "express";
 import { db } from "../db";
 import { playlistHistoryTable } from "../db";
 import { eq, desc } from "drizzle-orm";
+import { sendApiError } from "../lib/api-error-envelope";
 
 const router: IRouter = Router();
 
 router.get("/history", async (req, res): Promise<void> => {
   if (!req.session.spotifyUserId) {
-    res.status(401).json({ success: false, error: "Not authenticated", requestId: req.id });
+    sendApiError(res, 401, "NOT_AUTHENTICATED", "Not authenticated", { requestId: String(req.id) });
     return;
   }
 
@@ -36,12 +37,7 @@ router.get("/history", async (req, res): Promise<void> => {
     );
   } catch (err) {
     req.log.error({ err, requestId: req.id }, "Failed to load playlist history");
-    res.status(500).json({
-      success: false,
-      code: "HISTORY_LOAD_FAILED",
-      error: "Could not load playlist history. Please try again.",
-      requestId: req.id,
-    });
+    sendApiError(res, 500, "HISTORY_LOAD_FAILED", "Could not load playlist history. Please try again.", { requestId: String(req.id) });
   }
 });
 
