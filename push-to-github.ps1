@@ -1,7 +1,8 @@
 # Publish Kwalify to GitHub (fixes Replit gitsafe errors).
 # Right-click -> Run with PowerShell
 param(
-  [switch]$AllowOriginReplace
+  [switch]$AllowOriginReplace,
+  [switch]$ConfirmCleanup
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,14 +14,18 @@ Set-Location $RepoRoot
 Write-Host "Project: $RepoRoot" -ForegroundColor Cyan
 
 # --- Remove Replit gitsafe (causes "port 5418" push errors) ---
-Write-Host "`nRemoving Replit gitsafe / LFS settings...`n" -ForegroundColor Yellow
-& $Git remote remove gitsafe-backup 2>$null
-& $Git config --local --remove-section "lfs.http://gitsafe:5419" 2>$null
-& $Git config --local --unset-all "lfs.url" 2>$null
-& $Git lfs uninstall 2>$null
-& $Git config --local --unset-all filter.lfs.process 2>$null
-& $Git config --local --unset-all filter.lfs.smudge 2>$null
-& $Git config --local --unset-all filter.lfs.clean 2>$null
+if ($ConfirmCleanup) {
+  Write-Host "`nRemoving Replit gitsafe / LFS settings...`n" -ForegroundColor Yellow
+  & $Git remote remove gitsafe-backup 2>$null
+  & $Git config --local --remove-section "lfs.http://gitsafe:5419" 2>$null
+  & $Git config --local --unset-all "lfs.url" 2>$null
+  & $Git lfs uninstall 2>$null
+  & $Git config --local --unset-all filter.lfs.process 2>$null
+  & $Git config --local --unset-all filter.lfs.smudge 2>$null
+  & $Git config --local --unset-all filter.lfs.clean 2>$null
+} else {
+  Write-Host "`nSkipping git config cleanup (pass -ConfirmCleanup to remove Replit gitsafe/LFS).`n" -ForegroundColor Yellow
+}
 $env:GIT_LFS_SKIP_PUSH = "1"
 
 if (-not (Test-Path $Gh)) {

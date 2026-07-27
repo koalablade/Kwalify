@@ -20,8 +20,14 @@ import { onTrackRemoved, onTrackSave, onTrackSkip, onTrackUndoFeedback, type Fee
 import { markGenerateResultCacheStale } from "../lib/generate-result-cache";
 import { recordSceneFeedbackDown } from "../lib/scene-feedback-memory";
 import { checkRateLimit } from "../lib/rate-limit";
+import { sendApiError } from "../lib/api-error-envelope";
+import type { Request, Response } from "express";
 
 const router: IRouter = Router();
+
+function apiErr(res: Response, req: Request, status: number, code: string, error: string, opts: { retryAfterSeconds?: number } = {}): void {
+  sendApiError(res, status, code, error, { requestId: String(req.id), ...opts });
+}
 
 type ShareTrack = {
   trackName?: string;
@@ -217,7 +223,7 @@ function scoreReplacementCandidate(
 
 router.get("/playlists", async (req, res): Promise<void> => {
   if (!req.session.spotifyUserId) {
-    res.status(401).json({ error: "Not authenticated" });
+    apiErr(res, req, 401, "NOT_AUTHENTICATED", "Not authenticated");
     return;
   }
 
@@ -264,14 +270,14 @@ router.get("/playlists", async (req, res): Promise<void> => {
     });
   } catch (err: any) {
     req.log.error({ err }, "Error fetching playlists");
-    res.status(500).json({ error: "Failed to fetch playlists." });
+    apiErr(res, req, 500, "PLAYLISTS_FETCH_FAILED", "Failed to fetch playlists.");
   }
 });
 
 router.get("/share/:slug", async (req, res): Promise<void> => {
   const slug = String(req.params.slug ?? "").trim();
   if (!slug || slug.length < 6 || /^\d+$/.test(slug)) {
-    res.status(404).json({ error: "Playlist not found." });
+    apiErr(res, req, 404, "PLAYLIST_NOT_FOUND", "Playlist not found.");
     return;
   }
   try {
@@ -282,12 +288,12 @@ router.get("/share/:slug", async (req, res): Promise<void> => {
       .limit(1);
     const playlist = rows[0];
     if (!playlist) {
-      res.status(404).json({ error: "Playlist not found." });
+    apiErr(res, req, 404, "PLAYLIST_NOT_FOUND", "Playlist not found.");
       return;
     }
     res.json(publicSharePayload(playlist));
   } catch (err: any) {
-    res.status(500).json({ error: "Failed to fetch playlist." });
+    apiErr(res, req, 500, "PLAYLIST_FETCH_FAILED", "Failed to fetch playlist.");
   }
 });
 
@@ -297,7 +303,7 @@ router.post("/share/:slug/track-react", async (req, res): Promise<void> => {
   const trackId = String(req.body?.trackId ?? "").trim();
   const reaction = String(req.body?.reaction ?? "").trim();
   if (!slug || !trackId || !["up", "down"].includes(reaction)) {
-    res.status(400).json({ error: "slug, trackId, and reaction (up|down) required." });
+    apiErr(res, req, 400, "INVALID_SHARE_REACTION", "slug, trackId, and reaction (up|down) required.");
     return;
   }
   const clientIp = req.ip || req.socket.remoteAddress || "unknown";
@@ -305,7 +311,7 @@ router.post("/share/:slug/track-react", async (req, res): Promise<void> => {
   if (!rateCheck.allowed) {
     const retryAfterSec = Math.ceil(rateCheck.resetInMs / 1000);
     res.setHeader("Retry-After", String(retryAfterSec));
-    res.status(429).json({ error: "Too many reactions. Please try again later." });
+    apiErr(res, req, 429, "RATE_LIMITED", "Too many reactions. Please try again later.");
     return;
   }
   try {
@@ -315,39 +321,77 @@ router.post("/share/:slug/track-react", async (req, res): Promise<void> => {
       .where(eq(savedPlaylistsTable.shareSlug, slug))
       .limit(1);
     if (!rows[0]) {
-      res.status(404).json({ error: "Playlist not found." });
+    apiErr(res, req, 404, "PLAYLIST_NOT_FOUND", "Playlist not found.");
       return;
     }
     req.log.info({ slug, playlistId: rows[0].id, trackId, reaction }, "Share page track reaction");
     res.json({ success: true });
   } catch (err: any) {
     req.log.error({ err }, "Share track reaction failed");
-    res.status(500).json({ error: "Could not record reaction." });
+    apiErr(res, req, 500, "REACTION_FAILED", "Could not record reaction.");
   }
 });
 
-router.post("/playlists/:id/feedback", async (req, res): Promise<void> => {
+router.get("/playlists/:id/feedback", async (req, res): Promise<void> => {
   if (!req.session.spotifyUserId) {
-    res.status(401).json({ error: "Not authenticated" });
+    apiErr(res, req, 401, "NOT_AUTHENTICATED", "Not authenticated");
     return;
   }
 
   const userId = req.session.spotifyUserId;
   const playlistId = parseInt(req.params.id, 10);
   if (isNaN(playlistId)) {
-    res.status(400).json({ error: "Invalid playlist id." });
+    apiErr(res, req, 400, "INVALID_PLAYLIST_ID", "Invalid playlist id.");
+    return;
+  }
+
+  try {
+    const rows = await db
+      .select({
+        reaction: playlistFeedbackTable.reaction,
+        vibe: playlistFeedbackTable.vibe,
+        sceneId: playlistFeedbackTable.sceneId,
+        createdAt: playlistFeedbackTable.createdAt,
+      })
+      .from(playlistFeedbackTable)
+      .where(
+        and(
+          eq(playlistFeedbackTable.playlistId, playlistId),
+          eq(playlistFeedbackTable.userId, userId),
+        ),
+      )
+      .orderBy(desc(playlistFeedbackTable.createdAt))
+      .limit(1);
+
+    res.json(rows[0] ?? { reaction: null, vibe: null, sceneId: null, createdAt: null });
+  } catch (err) {
+    req.log.error({ err, playlistId, userId }, "Failed to load playlist feedback");
+    apiErr(res, req, 500, "FEEDBACK_LOAD_FAILED", "Failed to load feedback.");
+  }
+});
+
+router.post("/playlists/:id/feedback", async (req, res): Promise<void> => {
+  if (!req.session.spotifyUserId) {
+    apiErr(res, req, 401, "NOT_AUTHENTICATED", "Not authenticated");
+    return;
+  }
+
+  const userId = req.session.spotifyUserId;
+  const playlistId = parseInt(req.params.id, 10);
+  if (isNaN(playlistId)) {
+    apiErr(res, req, 400, "INVALID_PLAYLIST_ID", "Invalid playlist id.");
     return;
   }
 
   const reaction = String(req.body?.reaction ?? "").trim();
   if (!["up", "neutral", "down"].includes(reaction)) {
-    res.status(400).json({ error: "Invalid reaction. Use up, neutral, or down." });
+    apiErr(res, req, 400, "INVALID_REACTION", "Invalid reaction. Use up, neutral, or down.");
     return;
   }
 
   const vibe = String(req.body?.vibe ?? "").trim().slice(0, 200);
   if (!vibe) {
-    res.status(400).json({ error: "Vibe is required for feedback." });
+    apiErr(res, req, 400, "VIBE_REQUIRED", "Vibe is required for feedback.");
     return;
   }
 
@@ -363,7 +407,7 @@ router.post("/playlists/:id/feedback", async (req, res): Promise<void> => {
       )
       .limit(1);
     if (!owned[0]) {
-      res.status(404).json({ error: "Playlist not found." });
+    apiErr(res, req, 404, "PLAYLIST_NOT_FOUND", "Playlist not found.");
       return;
     }
 
@@ -394,31 +438,31 @@ router.post("/playlists/:id/feedback", async (req, res): Promise<void> => {
     res.json({ success: true });
   } catch (err: any) {
     req.log.error({ err }, "Error saving playlist feedback");
-    res.status(500).json({ error: "Failed to save feedback." });
+    apiErr(res, req, 500, "FEEDBACK_SAVE_FAILED", "Failed to save feedback.");
   }
 });
 
 router.post("/feedback/track", async (req, res): Promise<void> => {
   if (!req.session.spotifyUserId) {
-    res.status(401).json({ error: "Not authenticated" });
+    apiErr(res, req, 401, "NOT_AUTHENTICATED", "Not authenticated");
     return;
   }
 
   const userId = req.session.spotifyUserId;
   const parsed = TrackFeedbackBodySchema.safeParse(req.body ?? {});
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid track feedback payload.", details: parsed.error.message });
+    apiErr(res, req, 400, "INVALID_TRACK_FEEDBACK", `Invalid track feedback payload. ${parsed.error.message}`);
     return;
   }
   const action = parsed.data.action;
   const trackId = parsed.data.trackId ?? parsed.data.track?.trackId;
   const track = trackFromPayload(trackId ?? "", parsed.data as Record<string, unknown>, parsed.data.track);
   if (!track.trackId) {
-    res.status(400).json({ error: "trackId is required." });
+    apiErr(res, req, 400, "TRACK_ID_REQUIRED", "trackId is required.");
     return;
   }
   if (!(await isOwnedPlaylist(userId, parsed.data.playlistId))) {
-    res.status(403).json({ error: "Playlist feedback can only update the owner's taste memory." });
+    apiErr(res, req, 403, "FEEDBACK_FORBIDDEN", "Playlist feedback can only update the owner's taste memory.");
     return;
   }
 
@@ -444,20 +488,20 @@ router.post("/feedback/track", async (req, res): Promise<void> => {
     res.json({ success: true, feedbackMemory: memory });
   } catch (err: any) {
     req.log.error({ err }, "Error saving track feedback memory");
-    res.status(500).json({ error: "Failed to save track feedback." });
+    apiErr(res, req, 500, "TRACK_FEEDBACK_FAILED", "Failed to save track feedback.");
   }
 });
 
 router.post("/feedback/implicit", async (req, res): Promise<void> => {
   if (!req.session.spotifyUserId) {
-    res.status(401).json({ error: "Not authenticated" });
+    apiErr(res, req, 401, "NOT_AUTHENTICATED", "Not authenticated");
     return;
   }
 
   const userId = req.session.spotifyUserId;
   const parsed = ImplicitFeedbackBodySchema.safeParse(req.body ?? {});
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid implicit feedback payload.", details: parsed.error.message });
+    apiErr(res, req, 400, "INVALID_IMPLICIT_FEEDBACK", `Invalid implicit feedback payload. ${parsed.error.message}`);
     return;
   }
   const playDuration = parsed.data.playDuration;
@@ -478,25 +522,25 @@ router.post("/feedback/implicit", async (req, res): Promise<void> => {
     res.json({ success: true, inferred: parsed.data.eventType ?? (skipped ? "skip" : "listen"), feedbackMemory: memory });
   } catch (err: any) {
     req.log.error({ err }, "Error saving implicit feedback");
-    res.status(500).json({ error: "Failed to save implicit feedback." });
+    apiErr(res, req, 500, "IMPLICIT_FEEDBACK_FAILED", "Failed to save implicit feedback.");
   }
 });
 
 router.post("/playlists/:id/replace-track", async (req, res): Promise<void> => {
   if (!req.session.spotifyUserId) {
-    res.status(401).json({ error: "Not authenticated" });
+    apiErr(res, req, 401, "NOT_AUTHENTICATED", "Not authenticated");
     return;
   }
 
   const userId = req.session.spotifyUserId;
   const playlistId = parseInt(req.params.id, 10);
   if (isNaN(playlistId)) {
-    res.status(400).json({ error: "Invalid playlist id." });
+    apiErr(res, req, 400, "INVALID_PLAYLIST_ID", "Invalid playlist id.");
     return;
   }
   const parsed = ReplaceTrackBodySchema.safeParse(req.body ?? {});
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid replace payload.", details: parsed.error.message });
+    apiErr(res, req, 400, "INVALID_REPLACE_PAYLOAD", `Invalid replace payload. ${parsed.error.message}`);
     return;
   }
 
@@ -508,14 +552,14 @@ router.post("/playlists/:id/replace-track", async (req, res): Promise<void> => {
       .limit(1);
     const playlist = owned[0];
     if (!playlist) {
-      res.status(404).json({ error: "Playlist not found." });
+    apiErr(res, req, 404, "PLAYLIST_NOT_FOUND", "Playlist not found.");
       return;
     }
 
     const tracks = Array.isArray(playlist.tracks) ? [...playlist.tracks] as Record<string, unknown>[] : [];
     const removeIndex = tracks.findIndex((track) => track["trackId"] === parsed.data.trackId || track["id"] === parsed.data.trackId);
     if (removeIndex < 0) {
-      res.status(404).json({ error: "Track not found in playlist." });
+      apiErr(res, req, 404, "TRACK_NOT_IN_PLAYLIST", "Track not found in playlist.");
       return;
     }
     const removedTrack = tracks[removeIndex];
@@ -538,7 +582,7 @@ router.post("/playlists/:id/replace-track", async (req, res): Promise<void> => {
       .map((row) => ({ row, score: scoreReplacementCandidate(row, removedTrack, usedTrackIds) }))
       .sort((a, b) => b.score - a.score)[0]?.row;
     if (!replacementRow) {
-      res.status(404).json({ error: "No replacement candidate found." });
+      apiErr(res, req, 404, "NO_REPLACEMENT", "No replacement candidate found.");
       return;
     }
     const replacement = formatReplacementTrack(replacementRow);
@@ -553,13 +597,13 @@ router.post("/playlists/:id/replace-track", async (req, res): Promise<void> => {
     res.json({ success: true, removedTrackId: parsed.data.trackId, replacement });
   } catch (err: any) {
     req.log.error({ err }, "Error replacing playlist track");
-    res.status(500).json({ error: "Failed to replace track." });
+    apiErr(res, req, 500, "REPLACE_TRACK_FAILED", "Failed to replace track.");
   }
 });
 
 router.delete("/playlists/:id", async (req, res): Promise<void> => {
   if (!req.session.spotifyUserId) {
-    res.status(401).json({ error: "Not authenticated" });
+    apiErr(res, req, 401, "NOT_AUTHENTICATED", "Not authenticated");
     return;
   }
 
@@ -567,7 +611,7 @@ router.delete("/playlists/:id", async (req, res): Promise<void> => {
   const playlistId = parseInt(req.params.id, 10);
 
   if (isNaN(playlistId)) {
-    res.status(400).json({ error: "Invalid playlist id." });
+    apiErr(res, req, 400, "INVALID_PLAYLIST_ID", "Invalid playlist id.");
     return;
   }
 
@@ -578,14 +622,14 @@ router.delete("/playlists/:id", async (req, res): Promise<void> => {
       .returning({ id: savedPlaylistsTable.id });
 
     if (deleted.length === 0) {
-      res.status(404).json({ error: "Playlist not found." });
+    apiErr(res, req, 404, "PLAYLIST_NOT_FOUND", "Playlist not found.");
       return;
     }
 
     res.json({ success: true });
   } catch (err: any) {
     req.log.error({ err }, "Error deleting playlist");
-    res.status(500).json({ error: "Failed to delete playlist." });
+    apiErr(res, req, 500, "DELETE_PLAYLIST_FAILED", "Failed to delete playlist.");
   }
 });
 

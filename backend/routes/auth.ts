@@ -65,7 +65,10 @@ router.get("/auth/login", (req, res): void => {
   const ip = req.ip || req.socket.remoteAddress || "unknown";
   const limit = checkRateLimit(`auth:login:${ip}`, 20, 60_000);
   if (!limit.allowed) {
-    res.status(429).json({ error: "Too many login attempts. Please wait and try again.", retryAfterSeconds: Math.ceil(limit.resetInMs / 1000) });
+    sendApiError(res, 429, "RATE_LIMITED", "Too many login attempts. Please wait and try again.", {
+      requestId: String(req.id),
+      retryAfterSeconds: Math.ceil(limit.resetInMs / 1000),
+    });
     return;
   }
   const redirectUri = getRedirectUri();
@@ -78,7 +81,7 @@ router.get("/auth/login", (req, res): void => {
   req.session.save((err) => {
     if (err) {
       req.log.error({ err }, "Failed to save session before OAuth redirect");
-      res.status(500).json({ error: "Session error. Please try again." });
+      sendApiError(res, 500, "SESSION_SAVE_FAILED", "Session error. Please try again.", { requestId: String(req.id) });
       return;
     }
     req.log.info({ redirectUri }, "OAuth login — redirecting to Spotify");
@@ -205,7 +208,7 @@ router.post("/auth/logout", (req, res): void => {
 router.delete("/auth/account", async (req, res): Promise<void> => {
   const userId = req.session.spotifyUserId;
   if (!userId) {
-    res.status(401).json({ error: "Not authenticated" });
+    sendApiError(res, 401, "NOT_AUTHENTICATED", "Not authenticated", { requestId: String(req.id) });
     return;
   }
 
@@ -214,7 +217,7 @@ router.delete("/auth/account", async (req, res): Promise<void> => {
     req.session.destroy((err) => {
       if (err) {
         req.log.error({ err, userId }, "Account data deleted but session destroy failed");
-        res.status(500).json({ error: "Account data deleted, but logout failed. Clear cookies and try again." });
+        sendApiError(res, 500, "LOGOUT_AFTER_DELETE_FAILED", "Account data deleted, but logout failed. Clear cookies and try again.", { requestId: String(req.id) });
         return;
       }
       res.json({
@@ -225,13 +228,13 @@ router.delete("/auth/account", async (req, res): Promise<void> => {
     });
   } catch (err) {
     req.log.error({ err, userId }, "Account deletion failed");
-    res.status(500).json({ error: "Could not delete account data. Please try again." });
+    sendApiError(res, 500, "ACCOUNT_DELETE_FAILED", "Could not delete account data. Please try again.", { requestId: String(req.id) });
   }
 });
 
 router.get("/auth/me", async (req, res): Promise<void> => {
   if (getFeatures().devMode.useMockSpotify) {
-    res.status(401).json({ error: "Not authenticated" });
+    sendApiError(res, 401, "NOT_AUTHENTICATED", "Not authenticated", { requestId: String(req.id) });
     return;
   }
   if (!requireSpotify(res)) return;
@@ -270,7 +273,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     return;
   }
 
-  res.status(401).json({ error: "Not authenticated" });
+  sendApiError(res, 401, "NOT_AUTHENTICATED", "Not authenticated", { requestId: String(req.id) });
 });
 
 export default router;

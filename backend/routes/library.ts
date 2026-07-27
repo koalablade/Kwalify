@@ -225,7 +225,7 @@ router.get("/library/chapters", async (req, res): Promise<void> => {
   });
   } catch (err) {
     req.log.error({ err, userId }, "library chapters failed");
-    res.status(500).json({ error: "Could not load library chapters.", chapters: [] });
+    sendApiError(res, 500, "LIBRARY_CHAPTERS_FAILED", "Could not load library chapters.", { requestId: String(req.id) });
   }
 });
 

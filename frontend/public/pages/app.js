@@ -3579,6 +3579,7 @@ async function boot() {
   }
 
   if (state.cacheStatus?.isSyncing) {
+    showToast("Syncing your Spotify library in the background…", "info");
     startSyncStream();
     setTimeout(pollStatus, 5000);
   }

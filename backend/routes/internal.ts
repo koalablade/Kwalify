@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request } from "express";
 import { isLaunchMode } from "../lib/launch-mode";
 import { getLaunchHealthSnapshot } from "../lib/launch-health-snapshot";
 import { safeTokenEqual } from "../lib/eval-token";
+import { sendApiError } from "../lib/api-error-envelope";
 
 const router: IRouter = Router();
 
@@ -14,12 +15,12 @@ function isInternalRequest(req: Request): boolean {
 
 router.get("/internal/launch-health", (req, res): void => {
   if (isLaunchMode()) {
-    res.status(404).json({ error: "Not found" });
+    sendApiError(res, 404, "NOT_FOUND", "Not found", { requestId: String(req.id) });
     return;
   }
 
   if (!isInternalRequest(req)) {
-    res.status(404).json({ error: "Not found" });
+    sendApiError(res, 404, "NOT_FOUND", "Not found", { requestId: String(req.id) });
     return;
   }
 

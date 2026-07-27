@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { safeTokenEqual } from "../lib/eval-token";
+import { sendApiError } from "../lib/api-error-envelope";
 
 const LOOPBACK_IPS = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 
@@ -37,7 +38,7 @@ export function requireBenchmarkAuth(req: Request, res: Response, next: NextFunc
     next();
     return;
   }
-  res.status(403).json({ ok: false, error: "Benchmark actions require local access or authentication." });
+  sendApiError(res, 403, "BENCHMARK_FORBIDDEN", "Benchmark actions require local access or authentication.", { requestId: String(req.id) });
 }
 
 /** Restricts /reports static files to loopback, benchmark token, or authenticated sessions. */
