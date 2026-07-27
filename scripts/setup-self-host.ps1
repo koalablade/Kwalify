@@ -93,6 +93,12 @@ Set-EnvLine $envPath "NODE_ENV" "production"
 Set-EnvLine $envPath "BIND_HOST" "0.0.0.0"
 Set-EnvLine $envPath "KWALIFY_HOST_MODE" "selfhost"
 Set-EnvLine $envPath "KWALIFY_EXPOSURE" $Exposure
+if (-not (Select-String -Path $envPath -Pattern '^\s*V3_PARALLEL_WORKERS=' -Quiet)) {
+  Set-EnvLine $envPath "V3_PARALLEL_WORKERS" "4"
+}
+if (-not (Select-String -Path $envPath -Pattern '^\s*GENERATE_CONCURRENCY_LIMIT=' -Quiet)) {
+  Set-EnvLine $envPath "GENERATE_CONCURRENCY_LIMIT" "2"
+}
 
 # Optional error tracking (uncomment and set DSN from sentry.io)
 if (-not (Select-String -Path $envPath -Pattern '^\s*SENTRY_DSN=' -Quiet)) {

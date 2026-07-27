@@ -5,6 +5,8 @@ KWALIFY — 3 FILES YOU NEED
   2. stop-kwalify.bat   STOP everything when done
   3. maintain.bat       RUN once a week (health + backups)
 
+Optional: production-ready.bat  (monthly — am I production ready?)
+
 That is the whole routine.
 
 FIRST TIME ONLY
@@ -25,5 +27,8 @@ LOGS IF SOMETHING BREAKS
 
 MORE DETAIL
 -----------
+  docs\SELF-HOST-PRODUCTION.md   (path to production)
   docs\LOCAL-MAINTENANCE.md
   docs\BETA-TESTER-GUIDE.md      (send to friends)
+  docs\UPTIME-MONITORING.md      (15 min setup)
+  docs\BACKUP-RESTORE.md         (one-time restore test)

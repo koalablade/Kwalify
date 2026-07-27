@@ -30,6 +30,12 @@ Note ""
 $backupExit = $LASTEXITCODE
 Note ""
 
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\check-uptime.ps1") -Root $Root
+Note ""
+
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\check-windows-host.ps1") -Root $Root
+Note ""
+
 $apiUp = $false
 try {
   $rz = Invoke-RestMethod "http://127.0.0.1:5000/api/readyz" -TimeoutSec 3

@@ -14,6 +14,7 @@
     "test:start-syntax": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-start-syntax.ps1",
     "test:website-routes": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-website-routes.ps1",
     "test:beta-ready": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-beta-ready.ps1",
+    "test:production-ready": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-production-ready.ps1",
     "maintenance:weekly": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/weekly-maintenance.ps1",
     "maintain": "maintain.bat",
     "maintenance:verify-backup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-backup.ps1",
