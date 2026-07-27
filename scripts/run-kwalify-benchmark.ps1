@@ -390,7 +390,7 @@ function Run-Suite {
   $outEval = "reports/playlist-evaluation/local-$stamp"
 
   switch ($Id) {
-    "status" { Show-BenchmarkStatus; return 0 }
+    "status" { Show-BenchmarkStatus | Out-Null; return 0 }
     "package" {
       try {
         $zip = Package-BenchmarkRun

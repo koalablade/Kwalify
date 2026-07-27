@@ -409,7 +409,7 @@ function Package-BenchmarkRun {
 function Show-BenchmarkStatus {
   $statusFile = $script:BenchmarkStatusFile
   if (Test-Path -LiteralPath $statusFile) {
-    Get-Content -LiteralPath $statusFile
+    Get-Content -LiteralPath $statusFile | ForEach-Object { Write-Host $_ }
     Write-Host ""
     $latest = Get-LatestBenchmarkRun
     if ($latest -and $latest.metrics) {

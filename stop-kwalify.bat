@@ -98,6 +98,11 @@ Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {
   Write-Host "  Kwalify API window : closed"
 }
 
+$stopBench = Join-Path $Root "scripts\stop-benchmark.ps1"
+if (Test-Path -LiteralPath $stopBench) {
+  & $stopBench -Root $Root | Out-Null
+}
+
 Write-Host ""
 exit 0
 :ENDSCRIPT

@@ -79,8 +79,13 @@ if /I "%~1"=="variety" (
   shift
   goto parse
 )
-if /I "%~1"=="package" (
+if /I "%~1"=="with-package" (
   set "PSARGS=%PSARGS% -Package"
+  shift
+  goto parse
+)
+if /I "%~1"=="package" (
+  set "PSARGS=-Suite package -NoMenu"
   shift
   goto parse
 )
@@ -95,11 +100,6 @@ if /I "%~1"=="guide" (
 )
 if /I "%~1"=="smoke" (
   set "PSARGS=-Suite smoke"
-  shift
-  goto parse
-)
-if /I "%~1"=="package" (
-  set "PSARGS=-Suite package"
   shift
   goto parse
 )

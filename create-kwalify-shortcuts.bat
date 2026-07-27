@@ -17,6 +17,7 @@ echo.
 echo Desktop shortcuts:
 echo   Start Kwalify
 echo   Run Benchmark
+echo   Stop Benchmark
 echo   Stop Kwalify
 echo.
 pause
