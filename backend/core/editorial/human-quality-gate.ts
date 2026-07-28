@@ -48,6 +48,12 @@ export type HumanQualityGateInput = {
   openerNegationViolations?: number | null;
   /** Total tracks violating explicit negation across playlist. */
   negationViolations?: number | null;
+  /** Intent fidelity score 0–1 from world proof gate. */
+  intentFidelityScore?: number | null;
+  /** World membership score 0–1 — beats emotion for hard-lock prompts. */
+  worldMatchScore?: number | null;
+  /** Emotion/audio similarity score 0–1 — secondary to world on hard lock. */
+  emotionMatchScore?: number | null;
 };
 
 export type HumanQualityGateResult = {
@@ -176,6 +182,22 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   if (input.degradedDelivery) reasons.push("degraded_delivery");
   if (input.humanSavePassed === false) reasons.push("human_save_failed");
   if (input.intentFidelityFailed === true) reasons.push("intent_fidelity_failed");
+  if (
+    input.committedWorldHardLock === true &&
+    typeof input.worldMatchScore === "number" &&
+    typeof input.emotionMatchScore === "number" &&
+    input.worldMatchScore < input.emotionMatchScore - 0.08
+  ) {
+    reasons.push("world_under_emotion");
+    if (!reasons.includes("intent_fidelity_failed")) reasons.push("intent_fidelity_failed");
+  }
+  if (
+    input.committedWorldHardLock === true &&
+    typeof input.intentFidelityScore === "number" &&
+    input.intentFidelityScore < 0.72
+  ) {
+    if (!reasons.includes("intent_fidelity_failed")) reasons.push("intent_fidelity_failed");
+  }
   if (input.worldProofFailed === true) {
     reasons.push("world_proof_failed");
     if (!reasons.includes("intent_fidelity_failed")) reasons.push("intent_fidelity_failed");

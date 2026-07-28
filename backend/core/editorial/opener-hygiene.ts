@@ -227,3 +227,30 @@ export function demoteRemixBaitOpeners<T extends RemixBaitTrack>(
 
   return { tracks: out, demoted };
 }
+
+/**
+ * Promote the strongest world-representative track to #1 — track 1 must be the thesis.
+ */
+export function promoteWorldThesisOpener<T extends { artistName?: string | null; artist?: string | null }>(
+  tracks: T[],
+  scoreRepresentative: (track: T, index: number) => number,
+  searchDepth = 10,
+): { tracks: T[]; promoted: boolean; fromIndex: number } {
+  if (tracks.length <= 1) return { tracks, promoted: false, fromIndex: 0 };
+  const depth = Math.min(searchDepth, tracks.length);
+  let bestIdx = 0;
+  let bestScore = scoreRepresentative(tracks[0]!, 0);
+  for (let i = 1; i < depth; i++) {
+    const score = scoreRepresentative(tracks[i]!, i);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = i;
+    }
+  }
+  if (bestIdx === 0 || bestScore <= 0) return { tracks, promoted: false, fromIndex: 0 };
+  const out = tracks.slice();
+  const [best] = out.splice(bestIdx, 1);
+  if (!best) return { tracks, promoted: false, fromIndex: 0 };
+  out.unshift(best);
+  return { tracks: out, promoted: true, fromIndex: bestIdx };
+}

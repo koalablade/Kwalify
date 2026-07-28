@@ -14,8 +14,12 @@ import {
   type ActivityProfile,
   type ActivityTrackInput,
 } from "./activity-profiles";
-import { inferWorldIdentityIdsFromPrompt, isSafetyBlanketOutsideWorld, estimateWorldMembership, worldIdentityProfilesForLock } from "../core/editorial/world-identity-gate";
-import { resolveCommittedWorld } from "../core/committed-world";
+import { inferWorldIdentityIdsFromPrompt, isSafetyBlanketOutsideWorld, estimateWorldMembership, passesWorldIdentity, worldIdentityProfilesForLock } from "../core/editorial/world-identity-gate";
+import { artistForbiddenInWorld } from "../core/editorial/artist-identity-map";
+import {
+  committedWorldArtistForbidden,
+  resolveCommittedWorld,
+} from "../core/committed-world";
 import {
   detectUkHipHopScene,
   ukHipHopRetrievalBoost,
@@ -710,6 +714,22 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
       continue;
     }
     if (
+      committedWorld?.hardLock &&
+      (artistForbiddenInWorld(track.artistName, retrievalWorldIds) ||
+        committedWorldArtistForbidden(committedWorld, track.artistName, track.trackName))
+    ) {
+      if (opts.debugRetrieval && rejected.length < 12) {
+        rejected.push({
+          trackId: track.trackId,
+          artistName: track.artistName,
+          trackName: track.trackName,
+          reason: "committed_world_forbidden_artist",
+          source: "prefilter",
+        });
+      }
+      continue;
+    }
+    if (
       retrievalWorldIds.length > 0 &&
       track.artistName &&
       (isSafetyBlanketOutsideWorld(track.artistName, retrievalWorldIds) ||
@@ -730,6 +750,40 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
     eligible.push(track);
   }
 
+  if (committedWorld?.hardLock && retrievalWorldIds.length > 0) {
+    const profiles = worldIdentityProfilesForLock({
+      anchors: retrievalWorldIds,
+      prompt: opts.vibe,
+      reason: committedWorld.reason,
+    });
+    const worldEligible = eligible.filter((track) => {
+      const classification = classifyFor(track, opts.classMap);
+      if (committedWorldArtistForbidden(committedWorld, track.artistName, track.trackName)) return false;
+      if (artistForbiddenInWorld(track.artistName, retrievalWorldIds)) return false;
+      return passesWorldIdentity(
+        {
+          trackName: track.trackName,
+          artistName: track.artistName,
+          albumName: track.albumName,
+          genreFamily: classification?.genreFamily ?? null,
+          genrePrimary: classification?.genrePrimary ?? null,
+          genres: classification?.subGenres ?? null,
+          energy: track.energy ?? null,
+          valence: track.valence ?? null,
+          danceability: track.danceability ?? null,
+        },
+        profiles,
+        { hardLock: true },
+      );
+    });
+    const minWorldKeep = Math.max(3, Math.min(12, Math.ceil(opts.requestedLength * 0.4)));
+    if (worldEligible.length >= minWorldKeep) {
+      eligible = worldEligible;
+    } else if (worldEligible.length > 0) {
+      eligible = worldEligible;
+    }
+  }
+
   if (retrievalProfile.activityProfile) {
     const hardGated = eligible.filter((track) =>
       !trackFailsActivityHardGate(
@@ -743,7 +797,15 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
       ? Math.max(3, Math.min(8, Math.ceil(eligible.length * 0.25)))
       : Math.max(24, Math.floor(eligible.length * 0.08));
     const activityKeepTarget = Math.max(minActivityKeep, Math.ceil(opts.requestedLength * 0.6));
-    if (hardGated.length >= minActivityKeep || hardGated.length >= activityKeepTarget) {
+    if (
+      !committedWorld?.hardLock &&
+      (hardGated.length >= minActivityKeep || hardGated.length >= activityKeepTarget)
+    ) {
+      eligible = hardGated;
+    } else if (
+      committedWorld?.hardLock &&
+      hardGated.length >= Math.max(3, Math.min(8, Math.ceil(opts.requestedLength * 0.25)))
+    ) {
       eligible = hardGated;
     }
   }
@@ -761,12 +823,41 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
       inferredWorldIds.length > 0 ||
       typeof opts.passesHardGate === "function";
     if (worldCommitted) {
-      const thinCap = Math.max(
-        3,
-        Math.min(12, Math.ceil(opts.requestedLength * 0.4)),
-      );
+      const thinCap = Math.max(3, Math.min(12, Math.ceil(opts.requestedLength * 0.4)));
+      const profiles =
+        committed?.hardLock && retrievalWorldIds.length > 0
+          ? worldIdentityProfilesForLock({
+              anchors: retrievalWorldIds,
+              prompt: opts.vibe,
+              reason: committed.reason,
+            })
+          : [];
       const thinPool = opts.tracks
-        .filter((track) => (opts.passesHardGate ? opts.passesHardGate(track) : true))
+        .filter((track) => {
+          if (committed?.hardLock) {
+            if (committedWorldArtistForbidden(committed, track.artistName, track.trackName)) return false;
+            if (artistForbiddenInWorld(track.artistName, retrievalWorldIds)) return false;
+            if (profiles.length > 0) {
+              const classification = classifyFor(track, opts.classMap);
+              return passesWorldIdentity(
+                {
+                  trackName: track.trackName,
+                  artistName: track.artistName,
+                  albumName: track.albumName,
+                  genreFamily: classification?.genreFamily ?? null,
+                  genrePrimary: classification?.genrePrimary ?? null,
+                  genres: classification?.subGenres ?? null,
+                  energy: track.energy ?? null,
+                  valence: track.valence ?? null,
+                  danceability: track.danceability ?? null,
+                },
+                profiles,
+                { hardLock: true },
+              );
+            }
+          }
+          return opts.passesHardGate ? opts.passesHardGate(track) : true;
+        })
         .slice(0, thinCap);
       return {
         tracks: thinPool,
@@ -776,7 +867,7 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
           inputCount: opts.tracks.length,
           outputCount: thinPool.length,
           cap: thinCap,
-          fallback: "world_committed_thin_honest_pool",
+          fallback: committed?.hardLock ? "world_hard_lock_honest_pool" : "world_committed_thin_honest_pool",
           committedWorldId: committed?.id ?? retrievalProfile.committedWorldId,
           committedWorldHardLock: committed?.hardLock ?? false,
           inferredWorldIds,

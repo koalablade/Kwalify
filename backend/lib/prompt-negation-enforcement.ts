@@ -113,11 +113,8 @@ export function trackViolatesPromptNegation(
   }
 
   if (profile.suppressRap) {
-    if (
-      RAP_GENRE_RE.test(blob) ||
-      RAP_ARTIST_HINT_RE.test(blob) ||
-      track.genreFamily === "hip_hop"
-    ) {
+    if (track.genreFamily === "hip_hop") return "negation:rap";
+    if (RAP_GENRE_RE.test(blob) || RAP_ARTIST_HINT_RE.test(blob)) {
       return "negation:rap";
     }
   }

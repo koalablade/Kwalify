@@ -1069,7 +1069,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     editorialIntentVector.editorialWorldTag,
     preRetrievalSceneWorld?.archetype?.id,
   );
-  if (preRetrievalSceneWorld?.active && !worldAlignment.aligned && preRetrievalSceneWorld.archetype?.id) {
+  if (preRetrievalSceneWorld?.active && !worldAlignment.aligned && preRetrievalSceneWorld.archetype?.id && !committedWorld?.hardLock) {
     const realigned = realignEditorialIntentWorldForArchetype(
       editorialIntentVector,
       preRetrievalSceneWorld.archetype.id,
@@ -1084,7 +1084,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     editorialIntentVector.editorialWorldTag,
     preRetrievalSceneWorld?.archetype?.id,
   );
-  if (preRetrievalSceneWorld?.active && !worldAlignmentAfterRealign.aligned) {
+  if (preRetrievalSceneWorld?.active && !worldAlignmentAfterRealign.aligned && !committedWorld?.hardLock) {
     const dominantGenres = preRetrievalSceneWorld.sceneClusters?.dominantCluster.dominantGenres ?? [];
     const genreFallback = dominantGenres.length > 0
       ? realignEditorialIntentForDominantGenres(editorialIntentVector, dominantGenres)
@@ -1108,7 +1108,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     preRetrievalSceneWorld?.sceneClusters?.dominantCluster.label,
     preRetrievalSceneWorld?.sceneClusters?.dominantCluster.dominantGenres,
   );
-  if (preRetrievalSceneWorld?.sceneClusters && !clusterAlignment.aligned) {
+  if (preRetrievalSceneWorld?.sceneClusters && !clusterAlignment.aligned && !committedWorld?.hardLock) {
     const dominantGenres = preRetrievalSceneWorld.sceneClusters.dominantCluster.dominantGenres ?? [];
     const clusterRealigned = realignEditorialIntentForDominantGenres(
       editorialIntentVector,

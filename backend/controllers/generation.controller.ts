@@ -273,7 +273,7 @@ import {
   evaluateWorldProof,
   filterTracksByWorldIdentity,
 } from "../core/editorial/world-proof-gate";
-import { resolveCommittedWorld } from "../core/committed-world";
+import { resolveCommittedWorld, committedWorldArtistRepresentativeScore } from "../core/committed-world";
 import {
   committedWorldQualitySignals,
   LANE_PURITY_WORLD_IDS,
@@ -455,7 +455,7 @@ import {
   countWorldVerifiedLibrarySupply,
   type OpenerHygieneDiagnostics,
 } from "../core/editorial/world-identity-gate";
-import { openingLockTrackIdsFromTracks } from "../core/editorial/opener-hygiene";
+import { openingLockTrackIdsFromTracks, promoteWorldThesisOpener } from "../core/editorial/opener-hygiene";
 import {
   countOpenerNegationViolations,
   filterTracksForDeliveryNegation,
@@ -12110,6 +12110,15 @@ router.post("/generate", async (req, res): Promise<void> => {
           negationDeliveryFilter.tracks,
         );
       }
+      if (committedWorld?.hardLock) {
+        const thesis = promoteWorldThesisOpener(
+          delivery.tracks,
+          (track) => committedWorldArtistRepresentativeScore(committedWorld, track.artistName),
+        );
+        if (thesis.promoted) {
+          assignFT("world_thesis_opener", "promote world thesis to track 1", thesis.tracks);
+        }
+      }
       const worldProof = evaluateWorldProof({
         tracks: delivery.tracks.map((t) => ({
           trackId: t.trackId,
@@ -12229,6 +12238,12 @@ router.post("/generate", async (req, res): Promise<void> => {
         worldProofFailed:
           committedWorld?.hardLock === true && !worldProof.passed,
         committedWorldHardLock: committedWorld?.hardLock ?? false,
+        intentFidelityScore: intentFidelity.fidelityScore,
+        worldMatchScore: intentFidelity.worldVerifiedCount / Math.max(1, delivery.tracks.length),
+        emotionMatchScore:
+          typeof v3World?.["dominantWorldDensity"] === "number"
+            ? (v3World["dominantWorldDensity"] as number)
+            : null,
         ...terminalWorldSignals,
         committedWorldLaneOk:
           terminalActiveWorldId && LANE_PURITY_WORLD_IDS.has(terminalActiveWorldId)

@@ -13,6 +13,12 @@ export type CommittedWorldSource =
   | "inferred"
   | "vague";
 
+export type CommittedWorldArtistContract = {
+  requiredArtists: RegExp[];
+  forbiddenArtists: RegExp[];
+  forbiddenPatterns: RegExp[];
+};
+
 export type CommittedWorld = {
   id: string;
   hardLock: boolean;
@@ -21,7 +27,254 @@ export type CommittedWorld = {
   reason: string;
   worldIds: string[];
   boundary: WorldBoundary;
+  /** Artists that strongly represent this world — opener sequencing prefers these. */
+  requiredArtists: RegExp[];
+  /** Artists never admissible when this world is hard-locked. */
+  forbiddenArtists: RegExp[];
+  /** Title/artist regex patterns blocked in this world. */
+  forbiddenPatterns: RegExp[];
 };
+
+const LANDFILL_ARTIST_PATTERNS: RegExp[] = [
+  /\bbon\s+iver\b/i,
+  /\bphoebe\s+bridgers\b/i,
+  /\bclairo\b/i,
+  /\bnoah\s+kahan\b/i,
+  /\bsufjan\s+stevens\b/i,
+  /\bbeach\s+house\b/i,
+  /\biron\s+(?:&|and)\s+wine\b/i,
+  /\bfleet\s+foxes\b/i,
+  /\bmac\s+demarco\b/i,
+  /\bdayglow\b/i,
+  /\bgregory\s+alan\s+isakov\b/i,
+];
+
+const HIP_HOP_PARTY_PATTERNS: RegExp[] = [
+  /\b(?:hip[\s-]?hop|rap|trap|drill|grime|party\s+anthem|club\s+banger)\b/i,
+];
+
+const ACOUSTIC_BREAKUP_PATTERNS: RegExp[] = [
+  /\b(?:acoustic\s+version|unplugged|heartbreak|breakup|skinny\s+love|pink\s+moon)\b/i,
+  /\b(?:nick\s+drake|iron\s+(?:&|and)\s+wine|damien\s+rice)\b/i,
+];
+
+const WORLD_ARTIST_CONTRACTS: Record<string, CommittedWorldArtistContract> = {
+  classic_rock_world: {
+    requiredArtists: [
+      /\bqueen\b/i,
+      /\bac\/?dc\b/i,
+      /\beagles\b/i,
+      /\bfleetwood\s+mac\b/i,
+      /\btom\s+petty\b/i,
+      /\bled\s+zeppelin\b/i,
+      /\bguns\s+n['']?\s*roses\b/i,
+    ],
+    forbiddenArtists: [...LANDFILL_ARTIST_PATTERNS],
+    forbiddenPatterns: [],
+  },
+  dad_rock_world: {
+    requiredArtists: [
+      /\bqueen\b/i,
+      /\bac\/?dc\b/i,
+      /\beagles\b/i,
+      /\bfleetwood\s+mac\b/i,
+      /\btom\s+petty\b/i,
+    ],
+    forbiddenArtists: [...LANDFILL_ARTIST_PATTERNS],
+    forbiddenPatterns: [],
+  },
+  dad_secret_world: {
+    requiredArtists: [
+      /\bqueen\b/i,
+      /\bac\/?dc\b/i,
+      /\beagles\b/i,
+      /\bfleetwood\s+mac\b/i,
+      /\btom\s+petty\b/i,
+    ],
+    forbiddenArtists: [...LANDFILL_ARTIST_PATTERNS],
+    forbiddenPatterns: [],
+  },
+  yacht_rock_world: {
+    requiredArtists: [
+      /\bfleetwood\s+mac\b/i,
+      /\btom\s+petty\b/i,
+      /\beagles\b/i,
+      /\bhall\s+(?:&|and)\s+oates\b/i,
+    ],
+    forbiddenArtists: [...LANDFILL_ARTIST_PATTERNS],
+    forbiddenPatterns: [],
+  },
+  arena_rock_world: {
+    requiredArtists: [
+      /\bqueen\b/i,
+      /\bac\/?dc\b/i,
+      /\bguns\s+n['']?\s*roses\b/i,
+      /\bled\s+zeppelin\b/i,
+    ],
+    forbiddenArtists: [...LANDFILL_ARTIST_PATTERNS],
+    forbiddenPatterns: [],
+  },
+  rainy_motorway_world: {
+    requiredArtists: [
+      /\bm83\b/i,
+      /\bchromatics\b/i,
+      /\bwar\s+on\s+drugs\b/i,
+      /\bdepeche\s+mode\b/i,
+      /\bnew\s+order\b/i,
+    ],
+    forbiddenArtists: [...LANDFILL_ARTIST_PATTERNS],
+    forbiddenPatterns: [...HIP_HOP_PARTY_PATTERNS, ...ACOUSTIC_BREAKUP_PATTERNS, /\blo-?fi\b/i, /\bchillhop\b/i, /\bwallows\b/i],
+  },
+  rainy_drive_world: {
+    requiredArtists: [
+      /\bm83\b/i,
+      /\bchromatics\b/i,
+      /\bwar\s+on\s+drugs\b/i,
+      /\bdepeche\s+mode\b/i,
+    ],
+    forbiddenArtists: [...LANDFILL_ARTIST_PATTERNS],
+    forbiddenPatterns: [...HIP_HOP_PARTY_PATTERNS, ...ACOUSTIC_BREAKUP_PATTERNS, /\blo-?fi\b/i, /\bchillhop\b/i, /\bwallows\b/i],
+  },
+  night_drive_world: {
+    requiredArtists: [
+      /\bm83\b/i,
+      /\bchromatics\b/i,
+      /\bwar\s+on\s+drugs\b/i,
+      /\bdepeche\s+mode\b/i,
+    ],
+    forbiddenArtists: [...LANDFILL_ARTIST_PATTERNS],
+    forbiddenPatterns: [...HIP_HOP_PARTY_PATTERNS],
+  },
+  "80s_night_drive_world": {
+    requiredArtists: [
+      /\bdepeche\s+mode\b/i,
+      /\bnew\s+order\b/i,
+      /\bpet\s+shop\s+boys\b/i,
+      /\ba\s+flock\s+of\s+seagulls\b/i,
+    ],
+    forbiddenArtists: [
+      ...LANDFILL_ARTIST_PATTERNS,
+      /\bthe\s+1975\b/i,
+      /\bfleetwood\s+mac\b/i,
+    ],
+    forbiddenPatterns: [...ACOUSTIC_BREAKUP_PATTERNS],
+  },
+  grunge_world: {
+    requiredArtists: [
+      /\bnirvana\b/i,
+      /\bpearl\s+jam\b/i,
+      /\bsoundgarden\b/i,
+      /\balice\s+in\s+chains\b/i,
+    ],
+    forbiddenArtists: [
+      ...LANDFILL_ARTIST_PATTERNS,
+      /\bgreen\s+day\b/i,
+      /\bblink[-\s]?182\b/i,
+    ],
+    forbiddenPatterns: [],
+  },
+  madchester_world: {
+    requiredArtists: [
+      /\bstone\s+roses\b/i,
+      /\bhappy\s+mondays\b/i,
+      /\bnew\s+order\b/i,
+      /\boasis\b/i,
+    ],
+    forbiddenArtists: [...LANDFILL_ARTIST_PATTERNS],
+    forbiddenPatterns: [],
+  },
+  britpop_world: {
+    requiredArtists: [
+      /\boasis\b/i,
+      /\bblur\b/i,
+      /\bpulp\b/i,
+      /\bstone\s+roses\b/i,
+    ],
+    forbiddenArtists: [...LANDFILL_ARTIST_PATTERNS],
+    forbiddenPatterns: [],
+  },
+  gym_rock_world: {
+    requiredArtists: [
+      /\bmetallica\b/i,
+      /\bac\/?dc\b/i,
+      /\bguns\s+n['']?\s*roses\b/i,
+      /\bfoo\s+fighters\b/i,
+    ],
+    forbiddenArtists: [...LANDFILL_ARTIST_PATTERNS],
+    forbiddenPatterns: [...ACOUSTIC_BREAKUP_PATTERNS],
+  },
+  angry_rock_world: {
+    requiredArtists: [
+      /\bmetallica\b/i,
+      /\bslayer\b/i,
+      /\bmegadeth\b/i,
+      /\bac\/?dc\b/i,
+    ],
+    forbiddenArtists: [...LANDFILL_ARTIST_PATTERNS],
+    forbiddenPatterns: [...ACOUSTIC_BREAKUP_PATTERNS],
+  },
+  heavy_gym_world: {
+    requiredArtists: [
+      /\bmetallica\b/i,
+      /\bslayer\b/i,
+      /\bmegadeth\b/i,
+      /\bac\/?dc\b/i,
+    ],
+    forbiddenArtists: [...LANDFILL_ARTIST_PATTERNS],
+    forbiddenPatterns: [...ACOUSTIC_BREAKUP_PATTERNS],
+  },
+  disco_1970s_world: {
+    requiredArtists: [
+      /\bbe\s+bee\b/i,
+      /\bchic\b/i,
+      /\bdonna\s+summer\b/i,
+      /\bbeach\s+boys\b/i,
+    ],
+    forbiddenArtists: [...LANDFILL_ARTIST_PATTERNS],
+    forbiddenPatterns: [],
+  },
+};
+
+function mergeArtistContracts(worldIds: string[]): CommittedWorldArtistContract {
+  const requiredArtists: RegExp[] = [];
+  const forbiddenArtists: RegExp[] = [];
+  const forbiddenPatterns: RegExp[] = [];
+  for (const worldId of worldIds) {
+    const contract = WORLD_ARTIST_CONTRACTS[worldId];
+    if (!contract) continue;
+    requiredArtists.push(...contract.requiredArtists);
+    forbiddenArtists.push(...contract.forbiddenArtists);
+    forbiddenPatterns.push(...contract.forbiddenPatterns);
+  }
+  return { requiredArtists, forbiddenArtists, forbiddenPatterns };
+}
+
+/** Check if artist/title violates committed-world forbidden artist or pattern rules. */
+export function committedWorldArtistForbidden(
+  committed: CommittedWorld | null,
+  artistName: string | null | undefined,
+  trackName?: string | null,
+): boolean {
+  if (!committed?.hardLock) return false;
+  const artist = String(artistName ?? "").trim();
+  const title = String(trackName ?? "").trim();
+  const blob = `${artist} ${title}`;
+  if (artist && committed.forbiddenArtists.some((p) => p.test(artist))) return true;
+  if (blob && committed.forbiddenPatterns.some((p) => p.test(blob))) return true;
+  return false;
+}
+
+/** Score how strongly an artist represents the committed world (0–1). */
+export function committedWorldArtistRepresentativeScore(
+  committed: CommittedWorld | null,
+  artistName: string | null | undefined,
+): number {
+  if (!committed) return 0;
+  const artist = String(artistName ?? "").trim();
+  if (!artist) return 0;
+  if (committed.requiredArtists.some((p) => p.test(artist))) return 1;
+  return 0;
+}
 
 const EXPLICIT_GENRE_WORLD: Array<{ pattern: RegExp; id: string }> = [
   { pattern: /\bdad\s*'?s?\s+rock\b|\bdad\s+rock\b/i, id: "dad_rock_world" },
@@ -172,6 +425,8 @@ export function resolveCommittedWorld(opts: {
         ? `committed_world:explicit_scene:${id}`
         : boundary.reason ?? `committed_world:${id}`;
 
+  const artistContract = mergeArtistContracts(worldIds);
+
   return {
     id,
     hardLock,
@@ -180,6 +435,9 @@ export function resolveCommittedWorld(opts: {
     reason,
     worldIds,
     boundary,
+    requiredArtists: artistContract.requiredArtists,
+    forbiddenArtists: artistContract.forbiddenArtists,
+    forbiddenPatterns: artistContract.forbiddenPatterns,
   };
 }
 

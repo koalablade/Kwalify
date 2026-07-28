@@ -1590,6 +1590,36 @@ export function selectEditorialWorld(opts: {
   }
 
   if (!opts.libraryTracks?.length) {
+    if (committed?.hardLock) {
+      const committedTag =
+        committed.id === "dad_rock_world" || committed.id === "classic_rock_world" || committed.id === "yacht_rock_world" || committed.id === "dad_secret_world" || committed.id === "arena_rock_world"
+          ? "rock_anthem_drive"
+        : committed.id === "gym_rock_world" || committed.id === "angry_rock_world" || committed.id === "heavy_gym_world"
+          ? "metal_intensity"
+        : committed.id === "disco_party_world" || committed.id === "disco_1970s_world"
+          ? "disco_party_nostalgia"
+        : committed.id === "goth_world"
+          ? "goth_darkwave_night"
+        : committed.id === "grunge_world"
+          ? "grunge_90s_night"
+        : committed.id === "80s_night_drive_world" || committed.id === "rainy_motorway_world" || committed.id === "rainy_drive_world" || committed.id === "night_drive_world"
+          ? "night_drive_electronic"
+        : committed.id === "madchester_world" || committed.id === "britpop_world"
+          ? "rock_anthem_drive"
+        : committed.id === "running_energy_world" || committed.id === "gym_energy_world"
+          ? "gym_boost"
+        : null;
+      if (committedTag) {
+        const forced = EDITORIAL_WORLDS.find((row) => row.tag === committedTag);
+        if (forced) return forced;
+      }
+      const genreMatched = candidatePool.find((row) =>
+        row.world.tag !== "indie_balanced_default" && row.world.tag !== "balanced_scene_default",
+      );
+      if (genreMatched) return genreMatched.world;
+    }
+    const nonIndie = candidatePool.find((row) => row.world.tag !== "indie_balanced_default");
+    if (nonIndie) return nonIndie.world;
     return candidatePool[0]!.world;
   }
 
@@ -1676,8 +1706,6 @@ const ARCHETYPE_PREFERRED_WORLD: Record<string, string> = {
   ambient_focus_study: "focus_study",
   sunset_indie_drive: "sunset_indie_drive",
   gym_confidence_boost: "gym_boost",
-  balanced_scene_default: "indie_balanced_default",
-  indie_balanced_default: "indie_balanced_default",
   rock_anthem_drive: "rock_anthem_drive",
   country_open_road: "country_open_road",
 };
@@ -1697,7 +1725,7 @@ export function realignEditorialIntentWorldForArchetype(
   archetypeId: string,
 ): EditorialIntentVector | null {
   const preferredTag = ARCHETYPE_PREFERRED_WORLD[archetypeId];
-  if (!preferredTag) return null;
+  if (!preferredTag || preferredTag === "indie_balanced_default") return null;
   const world = EDITORIAL_WORLDS.find((row) => row.tag === preferredTag);
   if (!world) return null;
   const energyRange: [number, number] = [

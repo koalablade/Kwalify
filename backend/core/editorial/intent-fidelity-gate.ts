@@ -15,6 +15,8 @@ import { artistForbiddenInWorld } from "./artist-identity-map";
 
 /** Tracks 1–5 must prove the committed world before ship. */
 export const WORLD_PROOF_SLOTS = 5;
+/** Tracks 6–10 must continue the world — body drift fails ship. */
+export const WORLD_BODY_PROOF_SLOTS = 5;
 
 export type IntentFidelityTrack = {
   trackId?: string;
@@ -40,6 +42,7 @@ export type IntentFidelityResult = {
   fidelityScore: number;
   openerFailures: string[];
   sampleFailures: string[];
+  bodyFailures: string[];
   tailFailures: string[];
   worldVerifiedCount: number;
   salvageableTracks: IntentFidelityTrack[];
@@ -54,6 +57,7 @@ const GYM_WORLD_IDS = new Set([
 ]);
 
 const OPENER_SLOTS = WORLD_PROOF_SLOTS;
+const BODY_SAMPLE_INDICES = [5, 6, 7, 8, 9];
 const SAMPLE_INDICES = [0, 1, 2, 3, 4, 9, 14];
 /** Worlds where mid/late playlist drift must trigger honest partial. */
 const TAIL_COHERENCE_WORLDS = new Set([
@@ -195,6 +199,7 @@ export function evaluateIntentFidelity(opts: {
       fidelityScore: tracks.length > 0 ? 0.5 : 0,
       openerFailures: [],
       sampleFailures: [],
+      bodyFailures: [],
       tailFailures: [],
       worldVerifiedCount: tracks.length,
       salvageableTracks: tracks,
@@ -208,6 +213,7 @@ export function evaluateIntentFidelity(opts: {
 
   const openerFailures: string[] = [];
   const sampleFailures: string[] = [];
+  const bodyFailures: string[] = [];
   const tailFailures: string[] = [];
   const needsTailCoherence = worldIds.some((id) => TAIL_COHERENCE_WORLDS.has(id));
 
@@ -220,6 +226,16 @@ export function evaluateIntentFidelity(opts: {
     const track = tracks[i]!;
     if (openerFailsHardLock(track, profiles, hardLock, worldIds, prompt)) {
       openerFailures.push(trackLabel(track));
+    }
+  }
+
+  for (const idx of BODY_SAMPLE_INDICES) {
+    if (idx >= tracks.length) continue;
+    const track = tracks[idx]!;
+    if (hardLock && openerFailsHardLock(track, profiles, hardLock, worldIds, prompt)) {
+      bodyFailures.push(trackLabel(track));
+    } else if (trackFailsFidelity(track)) {
+      bodyFailures.push(trackLabel(track));
     }
   }
 
@@ -257,14 +273,18 @@ export function evaluateIntentFidelity(opts: {
     : 0;
   const tailPassRate =
     tailSampleCount > 0 ? 1 - tailFailures.length / tailSampleCount : 1;
+  const bodySampleCount = BODY_SAMPLE_INDICES.filter((i) => i < tracks.length).length;
+  const bodyPassRate =
+    bodySampleCount > 0 ? 1 - bodyFailures.length / bodySampleCount : 1;
   const verifiedShare = tracks.length > 0 ? verified.length / tracks.length : 0;
   const fidelityScore = openerPassed
-    ? verifiedShare * 0.6 + samplePassRate * 0.4
+    ? verifiedShare * 0.6 + samplePassRate * 0.25 + bodyPassRate * 0.15
     : Math.max(0, verifiedShare * 0.4);
 
   const passed =
     !hardLock ||
     (openerPassed &&
+      bodyPassRate >= 0.8 &&
       verifiedShare >= 0.85 &&
       samplePassRate >= 0.75 &&
       tailPassRate >= 0.67);
@@ -282,6 +302,7 @@ export function evaluateIntentFidelity(opts: {
     fidelityScore,
     openerFailures,
     sampleFailures,
+    bodyFailures,
     tailFailures,
     worldVerifiedCount: verified.length,
     salvageableTracks,

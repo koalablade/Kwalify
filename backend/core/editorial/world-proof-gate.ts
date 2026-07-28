@@ -18,6 +18,7 @@ export type WorldProofResult = {
   passed: boolean;
   trackOnePassed: boolean;
   continuationPassed: boolean;
+  bodyPassed: boolean;
   failures: string[];
   fidelity: IntentFidelityResult;
   verifiedTracks: IntentFidelityTrack[];
@@ -45,14 +46,15 @@ export function evaluateWorldProof(opts: {
       passed: fidelity.passed,
       trackOnePassed: fidelity.openerPassed,
       continuationPassed: true,
-      failures: [...fidelity.openerFailures, ...fidelity.sampleFailures],
+      bodyPassed: fidelity.bodyFailures.length === 0,
+      failures: [...fidelity.openerFailures, ...fidelity.bodyFailures, ...fidelity.sampleFailures],
       fidelity,
       verifiedTracks: fidelity.salvageableTracks,
       honestPartialCap: fidelity.honestPartialCap,
     };
   }
 
-  const proofFailures = [...fidelity.openerFailures];
+  const proofFailures = [...fidelity.openerFailures, ...fidelity.bodyFailures];
   const trackOne = tracks[0];
   const trackOneLabel = trackOne
     ? `${trackOne.artistName?.trim() || "?"} — ${trackOne.trackName?.trim() || "?"}`
@@ -61,11 +63,13 @@ export function evaluateWorldProof(opts: {
   const trackOnePassed = trackOne != null && !trackOneFailed;
   const continuationPassed =
     proofFailures.filter((f) => f !== trackOneLabel).length === 0;
+  const bodyPassed = fidelity.bodyFailures.length === 0;
 
   const allVerified = fidelity.worldVerifiedCount === tracks.length && tracks.length > 0;
   const passed =
     trackOnePassed &&
     continuationPassed &&
+    bodyPassed &&
     fidelity.openerPassed &&
     allVerified &&
     fidelity.passed;
@@ -74,6 +78,7 @@ export function evaluateWorldProof(opts: {
     passed,
     trackOnePassed,
     continuationPassed,
+    bodyPassed,
     failures: proofFailures,
     fidelity,
     verifiedTracks: fidelity.salvageableTracks,
