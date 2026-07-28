@@ -11,8 +11,10 @@ import {
   type WorldIdentityProfile,
 } from "./world-identity-gate";
 import { OPENER_FILLER_PATTERN, isRemixBaitTrackTitle, isUkSceneWorld, shouldSuppressVagueLandfillOpeners } from "./opener-hygiene";
-import { WORLD_PROOF_SLOTS } from "./world-proof-gate";
 import { artistForbiddenInWorld } from "./artist-identity-map";
+
+/** Tracks 1–5 must prove the committed world before ship. */
+export const WORLD_PROOF_SLOTS = 5;
 
 export type IntentFidelityTrack = {
   trackId?: string;

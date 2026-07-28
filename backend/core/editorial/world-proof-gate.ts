@@ -7,11 +7,12 @@ import type { CommittedWorld } from "../committed-world";
 import {
   evaluateIntentFidelity,
   selectIntentFidelityHonestPartialTracks,
+  WORLD_PROOF_SLOTS,
   type IntentFidelityResult,
   type IntentFidelityTrack,
 } from "./intent-fidelity-gate";
 
-export const WORLD_PROOF_SLOTS = 5;
+export { WORLD_PROOF_SLOTS };
 
 export type WorldProofResult = {
   passed: boolean;
@@ -56,9 +57,8 @@ export function evaluateWorldProof(opts: {
   const trackOneLabel = trackOne
     ? `${trackOne.artistName?.trim() || "?"} — ${trackOne.trackName?.trim() || "?"}`
     : "";
-  const trackOnePassed =
-    trackOne != null &&
-    (proofFailures.length === 0 || !proofFailures.includes(trackOneLabel));
+  const trackOneFailed = proofFailures.includes(trackOneLabel);
+  const trackOnePassed = trackOne != null && !trackOneFailed;
   const continuationPassed =
     proofFailures.filter((f) => f !== trackOneLabel).length === 0;
 

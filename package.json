@@ -144,6 +144,8 @@
     "benchmark:live-6h:local": "npm run build && node backend/dist/scripts/live-6h-benchmark.js --local --spawn-local",
     "benchmark:live-6h:resume": "npm run build && node backend/dist/scripts/live-6h-benchmark.js --local --spawn-local --resume",
     "test:opener-hygiene": "node backend/scripts/opener-hygiene-selftest.mjs",
+    "test:v7-human-world-regression": "npm run build && node --test backend/dist/tests/v7-human-world-regression.test.js",
+    "test:v6-human-quality-sprint": "npm run build && node --test backend/dist/tests/v6-human-quality-sprint.test.js",
     "test:generate-pipeline-hygiene": "npm run build && node --test backend/dist/tests/generate-pipeline-hygiene.test.js",
     "test:playlist-preference-model": "npm run build && node --test backend/dist/tests/playlist-preference-model.test.js",
     "fit:human-playlist-patterns": "npm run build && node backend/dist/scripts/fit-human-playlist-patterns.js",

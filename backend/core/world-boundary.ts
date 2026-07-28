@@ -270,6 +270,62 @@ export function resolveWorldBoundary(opts: {
         allowed: ["indie", "rock"],
         off: ["metal", "hip_hop", "country", "latin"],
       },
+      madchester_world: {
+        allowed: ["rock", "indie", "electronic"],
+        off: ["country", "folk", "hip_hop", "latin", "reggae"],
+      },
+      uk_garage_world: {
+        allowed: ["electronic", "hip_hop", "rnb"],
+        off: ["country", "folk", "rock", "metal", "classical"],
+      },
+      "80s_night_drive_world": {
+        allowed: ["electronic", "rock", "indie"],
+        off: ["country", "folk", "hip_hop", "latin", "reggae"],
+      },
+      rainy_motorway_world: {
+        allowed: ["electronic", "rock", "indie"],
+        off: ["country", "folk", "hip_hop", "latin", "reggae"],
+      },
+      road_trip_singalong_world: {
+        allowed: ["rock", "pop", "indie"],
+        off: ["folk", "classical", "ambient", "jazz"],
+      },
+      petrol_station_2am_world: {
+        allowed: ["electronic", "rock", "indie"],
+        off: ["country", "folk", "hip_hop", "latin"],
+      },
+      disco_1970s_world: {
+        allowed: ["soul", "rnb", "pop", "electronic"],
+        off: ["metal", "rock", "hip_hop", "country", "folk"],
+      },
+      rooftop_party_world: {
+        allowed: ["pop", "electronic", "soul", "rnb"],
+        off: ["metal", "folk", "country", "classical"],
+      },
+      heavy_gym_world: {
+        allowed: ["rock", "metal"],
+        off: ["folk", "country", "jazz", "classical", "ambient"],
+      },
+      running_energy_world: {
+        allowed: ["electronic", "pop", "hip_hop", "rock"],
+        off: ["folk", "country", "classical", "ambient"],
+      },
+      arena_rock_world: {
+        allowed: ["rock", "metal", "pop"],
+        off: ["hip_hop", "electronic", "folk", "country"],
+      },
+      dad_rock_world: {
+        allowed: ["rock", "pop", "soul", "rnb"],
+        off: ["hip_hop", "electronic", "latin", "reggae"],
+      },
+      pub_singalong_world: {
+        allowed: ["rock", "indie", "pop"],
+        off: ["folk", "classical", "ambient", "jazz"],
+      },
+      indie_bedroom_world: {
+        allowed: ["indie", "pop", "electronic"],
+        off: ["metal", "country", "classical"],
+      },
       film_ending_world: {
         allowed: ["indie", "electronic", "rock", "classical", "soundtrack"],
         off: ["hip_hop", "metal", "country", "latin", "reggae"],

@@ -1282,7 +1282,7 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   if (/\b(?:rooftop)\b.*\b(?:party|drinks?)\b|\brooftop\s+party\b/i.test(p)) ids.push("rooftop_party_world");
   if (/\bmetal\b/i.test(p) && /\b(?:gym|workout|training|lifting)\b/i.test(p)) {
     ids.push("angry_rock_world", "heavy_gym_world");
-  } else if (/\b(?:heavy|hard)\s+gym\b/i.test(p)) {
+  } else if (/\b(?:heavy|hard)\s+gym\b|\bgym\s+workout\b/i.test(p)) {
     ids.push("heavy_gym_world");
   }
   if (/\b(?:running|run\b|jogging|cardio\s+run)\b/i.test(p) && /\b(?:energy|upbeat|fast|tempo)\b/i.test(p)) {

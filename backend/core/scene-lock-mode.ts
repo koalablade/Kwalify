@@ -254,15 +254,52 @@ const CULTURAL_PROFILES: CulturalSceneProfile[] = [
     offSceneGenreFamilies: ["country", "folk", "reggae", "classical", "blues", "latin", "hip_hop", "rnb"],
   },
   {
-    anchors: [
-      /\bsad\s+night\s+driv/i,
-      /\bmelanchol\w*\s+(?:night\s+)?driv/i,
-      /\bdriv\w*\s+.*\bsad\b/i,
-      /\bsad\b.*\bdriv/i,
-    ],
+    anchors: [/\bsad\s+night\s+driv/i, /\bmelanchol\w*\s+(?:night\s+)?driv/i, /\bdriv\w*\s+.*\bsad\b/i, /\bsad\b.*\bdriv/i],
     id: "melancholy_drive",
     allowedGenreFamilies: ["indie", "electronic", "rock", "rnb", "soul"],
     offSceneGenreFamilies: ["metal", "country", "reggae", "latin"],
+  },
+  {
+    anchors: [/\b(?:80s?|eighties)\s+(?:night\s+)?drive\b/i, /\bnight\s+drive\b.*\b(?:80s?|synth)\b/i],
+    id: "80s_night_drive_world",
+    allowedGenreFamilies: ["electronic", "rock", "indie"],
+    offSceneGenreFamilies: ["country", "folk", "hip_hop", "latin", "reggae"],
+  },
+  {
+    anchors: [/\b(?:madchester|stone\s+roses|happy\s+mondays|baggy)\b/i],
+    id: "madchester_world",
+    allowedGenreFamilies: ["rock", "indie", "electronic"],
+    offSceneGenreFamilies: ["country", "folk", "hip_hop", "latin", "reggae"],
+  },
+  {
+    anchors: [/\b(?:rainy|rain)\s+motorway\b/i, /\bmotorway\b.*\brain(?:y|ing)?\b/i],
+    id: "rainy_motorway_world",
+    allowedGenreFamilies: ["electronic", "rock", "indie"],
+    offSceneGenreFamilies: ["country", "folk", "hip_hop", "latin"],
+  },
+  {
+    anchors: [/\broad\s+trip\b.*\b(?:sing|singalong|anthem)\b/i],
+    id: "road_trip_singalong_world",
+    allowedGenreFamilies: ["rock", "pop", "indie"],
+    offSceneGenreFamilies: ["folk", "classical", "ambient", "jazz"],
+  },
+  {
+    anchors: [/\bpetrol\s+station\b.*\b2\s*am\b/i],
+    id: "petrol_station_2am_world",
+    allowedGenreFamilies: ["electronic", "rock", "indie"],
+    offSceneGenreFamilies: ["country", "folk", "hip_hop", "latin"],
+  },
+  {
+    anchors: [/\b(?:heavy|hard)\s+gym\b|\bgym\s+workout\b/i],
+    id: "heavy_gym_world",
+    allowedGenreFamilies: ["rock", "metal"],
+    offSceneGenreFamilies: ["folk", "country", "jazz", "classical", "ambient"],
+  },
+  {
+    anchors: [/\barena\s+rock\b/i],
+    id: "arena_rock_world",
+    allowedGenreFamilies: ["rock", "metal", "pop"],
+    offSceneGenreFamilies: ["hip_hop", "electronic", "folk", "country"],
   },
 ];
 

@@ -325,11 +325,11 @@ describe("V6 human quality sprint", () => {
 
   it("resolveCommittedWorld locks gym and UK genre worlds", () => {
     const gym = resolveCommittedWorld({ prompt: "gym workout training session" });
-    assert.equal(gym?.id, "gym_rock_world");
+    assert.equal(gym?.id, "heavy_gym_world");
     assert.equal(gym?.hardLock, true);
 
     const uk = resolveCommittedWorld({ prompt: "madchester pub walk" });
-    assert.ok(uk?.id === "madchester_world" || uk?.id === "britpop_world");
+    assert.equal(uk?.id, "madchester_world");
     assert.equal(uk?.hardLock, true);
 
     const grunge = resolveCommittedWorld({ prompt: "90s grunge dark cloudy night" });
@@ -339,17 +339,13 @@ describe("V6 human quality sprint", () => {
 
   it("Bon Iver blocked as opener on gym UK and genre-locked worlds", () => {
     const cases = [
-      { prompt: "gym workout training session", worldId: "gym_rock_world" },
+      { prompt: "gym workout training session", worldId: "heavy_gym_world" },
       { prompt: "madchester pub walk", worldId: "madchester_world" },
       { prompt: "90s grunge dark cloudy night", worldId: "grunge_world" },
     ];
     for (const row of cases) {
       const committed = resolveCommittedWorld({ prompt: row.prompt })!;
-      assert.ok(
-        committed.id === row.worldId ||
-          (row.worldId === "madchester_world" && committed.id === "britpop_world"),
-        row.prompt,
-      );
+      assert.equal(committed.id, row.worldId, row.prompt);
       const result = evaluateIntentFidelity({
         committed,
         prompt: row.prompt,
