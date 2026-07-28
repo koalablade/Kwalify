@@ -6159,7 +6159,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         const cachedHygiene = applyFinalApiOpenerHygiene(
           cachedApiTracksRaw,
           inferWorldIdentityIdsFromPrompt(cached.vibe),
-          { minKeep: HONEST_PARTIAL_MIN },
+          { minKeep: HONEST_PARTIAL_MIN, prompt: cached.vibe },
         );
         const cachedApiTracks = cachedHygiene.tracks;
         const cachedFinalGenreDistribution = cachedApiTracks.reduce<Record<string, number>>(
@@ -12913,7 +12913,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       const preFreezeHygiene = applyPreFreezeOpenerHygieneToDelivery(
         delivery.tracks as PlaylistTrack[],
         preFreezeWorldIds,
-        { minKeep: HONEST_PARTIAL_MIN },
+        { minKeep: HONEST_PARTIAL_MIN, prompt: vibe },
       );
       preFreezeOpenerDiagnostics = preFreezeHygiene.diagnostics;
       const preFreezeOrderChanged =
@@ -13135,6 +13135,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     {
       const hygiene = applyFinalApiOpenerHygiene(finalApiTracks, inferredWorldIds, {
         minKeep: HONEST_PARTIAL_MIN,
+        prompt: vibe,
       });
       finalApiTracks = hygiene.tracks;
       deliveredTracks = syncTracksToApiOrder(deliveredTracks, finalApiTracks);

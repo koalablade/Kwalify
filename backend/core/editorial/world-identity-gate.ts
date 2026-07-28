@@ -9,9 +9,12 @@
 import { resolveVagueWorldCommit } from "../../lib/vague-world-commit";
 import {
   OPENER_FILLER_PATTERN,
+  REMIX_EDIT_BAIT_TITLE,
   maxPsychIndieOpenersForWorlds,
   sanitizePsychIndieOpenerChain,
   trackArtistName,
+  demoteRemixBaitOpeners,
+  shouldSuppressVagueLandfillOpeners,
 } from "./opener-hygiene";
 
 export {
@@ -744,6 +747,9 @@ const RNB_NIGHT_IDENTITY: WorldIdentityProfile = {
   energy: { max: 0.68 },
 };
 
+const METAL_POP_PUNK_REJECT =
+  /\b(?:pop\s*punk|skate\s*punk|emo\b|easycore|green\s+day|blink[-\s]?182|sum\s+41|fall\s+out\s+boy|my\s+chemical|new\s+found\s+glory|good\s+charlotte|simple\s+plan|yellowcard|jimmy\s+eat\s+world|all[-\s]?american\s+rejects|paramore)\b/i;
+
 const BRITPOP_IDENTITY: WorldIdentityProfile = {
   id: "britpop_world",
   requireAny: [
@@ -753,6 +759,7 @@ const BRITPOP_IDENTITY: WorldIdentityProfile = {
   rejectAny: [
     /\b(?:metal|drill\b|phonk|country|bluegrass)\b/i,
     /\b(?:tame\s+impala|q\s+lazzarus|fleetwood\s+mac|blondie)\b/i,
+    REMIX_EDIT_BAIT_TITLE,
   ],
   energy: { min: 0.38 },
   valence: { min: 0.38 },
@@ -1256,18 +1263,23 @@ export function isSafetyBlanketOutsideWorld(
 export function stripRetrievalFillerTracks<T extends { artistName?: string | null; artist?: string | null }>(
   tracks: T[],
   activeWorldIds: string[],
-  opts?: { minKeep?: number },
+  opts?: { minKeep?: number; prompt?: string | null },
 ): { tracks: T[]; removed: Array<{ artist: string; reason: string }> } {
   if (tracks.length === 0 || activeWorldIds.length === 0) {
     return { tracks, removed: [] };
   }
   const minKeep = opts?.minKeep ?? Math.max(3, Math.ceil(tracks.length * 0.45));
+  const vagueLandfillSuppress = shouldSuppressVagueLandfillOpeners(opts?.prompt);
   const clean: T[] = [];
   const filler: T[] = [];
   const removed: Array<{ artist: string; reason: string }> = [];
   for (const track of tracks) {
     const artist = String(track.artistName ?? track.artist ?? "").trim();
-    if (artist && isSafetyBlanketOutsideWorld(artist, activeWorldIds)) {
+    const isFiller =
+      artist &&
+      OPENER_FILLER_PATTERN.test(artist) &&
+      (vagueLandfillSuppress || isSafetyBlanketOutsideWorld(artist, activeWorldIds));
+    if (isFiller) {
       filler.push(track);
       removed.push({ artist, reason: "retrieval_filler_outside_world" });
       continue;
@@ -1292,11 +1304,18 @@ export function demoteOpenerFillerTracks<T extends { artistName?: string | null;
   tracks: T[],
   activeWorldIds: string[],
   openerSlots = 3,
+  prompt?: string | null,
 ): { tracks: T[]; demoted: Array<{ artist: string; fromIndex: number; toIndex: number }> } {
   if (tracks.length <= openerSlots || activeWorldIds.length === 0) {
     return { tracks, demoted: [] };
   }
-  const maxOpeners = maxPsychIndieOpenersForWorlds(activeWorldIds);
+  const vagueLandfillSuppress = shouldSuppressVagueLandfillOpeners(prompt);
+  const isOutsideFiller = (artist: string): boolean => {
+    if (!artist || !OPENER_FILLER_PATTERN.test(artist)) return false;
+    if (vagueLandfillSuppress) return true;
+    return isSafetyBlanketOutsideWorld(artist, activeWorldIds);
+  };
+  const maxOpeners = vagueLandfillSuppress ? 0 : maxPsychIndieOpenersForWorlds(activeWorldIds);
   const out = tracks.slice();
   const demoted: Array<{ artist: string; fromIndex: number; toIndex: number }> = [];
   const limit = Math.min(openerSlots, out.length);
@@ -1307,11 +1326,7 @@ export function demoteOpenerFillerTracks<T extends { artistName?: string | null;
     let outsideFillerCount = 0;
     for (let j = 0; j < limit; j++) {
       const artist = String(out[j]!.artistName ?? out[j]!.artist ?? "").trim();
-      if (
-        artist &&
-        OPENER_FILLER_PATTERN.test(artist) &&
-        isSafetyBlanketOutsideWorld(artist, activeWorldIds)
-      ) {
+      if (artist && isOutsideFiller(artist)) {
         outsideFillerCount += 1;
       }
     }
@@ -1322,9 +1337,8 @@ export function demoteOpenerFillerTracks<T extends { artistName?: string | null;
       for (let i = 0; i < limit; i++) {
         const artist = String(out[i]!.artistName ?? out[i]!.artist ?? "").trim();
         if (!artist) continue;
-        const outsideBlanket = isSafetyBlanketOutsideWorld(artist, activeWorldIds);
-        const psychFiller =
-          OPENER_FILLER_PATTERN.test(artist) && outsideBlanket;
+        const outsideBlanket = isOutsideFiller(artist);
+        const psychFiller = outsideBlanket;
         if (!outsideBlanket && !psychFiller) continue;
         const [track] = out.splice(i, 1);
         if (track) {
@@ -1339,8 +1353,7 @@ export function demoteOpenerFillerTracks<T extends { artistName?: string | null;
       let allowed = 0;
       for (let i = 0; i < limit; i++) {
         const artist = String(out[i]!.artistName ?? out[i]!.artist ?? "").trim();
-        if (!artist || !OPENER_FILLER_PATTERN.test(artist)) continue;
-        if (!isSafetyBlanketOutsideWorld(artist, activeWorldIds)) continue;
+        if (!artist || !isOutsideFiller(artist)) continue;
         allowed += 1;
         if (allowed > maxOpeners) {
           const [track] = out.splice(i, 1);
@@ -1383,38 +1396,55 @@ export type OpenerHygieneDiagnostics = {
   retrievalFillerRemoved?: Array<{ artist: string; reason: string }>;
   openerFillerDemoted?: number;
   openerFillerDemotedArtists?: string[];
+  remixBaitDemoted?: number;
+  remixBaitDemotedTitles?: string[];
   psychIndieOpenerSanitized?: number;
   psychIndieOpenerSanitizedArtists?: string[];
   psychIndieOpenerMaxAllowed?: number;
+  vagueLandfillSuppressed?: boolean;
 };
 
 /** Last-mile strip + demote + sanitize on the API payload track list. */
-export function applyFinalApiOpenerHygiene<T extends { artistName?: string | null; artist?: string | null }>(
-  tracks: T[],
-  inferredWorldIds: string[],
-  opts?: { minKeep?: number },
-): { tracks: T[]; diagnostics: OpenerHygieneDiagnostics } {
+export function applyFinalApiOpenerHygiene<
+  T extends { artistName?: string | null; artist?: string | null; trackName?: string | null; name?: string | null; title?: string | null },
+>(tracks: T[], inferredWorldIds: string[], opts?: { minKeep?: number; prompt?: string | null }): {
+  tracks: T[];
+  diagnostics: OpenerHygieneDiagnostics;
+} {
   let out = tracks;
   const diagnostics: OpenerHygieneDiagnostics = {};
   const minKeep = opts?.minKeep ?? 3;
+  const vagueLandfillSuppress = shouldSuppressVagueLandfillOpeners(opts?.prompt);
+  if (vagueLandfillSuppress) diagnostics.vagueLandfillSuppressed = true;
 
   if (inferredWorldIds.length > 0 && out.length > 0) {
-    const fillerStrip = stripRetrievalFillerTracks(out, inferredWorldIds, { minKeep });
+    const fillerStrip = stripRetrievalFillerTracks(out, inferredWorldIds, {
+      minKeep,
+      prompt: opts?.prompt,
+    });
     if (fillerStrip.removed.length > 0) {
       out = fillerStrip.tracks;
       diagnostics.retrievalFillerStripped = fillerStrip.removed.length;
       diagnostics.retrievalFillerRemoved = fillerStrip.removed.slice(0, 12);
     }
-    const openerDemote = demoteOpenerFillerTracks(out, inferredWorldIds, 3);
+    const openerDemote = demoteOpenerFillerTracks(out, inferredWorldIds, 3, opts?.prompt);
     if (openerDemote.demoted.length > 0) {
       out = openerDemote.tracks;
       diagnostics.openerFillerDemoted = openerDemote.demoted.length;
       diagnostics.openerFillerDemotedArtists = openerDemote.demoted.slice(0, 8).map((d) => d.artist);
     }
+    const remixDemote = demoteRemixBaitOpeners(out, inferredWorldIds, 3);
+    if (remixDemote.demoted.length > 0) {
+      out = remixDemote.tracks;
+      diagnostics.remixBaitDemoted = remixDemote.demoted.length;
+      diagnostics.remixBaitDemotedTitles = remixDemote.demoted.slice(0, 8).map((d) => d.title);
+    }
   }
 
   if (out.length > 3) {
-    const maxPsychOpeners = maxPsychIndieOpenersForWorlds(inferredWorldIds);
+    const maxPsychOpeners = vagueLandfillSuppress
+      ? 0
+      : maxPsychIndieOpenersForWorlds(inferredWorldIds);
     diagnostics.psychIndieOpenerMaxAllowed = maxPsychOpeners;
     const openerSanitize = sanitizePsychIndieOpenerChain(out, 3, maxPsychOpeners);
     if (openerSanitize.demoted.length > 0) {
@@ -1440,14 +1470,15 @@ export function syncTracksToApiOrder<T extends { trackId: string }, U extends { 
 
 /** Apply opener hygiene to pipeline delivery tracks before terminal freeze. */
 export function applyPreFreezeOpenerHygieneToDelivery<
-  T extends { trackId: string; artistName?: string | null },
->(tracks: readonly T[], inferredWorldIds: string[], opts?: { minKeep?: number }): {
+  T extends { trackId: string; artistName?: string | null; trackName?: string | null },
+>(tracks: readonly T[], inferredWorldIds: string[], opts?: { minKeep?: number; prompt?: string | null }): {
   tracks: T[];
   diagnostics: OpenerHygieneDiagnostics;
 } {
   const apiShape = tracks.map((track) => ({
     artistName: track.artistName,
     artist: track.artistName,
+    trackName: track.trackName,
     id: track.trackId,
   }));
   const hygiene = applyFinalApiOpenerHygiene(apiShape, inferredWorldIds, opts);
@@ -1533,6 +1564,15 @@ export function worldIdentityProfilesForLock(opts: {
       return {
         ...base,
         energy: { max: /\bchill\b|\blow[-\s]?energy\b/i.test(lower) ? 0.68 : base.energy?.max },
+      };
+    }
+    if (
+      (id === "gym_rock_world" || id === "angry_rock_world") &&
+      /\bmetal\b/i.test(lower)
+    ) {
+      return {
+        ...base,
+        rejectAny: [...base.rejectAny, METAL_POP_PUNK_REJECT],
       };
     }
     if (id === "neon_tek_drive" && /\b90s?\b|\bnineties\b|\bneon\b/i.test(lower)) {

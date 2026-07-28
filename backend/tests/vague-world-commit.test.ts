@@ -218,3 +218,21 @@ test("coffee shop rejects psych filler and hip-hop", () => {
     false,
   );
 });
+
+test("madchester britpop profile rejects remix bait titles", () => {
+  const profiles = worldIdentityProfilesForLock({ prompt: "madchester pub walk" });
+  assert.ok(profiles.some((p) => p.id === "britpop_world"));
+  assert.equal(
+    passesWorldIdentity(
+      {
+        trackName: "Fools Gold - Extended Remix",
+        artistName: "The Stone Roses",
+        spotifyArtistGenres: ["madchester", "indie rock"],
+        energy: 0.7,
+      },
+      profiles,
+      { hardLock: true },
+    ),
+    false,
+  );
+});

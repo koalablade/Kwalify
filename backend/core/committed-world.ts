@@ -33,6 +33,10 @@ const EXPLICIT_GENRE_WORLD: Array<{ pattern: RegExp; id: string }> = [
   { pattern: /\b(?:ukg|uk\s+garage|2-?step|speed\s+garage|grime)\b/i, id: "britpop_world" },
   { pattern: /\b(?:pregame|pre[-\s]?game|getting\s+ready.*go\s+out)\b/i, id: "party_prep_world" },
   { pattern: /\b(?:heavy|aggressive)\s+(?:gym|workout)\b|\bgym\b.*\baggressive\b|\baggressive\b.*\b(?:gym|workout|pump)\b/i, id: "angry_rock_world" },
+  {
+    pattern: /\bmetal\b.*\b(?:gym|workout|training)\b|\b(?:gym|workout|training)\b.*\bmetal\b/i,
+    id: "angry_rock_world",
+  },
   { pattern: /\bgym\s+rock\b|\bheavy\s+gym\b|\bgym\s+pump\b.*\brock\b|\brock\b.*\bgym\b/i, id: "gym_rock_world" },
   { pattern: /\b(?:gym|workout|training\s+session|lifting|cardio|weights)\b/i, id: "gym_rock_world" },
   { pattern: /\bgrunge\b/i, id: "grunge_world" },

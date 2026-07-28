@@ -10,7 +10,7 @@ import {
   worldIdentityProfilesForLock,
   type WorldIdentityProfile,
 } from "./world-identity-gate";
-import { OPENER_FILLER_PATTERN } from "./opener-hygiene";
+import { OPENER_FILLER_PATTERN, isRemixBaitTrackTitle, isUkSceneWorld, shouldSuppressVagueLandfillOpeners } from "./opener-hygiene";
 
 export type IntentFidelityTrack = {
   trackId?: string;
@@ -135,13 +135,25 @@ function trackRejectedForWorld(
   track: IntentFidelityTrack,
   worldIds: string[],
 ): boolean {
-  return alternateVersionTitleRejected(track) || gymSoftTrackRejected(track, worldIds);
+  return (
+    alternateVersionTitleRejected(track) ||
+    gymSoftTrackRejected(track, worldIds) ||
+    (isUkSceneWorld(worldIds) && isRemixBaitTrackTitle(track.trackName))
+  );
 }
 
-function openerLandfillRejected(track: IntentFidelityTrack, worldIds: string[], hardLock: boolean): boolean {
+function openerLandfillRejected(
+  track: IntentFidelityTrack,
+  worldIds: string[],
+  hardLock: boolean,
+  prompt: string,
+): boolean {
   if (!hardLock) return false;
   const artist = track.artistName?.trim() ?? "";
   if (!artist) return false;
+  if (shouldSuppressVagueLandfillOpeners(prompt) && OPENER_FILLER_PATTERN.test(artist)) {
+    return true;
+  }
   return (
     OPENER_FILLER_PATTERN.test(artist) && isSafetyBlanketOutsideWorld(artist, worldIds)
   );
@@ -152,9 +164,10 @@ function openerFailsHardLock(
   profiles: WorldIdentityProfile[],
   hardLock: boolean,
   worldIds: string[],
+  prompt: string,
 ): boolean {
   return (
-    openerLandfillRejected(track, worldIds, hardLock) ||
+    openerLandfillRejected(track, worldIds, hardLock, prompt) ||
     !trackPasses(track, profiles, hardLock, worldIds) ||
     !gymEnergyOk(track, worldIds) ||
     trackRejectedForWorld(track, worldIds)
@@ -200,7 +213,7 @@ export function evaluateIntentFidelity(opts: {
 
   for (let i = 0; i < Math.min(OPENER_SLOTS, tracks.length); i++) {
     const track = tracks[i]!;
-    if (openerFailsHardLock(track, profiles, hardLock, worldIds)) {
+    if (openerFailsHardLock(track, profiles, hardLock, worldIds, prompt)) {
       openerFailures.push(trackLabel(track));
     }
   }

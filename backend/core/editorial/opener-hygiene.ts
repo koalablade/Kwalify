@@ -11,6 +11,42 @@ export function trackArtistName(track: { artistName?: string | null; artist?: st
   return String(track.artistName ?? track.artist ?? "").trim();
 }
 
+/** Remix/edit bait titles — common in UK scene retrieval, never intentional openers. */
+export const REMIX_EDIT_BAIT_TITLE =
+  /\b(?:remix|rework|re-?edit|extended\s+mix|club\s+mix|dub\s+mix|radio\s+edit|dj\s+edit|bootleg|flip)\b/i;
+
+export const UK_SCENE_WORLD_IDS = new Set(["britpop_world"]);
+
+const NAMED_WORLD_LANGUAGE =
+  /\b(?:goth|grunge|disco|synthwave|retrowave|neon|lo-?fi|lofi|ambient|metal|pop[-\s]?punk|uk\s*garage|ukg|grime|shoegaze|darkwave|post[-\s]?punk|boss\s+fight|classic\s+rock|red\s+dirt|drum\s+and\s+bass|dnb|britpop|r&b|hyperpop|jazz|folk|emo|reggaeton|salsa|bachata|cumbia|garage\s+workshop|madchester)\b/i;
+
+/** True when the user explicitly asked for sad-indie / tender melancholy (Bon Iver-adjacent is OK). */
+export function hasExplicitSadIndieMood(prompt: string): boolean {
+  return /\b(?:sad\s+indie|indie\s+sad|soft\s+sad|be\s+gentle|got\s+dumped|heartbroken|miss\s+someone|crying(?!\s+in\s+the\s+club)|lonely\s+but|hurt\s+a\s+little|tender\s+sad|melanchol\w+|film\s+ending|rainy\s+read|acoustic\s+sunday|i\s+just\s+got\s+dumped)\b/i.test(
+    prompt,
+  );
+}
+
+/**
+ * Vague lifestyle prompts without sad-indie mood must not open on psych-indie landfill
+ * even when the committed everyday world (e.g. sunday_chill) would normally allow it.
+ */
+export function shouldSuppressVagueLandfillOpeners(prompt: string | null | undefined): boolean {
+  const p = String(prompt ?? "").trim();
+  if (!p || hasExplicitSadIndieMood(p)) return false;
+  if (NAMED_WORLD_LANGUAGE.test(p)) return false;
+  return true;
+}
+
+export function isRemixBaitTrackTitle(trackName: string | null | undefined): boolean {
+  const title = String(trackName ?? "").trim();
+  return !!title && REMIX_EDIT_BAIT_TITLE.test(title);
+}
+
+export function isUkSceneWorld(activeWorldIds: string[]): boolean {
+  return activeWorldIds.some((id) => UK_SCENE_WORLD_IDS.has(id));
+}
+
 /** Worlds where psych-indie opener fillers are never intentional curation. */
 const ZERO_PSYCH_OPENER_WORLDS = new Set([
   "film_ending_world",
@@ -157,4 +193,37 @@ export function countOpenerFillerPatternMatches<T extends { artistName?: string 
       const artist = trackArtistName(track);
       return artist && OPENER_FILLER_PATTERN.test(artist);
     }).length;
+}
+
+type RemixBaitTrack = { trackName?: string | null; name?: string | null; title?: string | null };
+
+function remixTrackTitle(track: RemixBaitTrack): string {
+  return String(track.trackName ?? track.name ?? track.title ?? "").trim();
+}
+
+/** Demote remix/edit bait titles from opener slots for UK scene worlds. */
+export function demoteRemixBaitOpeners<T extends RemixBaitTrack>(
+  tracks: T[],
+  activeWorldIds: string[],
+  openerSlots = 3,
+): { tracks: T[]; demoted: Array<{ title: string; fromIndex: number; toIndex: number }> } {
+  if (tracks.length <= openerSlots || !isUkSceneWorld(activeWorldIds)) {
+    return { tracks, demoted: [] };
+  }
+  const out = tracks.slice();
+  const demoted: Array<{ title: string; fromIndex: number; toIndex: number }> = [];
+  const limit = Math.min(openerSlots, out.length);
+
+  for (let i = 0; i < limit; i++) {
+    const title = remixTrackTitle(out[i]!);
+    if (!isRemixBaitTrackTitle(title)) continue;
+    const [track] = out.splice(i, 1);
+    if (track) {
+      out.push(track);
+      demoted.push({ title, fromIndex: i, toIndex: out.length - 1 });
+    }
+    break;
+  }
+
+  return { tracks: out, demoted };
 }

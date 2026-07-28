@@ -433,4 +433,89 @@ describe("V6 human quality sprint", () => {
       false,
     );
   });
+
+  it("metal gym workout locks angry_rock and rejects Fall Out Boy", () => {
+    const committed = resolveCommittedWorld({ prompt: "metal gym workout" });
+    assert.equal(committed?.id, "angry_rock_world");
+    assert.equal(committed?.hardLock, true);
+    const profiles = worldIdentityProfilesForLock({ prompt: "metal gym workout" });
+    assert.equal(
+      passesWorldIdentity(
+        {
+          trackName: "Sugar, We're Goin Down",
+          artistName: "Fall Out Boy",
+          genreFamily: "rock",
+          spotifyArtistGenres: ["pop punk"],
+          energy: 0.88,
+        },
+        profiles,
+        { hardLock: true },
+      ),
+      false,
+    );
+    const result = evaluateIntentFidelity({
+      committed: committed!,
+      prompt: "metal gym workout",
+      requestedLength: 25,
+      tracks: [
+        {
+          trackId: "1",
+          trackName: "Sugar, We're Goin Down",
+          artistName: "Fall Out Boy",
+          genreFamily: "rock",
+          spotifyArtistGenres: ["pop punk"],
+          energy: 0.88,
+        },
+        {
+          trackId: "2",
+          trackName: "Enter Sandman",
+          artistName: "Metallica",
+          genreFamily: "metal",
+          energy: 0.9,
+        },
+        {
+          trackId: "3",
+          trackName: "Killing In The Name",
+          artistName: "Rage Against The Machine",
+          genreFamily: "rock",
+          energy: 0.88,
+        },
+      ],
+    });
+    assert.equal(result.openerPassed, false);
+  });
+
+  it("vague lifestyle prompts reject Bon Iver opener without sad-indie mood", () => {
+    for (const prompt of ["just vibes", "windows-down road trip singalong energy"]) {
+      const committed = resolveCommittedWorld({ prompt });
+      assert.ok(committed, prompt);
+      const result = evaluateIntentFidelity({
+        committed,
+        prompt,
+        requestedLength: 25,
+        tracks: [
+          { trackId: "1", trackName: "Holocene", artistName: "Bon Iver", genreFamily: "indie", energy: 0.3 },
+          { trackId: "2", trackName: "Mr. Blue Sky", artistName: "ELO", genreFamily: "rock", energy: 0.75 },
+          { trackId: "3", trackName: "Walking on Sunshine", artistName: "Katrina and the Waves", genreFamily: "pop", energy: 0.8 },
+        ],
+      });
+      assert.equal(result.openerPassed, false, prompt);
+    }
+  });
+
+  it("madchester rejects remix bait in opener slots", () => {
+    const committed = resolveCommittedWorld({ prompt: "madchester pub walk" })!;
+    const result = evaluateIntentFidelity({
+      committed,
+      prompt: "madchester pub walk",
+      requestedLength: 25,
+      tracks: [
+        { trackId: "1", trackName: "I Wanna Be Adored", artistName: "The Stone Roses", genreFamily: "rock", energy: 0.72 },
+        { trackId: "2", trackName: "Step On - Extended Remix", artistName: "Happy Mondays", genreFamily: "rock", energy: 0.78 },
+        { trackId: "3", trackName: "Supersonic", artistName: "Oasis", genreFamily: "rock", energy: 0.85 },
+      ],
+    });
+    assert.equal(result.openerPassed, false);
+    assert.ok(result.openerFailures.some((f) => /remix|extended/i.test(f)));
+  });
 });
