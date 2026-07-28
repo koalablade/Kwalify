@@ -13,9 +13,9 @@ function clearStatusRefresh() {
   }
 }
 
-function scheduleStatusRefresh(ready, opsMode) {
+function scheduleStatusRefresh(ready, pollOps) {
   clearStatusRefresh();
-  const interval = opsMode ? 30_000 : ready ? 0 : 10_000;
+  const interval = pollOps ? 30_000 : ready ? 0 : 10_000;
   if (interval > 0) {
     statusRefreshTimer = setTimeout(() => boot(true), interval);
   }
@@ -47,10 +47,19 @@ async function fetchReady() {
   }
 }
 
+async function fetchOpsSummary() {
+  try {
+    const result = await apiJson("/ops/summary", { timeoutMs: 8000 });
+    return { ok: result.ok, data: result.data };
+  } catch (err) {
+    return { ok: false, data: { error: err?.message || "Network error" } };
+  }
+}
+
 async function fetchOpsMetrics() {
   if (!opsToken) return { ok: false, data: null };
   try {
-    const result = await apiJson(`/ops/metrics?ops=${encodeURIComponent(opsToken)}`, {
+    const result = await apiJson(`/ops/metrics?token=${encodeURIComponent(opsToken)}`, {
       timeoutMs: 8000,
       headers: { "x-ops-metrics-token": opsToken },
     });
@@ -66,46 +75,96 @@ function formatBytes(bytes) {
   return `${mb.toFixed(1)} MB`;
 }
 
+function opsSummaryHtml(summaryPayload) {
+  if (!summaryPayload?.ok) {
+    return `
+    <div class="status-card">
+      <div class="status-card-head">Live metrics ${statusLabel(false, "OK", "Unavailable")}</div>
+      <p>Could not load public ops summary.</p>
+    </div>`;
+  }
+
+  const data = summaryPayload.data ?? {};
+  const gens = data.generations ?? {};
+  const spotify = data.spotify ?? {};
+  const memory = data.memory ?? {};
+  const cache = data.cache ?? {};
+
+  return `
+  <h2 class="vibe-heading" style="margin-top:2rem;font-size:1.25rem;">Live metrics</h2>
+  <p class="vibe-sub">Public aggregates. Refreshes every 30s while ready.</p>
+  <div class="status-grid">
+    <div class="status-card">
+      <div class="status-card-head">Generation queue</div>
+      <p>Active: <strong>${esc(String(gens.active ?? "—"))}</strong> · Queued: <strong>${esc(String(gens.queued ?? "—"))}</strong></p>
+      <p>p95: <strong>${esc(String(gens.p95TotalMs ?? "—"))} ms</strong></p>
+    </div>
+    <div class="status-card">
+      <div class="status-card-head">Outcomes (1h)</div>
+      <p>Success: <strong>${esc(String(gens.successesLastHour ?? 0))}</strong> · Failure: <strong>${esc(String(gens.failuresLastHour ?? 0))}</strong></p>
+      <p>SERVER_BUSY (1h): <strong>${esc(String(data.serverBusyLastHour ?? 0))}</strong></p>
+    </div>
+    <div class="status-card">
+      <div class="status-card-head">Memory</div>
+      <p>RSS: <strong>${esc(String(memory.rssMb != null ? `${memory.rssMb} MB` : "—"))}</strong></p>
+      <p>Heap: <strong>${esc(String(memory.heapUsedMb != null ? `${memory.heapUsedMb} MB` : "—"))}</strong></p>
+    </div>
+    <div class="status-card">
+      <div class="status-card-head">Spotify API</div>
+      <p>Failures: <strong>${esc(String(spotify.failuresTotal ?? 0))}</strong> · Rate limits: <strong>${esc(String(spotify.rateLimitResponses ?? 0))}</strong></p>
+      <p>Sync failures (1h): <strong>${esc(String(data.syncFailuresLastHour ?? 0))}</strong></p>
+    </div>
+    <div class="status-card">
+      <div class="status-card-head">Cache & traffic</div>
+      <p>Session cache hit rate: <strong>${esc(String(cache.hitRatePercent != null ? `${cache.hitRatePercent}%` : "—"))}</strong></p>
+      <p>Requests/min: <strong>${esc(String(data.requestsPerMinute ?? "—"))}</strong></p>
+    </div>
+  </div>`;
+}
+
 function opsMetricsHtml(opsPayload) {
   if (!opsToken) return "";
   if (!opsPayload?.ok) {
     return `
     <div class="status-card">
-      <div class="status-card-head">Ops metrics ${statusLabel(false, "Enabled", "Unavailable")}</div>
+      <div class="status-card-head">Full ops metrics ${statusLabel(false, "Enabled", "Unavailable")}</div>
       <p>Could not load ops metrics. Check <code>OPS_METRICS_TOKEN</code> matches the <code>?ops=</code> query param.</p>
     </div>`;
   }
 
   const data = opsPayload.data ?? {};
-  const queue = data.generateQueue;
-  const extended = data.extended ?? {};
-  const cache = extended.sessionSnapshotCache ?? {};
-  const cacheTotal = (cache.hits ?? 0) + (cache.misses ?? 0);
-  const cacheHitRate = cacheTotal > 0 ? Math.round((cache.hits / cacheTotal) * 100) : null;
-  const spotify = extended.spotifyApi ?? {};
+  const queue = data.generations ?? {};
+  const extended = data.full?.extended ?? {};
+  const cache = data.cache ?? extended.sessionSnapshotCache ?? {};
+  const cacheHitRate = cache.hitRatePercent ?? (
+    (cache.hits ?? 0) + (cache.misses ?? 0) > 0
+      ? Math.round((cache.hits / ((cache.hits ?? 0) + (cache.misses ?? 0))) * 100)
+      : null
+  );
+  const spotify = data.spotify ?? extended.spotifyApi ?? {};
   const phases = extended.generationPhases ?? {};
-  const totalPhase = extended.generationPhases?.byPhase?.["generate.total"] ?? phases;
+  const totalPhase = phases.byPhase?.["generate.total"] ?? phases;
   const outcomes = extended.generateOutcomes ?? {};
   const memory = extended.memory ?? {};
   const errors5xx = extended.response5xx ?? {};
 
   return `
-  <h2 class="vibe-heading" style="margin-top:2rem;font-size:1.25rem;">Ops metrics</h2>
+  <h2 class="vibe-heading" style="margin-top:2rem;font-size:1.25rem;">Full ops metrics</h2>
   <p class="vibe-sub">Token-gated snapshot. Refreshes every 30s.</p>
   <div class="status-grid">
     <div class="status-card">
       <div class="status-card-head">Generation queue</div>
-      <p>Active: <strong>${esc(String(queue?.active ?? "—"))}</strong> · Queued: <strong>${esc(String(queue?.queued ?? "—"))}</strong></p>
-      <p>Avg latency: <strong>${esc(String(queue?.averageLatencyMs ?? "—"))} ms</strong></p>
+      <p>Active: <strong>${esc(String(queue.active ?? "—"))}</strong> · Queued: <strong>${esc(String(queue.queued ?? "—"))}</strong></p>
+      <p>Avg latency: <strong>${esc(String(queue.averageLatencyMs ?? "—"))} ms</strong></p>
     </div>
     <div class="status-card">
       <div class="status-card-head">Generation timing</div>
-      <p>p50: <strong>${esc(String(totalPhase?.p50Ms ?? phases.p50Ms ?? "—"))} ms</strong></p>
-      <p>p95: <strong>${esc(String(totalPhase?.p95Ms ?? phases.p95Ms ?? "—"))} ms</strong></p>
+      <p>p50: <strong>${esc(String(queue.avgTotalMs ?? totalPhase?.p50Ms ?? phases.p50Ms ?? "—"))} ms</strong></p>
+      <p>p95: <strong>${esc(String(queue.p95TotalMs ?? totalPhase?.p95Ms ?? phases.p95Ms ?? "—"))} ms</strong></p>
     </div>
     <div class="status-card">
       <div class="status-card-head">Outcomes (1h)</div>
-      <p>Success: <strong>${esc(String(outcomes.successLastHour ?? 0))}</strong> · Failure: <strong>${esc(String(outcomes.failureLastHour ?? 0))}</strong></p>
+      <p>Success: <strong>${esc(String(queue.successesLastHour ?? outcomes.successLastHour ?? 0))}</strong> · Failure: <strong>${esc(String(queue.failuresLastHour ?? outcomes.failureLastHour ?? 0))}</strong></p>
       <p>5xx: <strong>${esc(String(errors5xx.lastHour ?? 0))}</strong> (total ${esc(String(errors5xx.total ?? 0))})</p>
     </div>
     <div class="status-card">
@@ -115,18 +174,18 @@ function opsMetricsHtml(opsPayload) {
     </div>
     <div class="status-card">
       <div class="status-card-head">Spotify API</div>
-      <p>Requests: <strong>${esc(String(spotify.totalRequests ?? 0))}</strong></p>
-      <p>Failures: <strong>${esc(String(spotify.failures ?? 0))}</strong> · Rate limits: <strong>${esc(String(spotify.rateLimitResponses ?? 0))}</strong></p>
+      <p>Requests: <strong>${esc(String(spotify.requestsTotal ?? spotify.totalRequests ?? 0))}</strong></p>
+      <p>Failures: <strong>${esc(String(spotify.failuresTotal ?? spotify.failures ?? 0))}</strong> · Rate limits: <strong>${esc(String(spotify.rateLimitResponses ?? 0))}</strong></p>
     </div>
     <div class="status-card">
       <div class="status-card-head">Cache & traffic</div>
       <p>Session cache hit rate: <strong>${esc(String(cacheHitRate != null ? `${cacheHitRate}%` : "—"))}</strong></p>
-      <p>Requests/min: <strong>${esc(String(extended.requestsPerMinute ?? "—"))}</strong></p>
+      <p>Requests/min: <strong>${esc(String(data.requestsPerMinute ?? extended.requestsPerMinute ?? "—"))}</strong></p>
     </div>
   </div>`;
 }
 
-function render({ httpOk, data, opsPayload }) {
+function render({ httpOk, data, summaryPayload, opsPayload }) {
   const ready = data?.status === "ready" || data?.readiness === "ready";
   const checks = data?.checks || {};
   const db = checks.databaseAvailable === true;
@@ -172,6 +231,8 @@ function render({ httpOk, data, opsPayload }) {
       </div>
     </div>
 
+    ${opsSummaryHtml(summaryPayload)}
+
     ${opsMetricsHtml(opsPayload)}
 
     <div class="status-meta">
@@ -196,10 +257,11 @@ async function boot(silent = false) {
     root.innerHTML = `${navHtml()}<div class="loading-shell"><div class="spinner"></div><span>Checking status…</span></div>`;
   }
   const payload = await fetchReady();
-  const opsPayload = opsToken ? await fetchOpsMetrics() : null;
   const ready = payload.data?.status === "ready" || payload.data?.readiness === "ready";
-  render({ ...payload, opsPayload });
-  scheduleStatusRefresh(ready, !!opsToken);
+  const summaryPayload = ready ? await fetchOpsSummary() : { ok: false, data: null };
+  const opsPayload = opsToken ? await fetchOpsMetrics() : null;
+  render({ ...payload, summaryPayload, opsPayload });
+  scheduleStatusRefresh(ready, ready || !!opsToken);
 }
 
 boot();

@@ -6322,7 +6322,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       hasJourneyDestination: !!destParse.desired,
       mixedEmotions,
     });
-    req.log.info({ vibe, vibeKind, promptConfidence }, "Vibe kind detected");
+    req.log.info({ vibeKind, promptConfidence }, "Vibe kind detected");
 
     setGeneratePhase(generateSessionUserId, requestId, "building_profile");
     setGenerateStageDetail(generateSessionUserId, requestId, "Loading recent playlist memory and feedback");
