@@ -128,8 +128,20 @@ const WORLD_ARTIST_CONTRACTS: Record<string, CommittedWorldArtistContract> = {
       /\bdepeche\s+mode\b/i,
       /\bnew\s+order\b/i,
     ],
-    forbiddenArtists: [...LANDFILL_ARTIST_PATTERNS],
-    forbiddenPatterns: [...HIP_HOP_PARTY_PATTERNS, ...ACOUSTIC_BREAKUP_PATTERNS, /\blo-?fi\b/i, /\bchillhop\b/i, /\bwallows\b/i],
+    forbiddenArtists: [
+      ...LANDFILL_ARTIST_PATTERNS,
+      /\bdestructo\s+disk\b/i,
+      /\bmungo'?s\s+hi\s+fi\b/i,
+    ],
+    forbiddenPatterns: [
+      ...HIP_HOP_PARTY_PATTERNS,
+      ...ACOUSTIC_BREAKUP_PATTERNS,
+      /\blo-?fi\b/i,
+      /\bchillhop\b/i,
+      /\bwallows\b/i,
+      /\b(?:phonk|comedy|party\s+anthem|jump\s+up|brostep)\b/i,
+      /\b(?:remix|rework|re-?edit|extended\s+mix|club\s+mix|radio\s+edit)\b/i,
+    ],
   },
   rainy_drive_world: {
     requiredArtists: [
@@ -156,14 +168,40 @@ const WORLD_ARTIST_CONTRACTS: Record<string, CommittedWorldArtistContract> = {
       /\bdepeche\s+mode\b/i,
       /\bnew\s+order\b/i,
       /\bpet\s+shop\s+boys\b/i,
-      /\ba\s+flock\s+of\s+seagulls\b/i,
+      /\bthe\s+cure\b/i,
+      /\bm83\b/i,
     ],
     forbiddenArtists: [
       ...LANDFILL_ARTIST_PATTERNS,
       /\bthe\s+1975\b/i,
       /\bfleetwood\s+mac\b/i,
+      /\bnimino\b/i,
+      /\bcalvin\s+harris\b/i,
     ],
-    forbiddenPatterns: [...ACOUSTIC_BREAKUP_PATTERNS],
+    forbiddenPatterns: [
+      ...ACOUSTIC_BREAKUP_PATTERNS,
+      /\b(?:remix|rework|re-?edit|extended\s+mix|club\s+mix|radio\s+edit|dj\s+edit|bootleg|flip)\b/i,
+    ],
+  },
+  country_world: {
+    requiredArtists: [
+      /\bjohnny\s+cash\b/i,
+      /\bdolly\s+parton\b/i,
+      /\bwillie\s+nelson\b/i,
+      /\bluke\s+combs\b/i,
+      /\bchris\s+stapleton\b/i,
+      /\bzach\s+bryan\b/i,
+      /\balan\s+jackson\b/i,
+    ],
+    forbiddenArtists: [
+      ...LANDFILL_ARTIST_PATTERNS,
+      /\barctic\s+monkeys\b/i,
+      /\bjungle\s+giants\b/i,
+      /\bfrank\s+ocean\b/i,
+    ],
+    forbiddenPatterns: [
+      /\b(?:indie\s+folk|indie\s+rock|bedroom\s+pop|r&b|hip[\s-]?hop|rap\b)\b/i,
+    ],
   },
   grunge_world: {
     requiredArtists: [
@@ -283,6 +321,8 @@ export function committedWorldArtistRepresentativeScore(
 }
 
 const EXPLICIT_GENRE_WORLD: Array<{ pattern: RegExp; id: string }> = [
+  { pattern: /\bcountry\s+cowboy\b|\bcowboy\s+road\b|\bcountry\b.*\b(?:road|trip|drive)\b/i, id: "country_world" },
+  { pattern: /\bno\s+rap\b.*\b(?:gym|workout)\b|\b(?:gym|workout)\b.*\bno\s+rap\b/i, id: "gym_rock_world" },
   { pattern: /\bdad\s*'?s?\s+rock\b|\bdad\s+rock\b/i, id: "dad_rock_world" },
   { pattern: /\byacht\s+rock\b/i, id: "yacht_rock_world" },
   { pattern: /\barena\s+rock\b/i, id: "arena_rock_world" },
@@ -317,8 +357,8 @@ const EXPLICIT_GENRE_WORLD: Array<{ pattern: RegExp; id: string }> = [
 const EXPLICIT_SCENE_WORLD: Array<{ pattern: RegExp; id: string }> = [
   {
     pattern:
-      /\b(?:empty\s+)?motorway\b.*\b(?:midnight|rain|windscreen)\b|\b(?:midnight|rain)\b.*\b(?:empty\s+)?motorway\b|\bempty\s+motorway\s+at\s+midnight\b/i,
-    id: "rainy_drive_world",
+      /\b(?:empty\s+)?motorway\b.*\b(?:midnight|rain|windscreen)\b|\b(?:midnight|rain)\b.*\b(?:empty\s+)?motorway\b|\bempty\s+motorway\s+at\s+midnight\b|\brain\b.*\bwindscreen\b/i,
+    id: "rainy_motorway_world",
   },
   {
     pattern: /\b(?:rainy|rain)\s+motorway\b/i,

@@ -47,6 +47,18 @@ export function isUkSceneWorld(activeWorldIds: string[]): boolean {
   return activeWorldIds.some((id) => UK_SCENE_WORLD_IDS.has(id));
 }
 
+export function isRemixDemoteWorld(activeWorldIds: string[]): boolean {
+  return activeWorldIds.some((id) => REMIX_DEMOTE_WORLD_IDS.has(id));
+}
+
+const REMIX_DEMOTE_WORLD_IDS = new Set([
+  "britpop_world",
+  "80s_night_drive_world",
+  "rainy_motorway_world",
+  "rainy_drive_world",
+  "night_drive_world",
+]);
+
 /** Worlds where psych-indie opener fillers are never intentional curation. */
 const ZERO_PSYCH_OPENER_WORLDS = new Set([
   "film_ending_world",
@@ -78,6 +90,10 @@ const ZERO_PSYCH_OPENER_WORLDS = new Set([
   "boss_fight",
   "quiet_rage",
   "rnb_night_world",
+  "80s_night_drive_world",
+  "rainy_motorway_world",
+  "country_world",
+  "heavy_gym_world",
 ]);
 
 /** Max psych-indie opener fillers allowed in slots 1–3 for these worlds. */
@@ -207,7 +223,7 @@ export function demoteRemixBaitOpeners<T extends RemixBaitTrack>(
   activeWorldIds: string[],
   openerSlots = 3,
 ): { tracks: T[]; demoted: Array<{ title: string; fromIndex: number; toIndex: number }> } {
-  if (tracks.length <= openerSlots || !isUkSceneWorld(activeWorldIds)) {
+  if (tracks.length <= openerSlots || !isRemixDemoteWorld(activeWorldIds)) {
     return { tracks, demoted: [] };
   }
   const out = tracks.slice();

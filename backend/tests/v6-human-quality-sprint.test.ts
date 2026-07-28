@@ -27,12 +27,12 @@ describe("V6 human quality sprint", () => {
     assert.equal(world.source, "explicit_genre");
   });
 
-  it("resolveCommittedWorld locks motorway rain to rainy_drive_world", () => {
+  it("resolveCommittedWorld locks motorway rain to rainy_motorway_world", () => {
     const world = resolveCommittedWorld({
       prompt: "empty motorway at midnight, rain on the windscreen",
     });
     assert.ok(world);
-    assert.equal(world.id, "rainy_drive_world");
+    assert.equal(world.id, "rainy_motorway_world");
     assert.equal(world.hardLock, true);
   });
 
@@ -144,14 +144,14 @@ describe("V6 human quality sprint", () => {
     assert.equal(isSafetyBlanketOutsideWorld("Bon Iver", ["dad_rock_world", "classic_rock_world"]), true);
   });
 
-  it("empty motorway at midnight rain maps to rainy drive world", () => {
+  it("empty motorway at midnight rain maps to rainy motorway world", () => {
     const ids = inferWorldIdentityIdsFromPrompt("empty motorway at midnight rain");
-    assert.ok(ids.includes("rainy_drive_world"));
+    assert.ok(ids.includes("rainy_motorway_world"));
 
     const profiles = worldIdentityProfilesForLock({
       prompt: "empty motorway at midnight rain",
     });
-    assert.ok(profiles.some((p) => p.id === "rainy_drive_world"));
+    assert.ok(profiles.some((p) => p.id === "rainy_motorway_world"));
     assert.equal(
       passesWorldIdentity(
         {

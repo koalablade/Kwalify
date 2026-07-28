@@ -34,7 +34,11 @@ const RAP_GENRE_RE =
   /\b(?:hip[\s-]?hop|rap|trap|drill|grime|uk\s*drill|gangsta|boom\s*bap)\b/i;
 
 const RAP_ARTIST_HINT_RE =
-  /\b(?:drake|kendrick|eminem|travis\s+scott|nicki\s+minaj|megan\s+thee|central\s+cee|stormzy|21\s+savage|lil\s+\w+|dmx|50\s+cent|jay-?z|kanye|playboi\s+carti)\b/i;
+  /\b(?:drake|kendrick|eminem|travis\s+scott|nicki\s+minaj|megan\s+thee|central\s+cee|stormzy|21\s+savage|lil\s+\w+|dmx|50\s+cent|jay-?z|kanye|playboi\s+carti|storm\s+queen)\b/i;
+
+/** Rock/metal aggression is OK when user said "no rap" — only suppress hip-hop artists. */
+const NO_RAP_ROCK_METAL_ALLOW_RE =
+  /\b(?:ac\/?dc|metallica|foo\s+fighters|slipknot|bmth|bring\s+me\s+the\s+horizon|prodigy|guns\s+n|slayer|megadeth|black\s+sabbath|disturbed|godsmack|rage\s+against)\b/i;
 
 const GUITAR_GENRE_RE =
   /\b(?:rock|metal|punk|grunge|indie\s+rock|alt(?:ernative)?\s+rock|classic\s+rock|hard\s+rock|acoustic|folk|country|americana|blues\s+rock)\b/i;
@@ -113,8 +117,11 @@ export function trackViolatesPromptNegation(
   }
 
   if (profile.suppressRap) {
+    const artist = String(track.artistName ?? "").trim().toLowerCase();
+    if (artist && NO_RAP_ROCK_METAL_ALLOW_RE.test(artist)) return null;
     if (track.genreFamily === "hip_hop") return "negation:rap";
-    if (RAP_GENRE_RE.test(blob) || RAP_ARTIST_HINT_RE.test(blob)) {
+    if (artist && RAP_ARTIST_HINT_RE.test(artist)) return "negation:rap";
+    if (RAP_GENRE_RE.test(blob) && !/\b(?:rock|metal|hard\s+rock|heavy\s+metal|thrash|electronic|techno|house)\b/i.test(blob)) {
       return "negation:rap";
     }
   }

@@ -9,6 +9,12 @@ import { coverageLevelToMaxTracks } from "./world-coverage";
 import type { WorldProofResult } from "./world-proof-gate";
 import type { ThesisOpenerResult } from "./thesis-opener-gate";
 import type { WorldIdentityTrack } from "./world-identity-score";
+import {
+  resolveCulturalProfileForCommitted,
+  scoreTrackWorldIdentity,
+  isAnchorArtistForProfile,
+} from "./world-identity-score";
+import { THESIS_OPENER_UNDENIABLE_SCORE } from "./thesis-opener-gate";
 import type { HumanQualityGateAction } from "./human-quality-gate";
 
 export type HumanUnderstoodInput = {
@@ -20,7 +26,55 @@ export type HumanUnderstoodInput = {
   negationViolations: number;
   openerNegationViolations: number;
   coverageLevel?: CoverageLevel | null;
+  tracks?: WorldIdentityTrack[];
 };
+
+const STRICT_SCENE_WORLD_IDS = new Set([
+  "rainy_motorway_world",
+  "rainy_drive_world",
+  "80s_night_drive_world",
+  "country_world",
+  "gym_rock_world",
+  "heavy_gym_world",
+  "angry_rock_world",
+  "gym_world",
+]);
+
+function isStrictSceneWorld(committed: CommittedWorld | null): boolean {
+  if (!committed?.hardLock) return false;
+  if (STRICT_SCENE_WORLD_IDS.has(committed.id)) return true;
+  return committed.worldIds.some((id) => STRICT_SCENE_WORLD_IDS.has(id));
+}
+
+function strictSceneWorldFailures(
+  tracks: WorldIdentityTrack[],
+  committed: CommittedWorld,
+): string[] {
+  const profile = resolveCulturalProfileForCommitted(committed);
+  if (!profile || tracks.length === 0) return [];
+  const failures: string[] = [];
+  const opener = tracks[0]!;
+  const openerScore = scoreTrackWorldIdentity(opener, profile);
+  const openerAnchor = isAnchorArtistForProfile(opener.artistName, profile);
+  if (!openerAnchor && openerScore < THESIS_OPENER_UNDENIABLE_SCORE) {
+    failures.push("thesis_opener_not_undeniable");
+  }
+  for (let i = 5; i < tracks.length; i++) {
+    const score = scoreTrackWorldIdentity(tracks[i]!, profile);
+    if (score === 0 || score < 0.45) {
+      failures.push(`tail_world_violation:${i + 1}`);
+      break;
+    }
+  }
+  if (tracks.length >= 10) {
+    const tenth = tracks[9]!;
+    const tenthScore = scoreTrackWorldIdentity(tenth, profile);
+    if (tenthScore === 0 || tenthScore < 0.45) {
+      failures.push("track_10_betrays_world");
+    }
+  }
+  return failures;
+}
 
 export type HumanUnderstoodResult = {
   action: HumanQualityGateAction;
@@ -35,6 +89,10 @@ export function wouldPersonFeelUnderstood(input: HumanUnderstoodInput): boolean 
   if (input.negationViolations >= 2 || input.openerNegationViolations >= 1) return false;
   if (input.thesis && !input.thesis.passed) return false;
   if (input.worldProof && !input.worldProof.trackOnePassed) return false;
+  if (input.committed?.hardLock && input.tracks && isStrictSceneWorld(input.committed)) {
+    const strictFailures = strictSceneWorldFailures(input.tracks, input.committed);
+    if (strictFailures.length > 0) return false;
+  }
   if (input.committed?.hardLock && input.worldProof && !input.worldProof.fullPlaylistPassed) {
     return false;
   }
@@ -63,6 +121,9 @@ export function evaluateHumanUnderstoodGate(input: HumanUnderstoodInput): HumanU
   if (input.worldProof && !input.worldProof.passed) reasons.push("world_proof_failed");
   if (input.openerNegationViolations >= 1) reasons.push("negation_violation");
   if (input.negationViolations >= 2) reasons.push("negation_violation");
+  if (input.committed?.hardLock && input.tracks && isStrictSceneWorld(input.committed)) {
+    reasons.push(...strictSceneWorldFailures(input.tracks, input.committed));
+  }
   if (hardLock && input.coverageLevel === "VERY_LOW" && count > coverageCap) {
     reasons.push("very_low_world_coverage");
   }

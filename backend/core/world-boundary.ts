@@ -190,6 +190,10 @@ export function resolveWorldBoundary(opts: {
         allowed: ["indie", "electronic", "rock", "rnb"],
         off: ["metal", "country", "folk", "hip_hop", "latin"],
       },
+      country_world: {
+        allowed: ["country", "folk", "rock", "americana"],
+        off: ["metal", "hip_hop", "electronic", "latin", "reggae", "rnb"],
+      },
       chill_rainy_world: {
         allowed: ["indie", "folk", "electronic", "soul"],
         off: ["metal", "hip_hop", "country", "latin", "reggae"],

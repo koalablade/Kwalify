@@ -10,7 +10,7 @@ import {
   worldIdentityProfilesForLock,
   type WorldIdentityProfile,
 } from "./world-identity-gate";
-import { OPENER_FILLER_PATTERN, isRemixBaitTrackTitle, isUkSceneWorld, shouldSuppressVagueLandfillOpeners } from "./opener-hygiene";
+import { OPENER_FILLER_PATTERN, isRemixBaitTrackTitle, isRemixDemoteWorld, shouldSuppressVagueLandfillOpeners } from "./opener-hygiene";
 import { artistForbiddenInWorld } from "./artist-identity-map";
 
 /** Tracks 1–5 must prove the committed world before ship. */
@@ -132,10 +132,21 @@ function alternateVersionTitleRejected(track: IntentFidelityTrack): boolean {
 }
 
 function gymSoftTrackRejected(track: IntentFidelityTrack, worldIds: string[]): boolean {
-  if (!worldIds.some((id) => id === "angry_rock_world" || id === "gym_rock_world")) return false;
+  if (
+    !worldIds.some(
+      (id) =>
+        id === "angry_rock_world" ||
+        id === "gym_rock_world" ||
+        id === "heavy_gym_world" ||
+        id === "gym_world",
+    )
+  ) {
+    return false;
+  }
   const title = String(track.trackName ?? "").toLowerCase();
   const artist = String(track.artistName ?? "").toLowerCase();
   if (!artist || !title) return false;
+  if (/\b(?:green\s+day|panic!\s+at\s+the\s+disco|panic\s+at\s+the\s+disco)\b/.test(artist)) return true;
   if (/\bparamore\b/.test(artist) && /\b(?:hard\s+times|the\s+only\s+exception)\b/.test(title)) return true;
   return false;
 }
@@ -147,7 +158,7 @@ function trackRejectedForWorld(
   return (
     alternateVersionTitleRejected(track) ||
     gymSoftTrackRejected(track, worldIds) ||
-    (isUkSceneWorld(worldIds) && isRemixBaitTrackTitle(track.trackName))
+    (isRemixDemoteWorld(worldIds) && isRemixBaitTrackTitle(track.trackName))
   );
 }
 

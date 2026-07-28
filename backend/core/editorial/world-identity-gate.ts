@@ -957,7 +957,8 @@ const EIGHTIES_NIGHT_DRIVE_IDENTITY: WorldIdentityProfile = {
   ],
   rejectAny: [
     /\b(?:acoustic\s+indie|singer[-\s]?songwriter|indie\s+folk|folk\b|americana|phonk|lo-?fi\s+beats?)\b/i,
-    /\b(?:bon\s+iver|phoebe\s+bridgers|sufjan\s+stevens|beach\s+house|clairo|fleet\s+foxes|gregory\s+alan\s+isakov)\b/i,
+    /\b(?:bon\s+iver|phoebe\s+bridgers|sufjan\s+stevens|beach\s+house|clairo|fleet\s+foxes|gregory\s+alan\s+isakov|nimino|calvin\s+harris)\b/i,
+    REMIX_EDIT_BAIT_TITLE,
   ],
   energy: { min: 0.35, max: 0.82 },
   valence: { max: 0.72 },
@@ -972,10 +973,25 @@ const RAINY_MOTORWAY_IDENTITY: WorldIdentityProfile = {
   rejectAny: [
     /\b(?:acoustic\s+indie|singer[-\s]?songwriter|indie\s+folk|slowcore|sadcore|bedroom\s+pop|folk\b)\b/i,
     /\b(?:bon\s+iver|phoebe\s+bridgers|sufjan\s+stevens|beach\s+house|iron\s+(?:&|and)\s+wine|fleet\s+foxes|mitski|clairo|noah\s+kahan)\b/i,
-    /\b(?:phonk|trap\b|drill\b|country|bluegrass)\b/i,
+    /\b(?:phonky|phonk|trap\b|drill\b|country|bluegrass|comedy|party\s+anthem|jump\s+up|brostep)\b/i,
+    /\b(?:destructo\s+disk|mungo'?s\s+hi\s+fi|oliver\s+heldens|steve\s+lacy|funk\s+tribu|florence|mgmt)\b/i,
+    REMIX_EDIT_BAIT_TITLE,
   ],
   energy: { min: 0.32, max: 0.78 },
   valence: { max: 0.62 },
+};
+
+const COUNTRY_WORLD_IDENTITY: WorldIdentityProfile = {
+  id: "country_world",
+  requireAny: [
+    /\b(?:country|americana|red\s+dirt|outlaw\s+country|country\s+rock)\b/i,
+    /\b(?:johnny\s+cash|dolly\s+parton|willie\s+nelson|luke\s+combs|chris\s+stapleton|zach\s+bryan|alan\s+jackson|george\s+strait|merle\s+haggard)\b/i,
+  ],
+  rejectAny: [
+    /\b(?:indie\s+folk|indie\s+rock|bedroom\s+pop|r&b|hip[\s-]?hop|rap\b|trap\b|electronic\s+pop)\b/i,
+    /\b(?:arctic\s+monkeys|jungle\s+giants|frank\s+ocean|bon\s+iver|michael\s+kiwanuka)\b/i,
+  ],
+  energy: { min: 0.35, max: 0.88 },
 };
 
 const ROAD_TRIP_SINGALONG_IDENTITY: WorldIdentityProfile = {
@@ -1141,6 +1157,7 @@ const IDENTITY_BY_LOCK_ID: Record<string, WorldIdentityProfile> = {
   pub_singalong_world: PUB_SINGALONG_IDENTITY,
   "80s_night_drive_world": EIGHTIES_NIGHT_DRIVE_IDENTITY,
   rainy_motorway_world: RAINY_MOTORWAY_IDENTITY,
+  country_world: COUNTRY_WORLD_IDENTITY,
   road_trip_singalong_world: ROAD_TRIP_SINGALONG_IDENTITY,
   petrol_station_2am_world: PETROL_STATION_2AM_IDENTITY,
   disco_1970s_world: DISCO_1970S_IDENTITY,
@@ -1261,9 +1278,9 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
     ids.push("80s_night_drive_world");
   }
   if (
-    /\b(?:empty\s+)?motorway\b.*\b(?:midnight|rain|windscreen)\b|\b(?:midnight|rain)\b.*\b(?:empty\s+)?motorway\b|\bempty\s+motorway\s+at\s+midnight\b/i.test(p)
+    /\b(?:empty\s+)?motorway\b.*\b(?:midnight|rain|windscreen)\b|\b(?:midnight|rain)\b.*\b(?:empty\s+)?motorway\b|\bempty\s+motorway\s+at\s+midnight\b|\brain\b.*\bwindscreen\b/i.test(p)
   ) {
-    ids.push("rainy_drive_world");
+    ids.push("rainy_motorway_world");
   } else if (
     /\b(?:rainy|rain)\s+motorway\b/i.test(p)
   ) {
@@ -1272,6 +1289,11 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
     /\brain(?:y|ing)?\b.*\b(?:driv|highway|motorway|road)\b|\b(?:driv|highway|motorway)\b.*\brain/i.test(p)
   ) {
     ids.push("rainy_drive_world");
+  }
+  if (
+    /\bcountry\s+cowboy\b|\bcowboy\s+road\b|\b(?:country|cowboy|red\s+dirt|americana)\b.*\b(?:road|trip|drive|highway)\b/i.test(p)
+  ) {
+    ids.push("country_world");
   }
   if (/\broad\s+trip\b.*\b(?:sing|singalong|anthem|banger)\b|\bsingalong\b.*\broad\s+trip\b/i.test(p)) {
     ids.push("road_trip_singalong_world");
@@ -1353,25 +1375,27 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
     ids.push("disco_party_world", "disco_1970s_world");
   }
   if (
-    /\b(?:empty\s+)?motorway\b.*\b(?:midnight|rain)\b|\b(?:midnight|rain)\b.*\b(?:empty\s+)?motorway\b/i.test(p) ||
-    /\bempty\s+motorway\s+at\s+midnight\b/i.test(p)
+    /\b(?:empty\s+)?motorway\b.*\b(?:midnight|rain|windscreen)\b|\b(?:midnight|rain)\b.*\b(?:empty\s+)?motorway\b/i.test(p) ||
+    /\bempty\s+motorway\s+at\s+midnight\b/i.test(p) ||
+    /\brain\b.*\bwindscreen\b/i.test(p)
   ) {
-    ids.push("rainy_drive_world");
+    if (!ids.includes("rainy_motorway_world")) ids.push("rainy_motorway_world");
   } else if (
     /\brain(?:y|ing)?\b.*\b(?:driv|highway|motorway|road)\b|\b(?:driv|highway|motorway)\b.*\brain/i.test(p)
   ) {
-    ids.push("rainy_drive_world");
+    if (!ids.includes("rainy_motorway_world")) ids.push("rainy_drive_world");
   } else if (/\b(?:cozy|chill|calm|soft)\b.*\brain|\brain(?:y|ing)?\b.*\b(?:cozy|chill|calm|night\s+chill)\b/i.test(p)) {
     ids.push("chill_rainy_world");
   }
   if (
     /\b(?:motorway|highway)\s+at\s+(?:night|midnight)\b|\b(?:empty|night)\s+(?:motorway|highway)\b|\bmotorway\s+at\s+midnight\b/i.test(p)
   ) {
-    if (!ids.includes("rainy_drive_world")) ids.push("night_drive_world");
+    if (!ids.includes("rainy_motorway_world") && !ids.includes("rainy_drive_world")) ids.push("night_drive_world");
   }
   if (
     /\b(?:evening|sunset)\s+(?:drive|driving)\b|\b(?:night|late)\s+(?:drive|driving)\b.*\b(?:motorway|highway|road)\b/i.test(p) &&
-    !ids.includes("rainy_drive_world")
+    !ids.includes("rainy_drive_world") &&
+    !ids.includes("rainy_motorway_world")
   ) {
     ids.push("evening_drive_world");
   }

@@ -273,6 +273,7 @@ import {
   evaluateWorldProof,
   filterTracksByWorldIdentity,
   filterTracksByFullWorldProof,
+  stripTailWorldViolations,
 } from "../core/editorial/world-proof-gate";
 import { enforceThesisOpener, enforceThesisOpenerGate } from "../core/editorial/thesis-opener-gate";
 import { evaluateHumanUnderstoodGate } from "../core/editorial/human-understood-gate";
@@ -12215,6 +12216,10 @@ router.post("/generate", async (req, res): Promise<void> => {
         );
         if (fullWorldFiltered.removed > 0 && fullWorldFiltered.tracks.length >= 3) {
           assignFT("world_proof_gate", "full playlist world validation strip", fullWorldFiltered.tracks);
+        }
+        const tailStripped = stripTailWorldViolations(delivery.tracks, committedWorld);
+        if (tailStripped.removed > 0 && tailStripped.tracks.length >= 3) {
+          assignFT("world_proof_gate", "tail world violation strip tracks 5-10", tailStripped.tracks);
         }
       }
       const intentFidelity = worldProof.fidelity;

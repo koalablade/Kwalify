@@ -19,6 +19,9 @@ import {
 } from "./world-identity-score";
 import { THESIS_OPENER_MIN_SCORE } from "./thesis-opener-gate";
 
+/** V12 scene-tail sample indices (0-based): tracks 1,3,5,10 */
+export const V12_SCENE_TAIL_SAMPLE_INDICES = [0, 2, 4, 9] as const;
+
 export { WORLD_PROOF_SLOTS, WORLD_BODY_PROOF_SLOTS };
 
 /** V11 full-playlist sample indices (0-based): tracks 1,2,3,5,10,15 */
@@ -148,7 +151,10 @@ function culturalIdentityFailures(
     failures.push(`body_off_world_excess:${bodyOffWorld}`);
   }
 
-  const sample = samplePassRateForTracks(tracks, profile, V11_FULL_PLAYLIST_SAMPLE_INDICES);
+  const sampleIndices = [
+    ...new Set([...V11_FULL_PLAYLIST_SAMPLE_INDICES, ...V12_SCENE_TAIL_SAMPLE_INDICES]),
+  ] as readonly number[];
+  const sample = samplePassRateForTracks(tracks, profile, sampleIndices);
   const requiredRate = requiredSamplePassRate(coverageLevel);
   const fullPlaylistPassed = sample.passRate >= requiredRate;
   if (!fullPlaylistPassed) {
@@ -263,6 +269,29 @@ export function filterTracksByWorldIdentity<T extends IntentFidelityTrack & { tr
     return kept.slice(0, result.honestPartialCap);
   }
   return selectIntentFidelityHonestPartialTracks(tracks, result, committed);
+}
+
+/** V12 tail strip — remove off-world tracks 5–10 without backfill. */
+export function stripTailWorldViolations<T extends IntentFidelityTrack>(
+  tracks: T[],
+  committed: CommittedWorld | null,
+): { tracks: T[]; removed: number } {
+  if (!committed?.hardLock || tracks.length <= 5) return { tracks, removed: 0 };
+  const profile = resolveCulturalProfileForCommitted(committed);
+  if (!profile) return { tracks, removed: 0 };
+
+  const head = tracks.slice(0, 4);
+  const tail = tracks.slice(4, 10);
+  const rest = tracks.slice(10);
+  const keptTail: T[] = [];
+  let removed = 0;
+  for (const track of tail) {
+    const score = scoreTrackWorldIdentity(track, profile);
+    if (score >= SAMPLE_MIN_WORLD_SCORE) keptTail.push(track);
+    else removed += 1;
+  }
+  if (removed === 0) return { tracks, removed: 0 };
+  return { tracks: [...head, ...keptTail, ...rest], removed };
 }
 
 /** V11 final pass — remove off-world tracks without generic backfill. */

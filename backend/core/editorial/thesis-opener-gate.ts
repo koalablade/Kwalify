@@ -12,9 +12,10 @@ import {
   isAnchorArtistForProfile,
   type WorldIdentityTrack,
 } from "./world-identity-score";
-import { promoteWorldThesisOpener, rankThesisOpenerCandidate } from "./opener-hygiene";
+import { promoteWorldThesisOpener, rankThesisOpenerCandidate, isRemixBaitTrackTitle } from "./opener-hygiene";
 
 export const THESIS_OPENER_MIN_SCORE = 0.8;
+export const THESIS_OPENER_UNDENIABLE_SCORE = 0.85;
 
 export type ThesisOpenerResult<T extends WorldIdentityTrack> = {
   tracks: T[];
@@ -35,6 +36,10 @@ export function trackMeetsThesisOpener(
   if (!profile) return { passed: true, score: 0.75 };
   const score = scoreTrackWorldIdentity(track, profile);
   const anchor = isAnchorArtistForProfile(track.artistName, profile);
+  const title = String(track.trackName ?? "").trim();
+  if (isRemixBaitTrackTitle(title) && !anchor) {
+    return { passed: false, score };
+  }
   const minScore = profile.openerRules.minWorldIdentityScore ?? THESIS_OPENER_MIN_SCORE;
   return { passed: anchor || score >= minScore, score };
 }
@@ -63,6 +68,9 @@ function rankOpenerForProfile<T extends WorldIdentityTrack>(
   track: T,
   profile: CulturalWorldProfile,
 ): number {
+  const title = String(track.trackName ?? "").trim();
+  const anchor = isAnchorArtistForProfile(track.artistName, profile);
+  if (isRemixBaitTrackTitle(title) && !anchor) return -1;
   return rankThesisOpenerCandidate(
     track,
     profile,
