@@ -15,6 +15,7 @@ import {
   type ActivityTrackInput,
 } from "./activity-profiles";
 import { inferWorldIdentityIdsFromPrompt } from "../core/editorial/world-identity-gate";
+import { resolveCommittedWorld } from "../core/committed-world";
 import {
   detectUkHipHopScene,
   ukHipHopRetrievalBoost,
@@ -206,10 +207,13 @@ const COMMITTED_WORLD_RETRIEVAL_IDS = [
   "party_prep_world",
   "gym_energy_world",
   "classic_rock_world",
+  "yacht_rock_world",
   "dad_secret_world",
   "rainy_drive_world",
+  "night_drive_world",
   "melancholy_drive",
   "evening_drive_world",
+  "disco_party_world",
   "chill_rainy_world",
   "goth_world",
   "grunge_world",
@@ -226,6 +230,9 @@ const COMMITTED_WORLD_GENRE_FAMILIES: Record<string, string[]> = {
   party_prep_world: ["pop", "electronic", "disco", "hip_hop", "soul"],
   gym_energy_world: ["hip_hop", "electronic", "pop", "rock", "metal"],
   classic_rock_world: ["rock"],
+  yacht_rock_world: ["rock", "pop", "soul"],
+  night_drive_world: ["indie", "electronic", "rock"],
+  disco_party_world: ["soul", "pop", "electronic"],
   dad_secret_world: ["rock", "pop", "soul"],
   rainy_drive_world: ["indie", "rock", "electronic"],
   melancholy_drive: ["indie", "rock", "electronic"],
@@ -334,10 +341,13 @@ export function buildPromptRetrievalProfile(
   const genre = detectGenreExpectations(vibe, intent);
   const activityProfile = resolveActivityProfile(vibe, intent);
   const ukHipHopScene = detectUkHipHopScene(vibe);
+  const committedWorld = resolveCommittedWorld({ prompt: vibe, lockedIntent: intent });
   const committedWorldId =
+    committedWorld?.id ??
     inferWorldIdentityIdsFromPrompt(vibe).find((id) =>
       (COMMITTED_WORLD_RETRIEVAL_IDS as readonly string[]).includes(id),
-    ) ?? null;
+    ) ??
+    null;
   const highConfidenceActivity =
     (activity.confidence >= 0.85 && activity.activity !== null) ||
     (committedWorldId != null && activity.confidence >= 0.7);
@@ -627,7 +637,12 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
 
   if (eligible.length === 0) {
     const inferredWorldIds = inferWorldIdentityIdsFromPrompt(opts.vibe);
+    const committed = resolveCommittedWorld({
+      prompt: opts.vibe,
+      lockedIntent: opts.intent,
+    });
     const worldCommitted =
+      committed?.hardLock === true ||
       retrievalProfile.committedWorldId != null ||
       (opts.activeWorldIds?.length ?? 0) > 0 ||
       inferredWorldIds.length > 0 ||
@@ -649,7 +664,8 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
           outputCount: thinPool.length,
           cap: thinCap,
           fallback: "world_committed_thin_honest_pool",
-          committedWorldId: retrievalProfile.committedWorldId,
+          committedWorldId: committed?.id ?? retrievalProfile.committedWorldId,
+          committedWorldHardLock: committed?.hardLock ?? false,
           inferredWorldIds,
           activityProfileId: retrievalProfile.activityProfile?.id ?? null,
         },

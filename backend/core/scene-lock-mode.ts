@@ -165,10 +165,28 @@ const CULTURAL_PROFILES: CulturalSceneProfile[] = [
     anchors: [
       /\b(?:70s?|seventies)\s+rock\b/i,
       /\bclassic\s+rock\b/i,
+      /\bdad\s+rock\b/i,
+      /\barena\s+rock\b/i,
     ],
     id: "classic_rock_world",
     allowedGenreFamilies: ["rock", "blues", "metal"],
     offSceneGenreFamilies: ["pop", "hip_hop", "electronic", "country", "latin", "reggae", "rnb"],
+  },
+  {
+    anchors: [/\byacht\s+rock\b/i],
+    id: "yacht_rock_world",
+    allowedGenreFamilies: ["rock", "pop", "soul", "rnb"],
+    offSceneGenreFamilies: ["metal", "hip_hop", "electronic", "country", "latin", "reggae"],
+  },
+  {
+    anchors: [
+      /\b(?:motorway|highway)\s+at\s+(?:night|midnight)\b/i,
+      /\bnight\s+drive\b/i,
+      /\b(?:empty|night)\s+(?:motorway|highway)\b/i,
+    ],
+    id: "night_drive_world",
+    allowedGenreFamilies: ["indie", "electronic", "rock", "rnb", "soul"],
+    offSceneGenreFamilies: ["metal", "country", "folk", "hip_hop", "latin"],
   },
   {
     anchors: [

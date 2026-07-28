@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { resolveCommittedWorld } from "../core/committed-world";
+import { evaluateIntentFidelity } from "../core/editorial/intent-fidelity-gate";
 import {
   inferWorldIdentityIdsFromPrompt,
   isSafetyBlanketOutsideWorld,
@@ -12,6 +14,87 @@ import { buildLockedIntent } from "../core/v3/intent";
 import { analyzeVibe } from "../lib/emotion";
 
 describe("V6 human quality sprint", () => {
+  it("resolveCommittedWorld locks dad rock to classic_rock_world", () => {
+    const world = resolveCommittedWorld({ prompt: "dads rock BBQ" });
+    assert.ok(world);
+    assert.equal(world.id, "classic_rock_world");
+    assert.equal(world.hardLock, true);
+    assert.equal(world.source, "explicit_genre");
+  });
+
+  it("resolveCommittedWorld locks motorway rain to rainy_drive_world", () => {
+    const world = resolveCommittedWorld({
+      prompt: "empty motorway at midnight, rain on the windscreen",
+    });
+    assert.ok(world);
+    assert.equal(world.id, "rainy_drive_world");
+    assert.equal(world.hardLock, true);
+  });
+
+  it("resolveCommittedWorld locks yacht rock and gym aggressive worlds", () => {
+    const yacht = resolveCommittedWorld({ prompt: "yacht rock sunset by the pool" });
+    assert.equal(yacht?.id, "yacht_rock_world");
+    assert.equal(yacht?.hardLock, true);
+
+    const gym = resolveCommittedWorld({ prompt: "heavy gym workout, aggressive" });
+    assert.equal(gym?.id, "angry_rock_world");
+    assert.equal(gym?.hardLock, true);
+
+    const disco = resolveCommittedWorld({ prompt: "70s disco party rooftop" });
+    assert.equal(disco?.id, "disco_party_world");
+    assert.equal(disco?.hardLock, true);
+  });
+
+  it("intent fidelity rejects Bon Iver opener on dad rock hard lock", () => {
+    const committed = resolveCommittedWorld({ prompt: "dad rock" })!;
+    const result = evaluateIntentFidelity({
+      committed,
+      prompt: "dad rock",
+      requestedLength: 25,
+      tracks: [
+        { trackId: "1", trackName: "Holocene", artistName: "Bon Iver", genreFamily: "indie", energy: 0.3 },
+        { trackId: "2", trackName: "Don't Stop Believin'", artistName: "Journey", genreFamily: "rock", energy: 0.7 },
+        { trackId: "3", trackName: "Sweet Child O' Mine", artistName: "Guns N' Roses", genreFamily: "rock", energy: 0.75 },
+      ],
+    });
+    assert.equal(result.openerPassed, false);
+    assert.equal(result.passed, false);
+  });
+
+  it("intent fidelity rejects Phoebe Bridgers on rainy motorway hard lock", () => {
+    const committed = resolveCommittedWorld({
+      prompt: "empty motorway at midnight, rain on the windscreen",
+    })!;
+    const result = evaluateIntentFidelity({
+      committed,
+      prompt: "empty motorway at midnight, rain on the windscreen",
+      requestedLength: 25,
+      tracks: [
+        { trackId: "1", trackName: "Moon Song", artistName: "Phoebe Bridgers", genreFamily: "indie", energy: 0.35 },
+        { trackId: "2", trackName: "Intro", artistName: "The xx", genreFamily: "electronic", energy: 0.4 },
+        { trackId: "3", trackName: "Nightcall", artistName: "Kavinsky", genreFamily: "electronic", energy: 0.55 },
+      ],
+    });
+    assert.equal(result.openerPassed, false);
+    assert.equal(isSafetyBlanketOutsideWorld("Phoebe Bridgers", committed.worldIds), true);
+  });
+
+  it("intent_fidelity_failed triggers honest partial not pass", () => {
+    const result = evaluateHumanQualityGate({
+      trackCount: 18,
+      requestedLength: 25,
+      humanSavePassed: true,
+      wouldSpotifyMakeThis: true,
+      dominantWorldDensity: 0.8,
+      intentFidelityFailed: true,
+      committedWorldHardLock: true,
+      activeWorldId: "classic_rock_world",
+    });
+    assert.equal(result.action, "honest_partial");
+    assert.ok(result.reasons.includes("intent_fidelity_failed"));
+    assert.ok(result.salvageableCount <= 12);
+  });
+
   it("dad rock maps to classic_rock_world and rejects Bon Iver under hard lock", () => {
     const ids = inferWorldIdentityIdsFromPrompt("dad rock playlist for the motorway");
     assert.ok(ids.includes("classic_rock_world"));

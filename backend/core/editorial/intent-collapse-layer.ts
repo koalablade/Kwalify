@@ -10,6 +10,7 @@ import { getGenreFamily } from "../v3/global-diversity-controller";
 import type { LockedIntent } from "../v3/intent";
 import { extractSceneDescriptor } from "../scene-world-layer";
 import { resolveHumanScene } from "../../lib/human-scene-knowledge";
+import { resolveCommittedWorld, type CommittedWorld } from "../committed-world";
 
 export type SceneType =
   | "commute"
@@ -145,18 +146,36 @@ export const EDITORIAL_WORLD_ARCHETYPE_COMPAT: Record<string, string[]> = {
   festival_golden_hour: ["sunset_indie_drive", "upbeat_alt_morning_drive", "modern_feelgood_pop"],
   tumblr_indie_2012: ["soft_indie_morning", "indie_balanced_default", "balanced_scene_default"],
   bloghouse_2008: ["festival_electronic", "gym_confidence_boost", "night_drive_electronic"],
-  country_open_road: ["country_open_road", "balanced_scene_default"],
-  rock_anthem_drive: ["rock_anthem_drive", "gym_confidence_boost", "balanced_scene_default"],
+  country_open_road: ["country_open_road"],
+  rock_anthem_drive: ["rock_anthem_drive", "gym_confidence_boost"],
   hip_hop_session: ["gym_confidence_boost", "modern_hiphop_focus", "energetic_workout"],
   rnb_soul_evening: ["late_night_rnb", "late_night_indie_interior", "light_pop_sunday"],
-  metal_intensity: ["gym_confidence_boost", "festival_electronic", "energetic_workout"],
-  goth_darkwave_night: ["nocturnal_alt", "late_night_indie"],
-  grunge_90s_night: ["nocturnal_alt", "mellow_alt_stroll"],
+  metal_intensity: ["metal_intensity", "gym_confidence_boost"],
+  goth_darkwave_night: ["goth_darkwave_night", "nocturnal_alt"],
+  grunge_90s_night: ["grunge_90s_night", "nocturnal_alt"],
   lofi_study_loop: ["ambient_focus_study", "coding_flow"],
   boss_fight_intensity: ["gym_confidence_boost"],
   quiet_rage_simmer: ["nocturnal_alt"],
   rave_comedown_afterglow: ["late_night_indie", "nocturnal_alt"],
   sleepy_gym_chill: ["gym_confidence_boost"],
+};
+
+/** Archetype fallback chains — never route rock/country/gym/party/disco/metal to indie default. */
+export const ARCHETYPE_FALLBACK_CHAINS: Record<string, string[]> = {
+  rock_anthem_drive: ["rock_anthem_drive", "gym_confidence_boost"],
+  country_open_road: ["country_open_road"],
+  gym_confidence_boost: ["gym_confidence_boost", "energetic_workout"],
+  festival_electronic: ["festival_electronic", "gym_confidence_boost"],
+  disco_party_nostalgia: ["disco_party_nostalgia"],
+  metal_intensity: ["metal_intensity", "gym_confidence_boost"],
+  grunge_90s_night: ["grunge_90s_night"],
+  goth_darkwave_night: ["goth_darkwave_night"],
+  late_night_city_rain: ["late_night_city_rain", "late_night_indie_interior"],
+  night_drive_electronic: ["night_drive_electronic"],
+  indie_balanced_default: ["indie_balanced_default", "balanced_scene_default"],
+  balanced_scene_default: ["indie_balanced_default", "balanced_scene_default"],
+  sunset_indie_drive: ["sunset_indie_drive"],
+  soft_indie_morning: ["soft_indie_morning"],
 };
 
 const EDITORIAL_WORLDS: EditorialWorldDefinition[] = [
@@ -1424,9 +1443,36 @@ export function selectEditorialWorld(opts: {
   libraryTracks?: IntentCollapseTrack[];
   targetCount?: number;
   sceneArchetypeId?: string | null;
+  committedWorld?: CommittedWorld | null;
 }): EditorialWorldDefinition {
   const lower = opts.vibe.toLowerCase();
   const eraStart = opts.lockedIntent.eraRange?.start ?? null;
+  const committed = opts.committedWorld ?? resolveCommittedWorld({
+    prompt: opts.vibe,
+    lockedIntent: opts.lockedIntent,
+    editorialWorldTag: null,
+  });
+
+  if (committed?.hardLock && committed.source === "explicit_genre") {
+    const committedTag =
+      committed.id === "classic_rock_world" || committed.id === "yacht_rock_world" || committed.id === "dad_secret_world"
+        ? "rock_anthem_drive"
+      : committed.id === "gym_rock_world" || committed.id === "angry_rock_world"
+        ? "metal_intensity"
+      : committed.id === "disco_party_world"
+        ? "disco_party_nostalgia"
+      : committed.id === "goth_world"
+        ? "goth_darkwave_night"
+      : committed.id === "grunge_world"
+        ? "grunge_90s_night"
+      : committed.id === "rainy_drive_world" || committed.id === "night_drive_world"
+        ? "late_night_city_rain"
+      : null;
+    if (committedTag) {
+      const forced = EDITORIAL_WORLDS.find((row) => row.tag === committedTag);
+      if (forced) return forced;
+    }
+  }
 
   // Human moment intent → expected energy → editorial world → library adaptation.
   // When the prompt's energy is decisive (e.g. "peak gym session" or "falling
@@ -1518,7 +1564,7 @@ export function selectEditorialWorld(opts: {
   }
 
   const genreLockActive = lockedFamilies.length > 0 || opts.lockedIntent.genreFamilies.length > 0;
-  if (genreLockActive) {
+  if (genreLockActive || (committed?.hardLock && committed.source === "explicit_genre")) {
     candidatePool = candidatePool.filter((row) => row.world.tag !== "indie_balanced_default");
   }
 

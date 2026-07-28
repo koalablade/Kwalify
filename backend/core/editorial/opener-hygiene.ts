@@ -3,9 +3,9 @@
  * Used by last-mile API sanitization and fast unit tests.
  */
 
-/** Psych-indie / retrieval filler artists that must not anchor openers outside natural worlds. */
+  /** Psych-indie / landfill opener fillers — world-aware suppression at API hygiene. */
 export const OPENER_FILLER_PATTERN =
-  /\b(?:kasabian|q\s+lazzarus|tame\s+impala|glenn\s+frey|arctic\s+monkeys|the\s+weeknd|bon\s+iver|clairo|noah\s+kahan|dayglow|gregory\s+alan\s+isakov|badbadnotgood)\b/i;
+  /\b(?:kasabian|q\s+lazzarus|tame\s+impala|glenn\s+frey|arctic\s+monkeys|the\s+weeknd|bon\s+iver|clairo|noah\s+kahan|dayglow|gregory\s+alan\s+isakov|badbadnotgood|sufjan\s+stevens|phoebe\s+bridgers)\b/i;
 
 export function trackArtistName(track: { artistName?: string | null; artist?: string | null }): string {
   return String(track.artistName ?? track.artist ?? "").trim();
@@ -17,6 +17,11 @@ const ZERO_PSYCH_OPENER_WORLDS = new Set([
   "dad_secret_world",
   "older_sibling_world",
   "classic_rock_world",
+  "yacht_rock_world",
+  "gym_rock_world",
+  "angry_rock_world",
+  "night_drive_world",
+  "rainy_drive_world",
   "goth_world",
   "focus_study_world",
   "coffee_soft_focus_world",

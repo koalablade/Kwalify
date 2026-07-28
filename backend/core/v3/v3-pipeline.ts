@@ -46,6 +46,8 @@ import {
   type HumanQualityGateResult,
 } from "../editorial/human-quality-gate";
 import { inferWorldIdentityIdsFromPrompt } from "../editorial/world-identity-gate";
+import { resolveCommittedWorld } from "../committed-world";
+import { evaluateIntentFidelity } from "../editorial/intent-fidelity-gate";
 import { detectUkHipHopScene } from "../../lib/uk-hip-hop-scene";
 import { promptSuppressesChristmas } from "../../lib/human-scene-knowledge";
 import { artistEcosystemBoost, type ArtistEcosystemGraph } from "../../lib/artist-ecosystem-graph";
@@ -1014,6 +1016,12 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     ),
   });
   recordTiming("intentExpansion", intentExpansionStartedAt);
+  const committedWorld = resolveCommittedWorld({
+    prompt: vibe,
+    lockedIntent,
+    editorialWorldTag: collapsedIntent.intent.editorialWorldTag,
+  });
+  const activeCommittedWorldId = committedWorld?.id ?? inferredWorldIds[0] ?? null;
   let editorialIntentVector: EditorialIntentVector = applyPromptIntentModifiers(
     collapsedIntent.intent,
     vibe,
@@ -2893,13 +2901,31 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         })),
       ).purity
     : null;
+  const intentFidelity = evaluateIntentFidelity({
+    tracks: finalTracks.map((t) => ({
+      trackId: t.trackId,
+      trackName: t.trackName,
+      artistName: t.artistName,
+      albumName: t.albumName,
+      genreFamily: t.genreFamily,
+      genrePrimary: t.genrePrimary,
+      spotifyArtistGenres: (t as { spotifyArtistGenres?: unknown }).spotifyArtistGenres,
+      energy: t.energy,
+      valence: t.valence,
+      danceability: t.danceability,
+      acousticness: t.acousticness,
+    })),
+    committed: committedWorld,
+    prompt: vibe,
+    requestedLength: targetCount,
+  });
   const humanQualityGate: HumanQualityGateResult = evaluateHumanQualityGate({
     trackCount: finalTracks.length,
     requestedLength: targetCount,
     wouldSpotifyMakeThis: worldCoherenceFinal.wouldSpotifyMakeThis,
     dominantWorldDensity: worldCoherenceFinal.dominantWorldDensity,
     retrievalEntropy: worldCoherenceFinal.retrievalEntropy,
-    humanSavePassed: humanSaveGate.passed,
+    humanSavePassed: humanSaveGate.passed && humanSaveGate.evaluation.humanSaveable,
     curatorScore: humanSaveGate.evaluation.curatorScore ?? null,
     degradedDelivery: humanSaveabilityDiagnostics.degradedDelivery === true,
     seasonalLeakage: false,
@@ -2908,8 +2934,12 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     uniqueArtistCount: artistCountsForGate.size,
     dominantArtistShare,
     promptLabel: vibe,
-    activeWorldId: inferredWorldIds[0] ?? null,
+    activeWorldId: activeCommittedWorldId,
     feelGoodLanePurity,
+    intentFidelityFailed:
+      committedWorld?.hardLock === true &&
+      (!intentFidelity.passed || !intentFidelity.openerPassed),
+    committedWorldHardLock: committedWorld?.hardLock ?? false,
   });
   if (humanQualityGate.action === "refuse") {
     throw new HumanQualityGateError(humanQualityGate);
@@ -3589,6 +3619,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       replayConfidence: humanQualityGate.replayConfidence,
       worldCoherenceOk: humanQualityGate.worldCoherenceOk,
       stubUnderfill: humanQualityGate.stubUnderfill,
+      intentFidelity,
     },
     genrePrototypeCentres: genrePrototypeCentres.map((c) => ({
       id: c.id,

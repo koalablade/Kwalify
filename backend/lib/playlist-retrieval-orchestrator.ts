@@ -25,6 +25,7 @@ import {
   type RetrievalTrackInput,
 } from "./candidate-retrieval-pipeline";
 import { inferWorldIdentityIdsFromPrompt } from "../core/editorial/world-identity-gate";
+import { resolveCommittedWorld } from "../core/committed-world";
 import type { LibrarySignals } from "./library-signals";
 import {
   buildPromptSonicTarget,
@@ -869,6 +870,7 @@ export function orchestratePlaylistRetrieval<T extends RetrievalTrackInput>(
   const sufficiencyMin = functionalPrompt ? 42 : 30;
   const maxAttempts = validCandidateSupply.strictValidCount < minRequired ? 3 : 2;
   const activeWorldIds = inferWorldIdentityIdsFromPrompt(opts.vibe);
+  const committedWorld = resolveCommittedWorld({ prompt: opts.vibe, lockedIntent: opts.intent });
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     retrievalAttempts += 1;

@@ -38,6 +38,10 @@ export type HumanQualityGateInput = {
   uniqueGenreFamilies?: number | null;
   /** Psych-indie opener fillers in slots 1–3 (Tame/Kasabian/Q chain smell). */
   psychIndieOpenerFillers?: number | null;
+  /** Intent fidelity gate failed on sampled tracks or opener. */
+  intentFidelityFailed?: boolean | null;
+  /** Committed world hard-lock active for this prompt. */
+  committedWorldHardLock?: boolean | null;
 };
 
 export type HumanQualityGateResult = {
@@ -159,6 +163,7 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   if (weakWorld) reasons.push("world_incoherent");
   if (input.degradedDelivery) reasons.push("degraded_delivery");
   if (input.humanSavePassed === false) reasons.push("human_save_failed");
+  if (input.intentFidelityFailed === true) reasons.push("intent_fidelity_failed");
   if (artistShare != null && artistShare >= 0.55 && count >= 8) reasons.push("artist_dominance");
   if (density != null && density < 0.42 && count >= MIN_SALVAGEABLE) reasons.push("identity_drift");
   if (
@@ -275,6 +280,39 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
       stubUnderfill,
     };
   }
+  if (
+    reasons.includes("intent_fidelity_failed") ||
+    (input.committedWorldHardLock === true && reasons.includes("world_lane_mash"))
+  ) {
+    if (salvageableCount >= 3) {
+      const partialCap = Math.min(salvageableCount, Math.min(12, Math.ceil(requested * 0.4)));
+      return {
+        action: "honest_partial",
+        reasons,
+        userMessage: buildHumanQualityPartialMessage(partialCap, requested, reasons),
+        salvageableCount: partialCap,
+        wouldSaveConfidence,
+        replayConfidence,
+        worldCoherenceOk,
+        stubUnderfill,
+      };
+    }
+    const refuseReasons = reasons.length > 0 ? reasons : ["intent_fidelity_failed"];
+    return {
+      action: "refuse",
+      reasons: refuseReasons,
+      userMessage: buildHumanQualityRefuseMessage(refuseReasons, {
+        trackCount: count,
+        requestedLength: requested,
+        promptLabel: input.promptLabel,
+      }),
+      salvageableCount: 0,
+      wouldSaveConfidence,
+      replayConfidence,
+      worldCoherenceOk,
+      stubUnderfill,
+    };
+  }
   if (input.degradedDelivery === true) {
     const partialCap = Math.min(count, Math.min(12, Math.ceil(requested * 0.4)));
     const partialReasons = reasons.length > 0 ? reasons : ["degraded_delivery"];
@@ -335,7 +373,9 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
 
   return {
     action: "pass",
-    reasons: weakWorld && !reasons.includes("human_save_failed") ? ["world_soft_warn"] : [],
+    reasons: weakWorld && !reasons.includes("human_save_failed") && !reasons.includes("intent_fidelity_failed")
+      ? ["world_soft_warn"]
+      : [],
     userMessage: null,
     salvageableCount: count,
     wouldSaveConfidence,

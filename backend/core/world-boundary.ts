@@ -150,6 +150,14 @@ export function resolveWorldBoundary(opts: {
         allowed: ["rock", "blues", "metal"],
         off: ["pop", "hip_hop", "electronic", "country", "latin", "reggae", "rnb"],
       },
+      yacht_rock_world: {
+        allowed: ["rock", "pop", "soul", "rnb"],
+        off: ["metal", "hip_hop", "electronic", "country", "latin", "reggae"],
+      },
+      night_drive_world: {
+        allowed: ["indie", "electronic", "rock", "rnb", "soul"],
+        off: ["metal", "country", "folk", "hip_hop", "latin"],
+      },
       lofi_world: {
         allowed: ["indie", "electronic", "jazz", "hip_hop", "soul"],
         off: ["metal", "rock", "country", "reggae", "latin", "pop"],

@@ -173,6 +173,29 @@ export const SAFETY_BLANKET_ARTISTS: SafetyBlanketArtist[] = [
     pattern: /\bbadbadnotgood\b/i,
     naturalWorlds: ["evening_drive_world", "coffee_soft_focus_world", "late_night_calm_world"],
   },
+  {
+    id: "sufjan_stevens",
+    pattern: /\bsufjan\s+stevens\b/i,
+    naturalWorlds: [
+      "indie_dream_world",
+      "soft_sad_world",
+      "sunday_chill_world",
+      "rainy_reading_world",
+      "acoustic_sunday_world",
+      "film_ending_world",
+    ],
+  },
+  {
+    id: "phoebe_bridgers",
+    pattern: /\bphoebe\s+bridgers\b/i,
+    naturalWorlds: [
+      "indie_dream_world",
+      "soft_sad_world",
+      "rainy_reading_world",
+      "sunday_chill_world",
+      "film_ending_world",
+    ],
+  },
 ];
 
 /** Worlds that must never use classic safety blankets as filler. */
@@ -185,6 +208,8 @@ const STRICT_WORLD_IDS = new Set([
   "gym_rock_world",
   "angry_rock_world",
   "classic_rock_world",
+  "yacht_rock_world",
+  "night_drive_world",
   "dad_secret_world",
   "neon_tek_drive",
   "boss_fight",
@@ -718,6 +743,35 @@ const DAD_SECRET_IDENTITY: WorldIdentityProfile = {
   ],
 };
 
+const YACHT_ROCK_IDENTITY: WorldIdentityProfile = {
+  id: "yacht_rock_world",
+  requireAny: [
+    /\b(?:yacht\s+rock|soft\s+rock|west\s+coast|mellow\s+rock|album\s+rock|blue[-\s]?eyed\s+soul)\b/i,
+    /\b(?:hall\s+&\s+oates|steely\s+dan|michael\s+mcdonald|toto\b|christopher\s+cross|ambrosia|player\b|orleans|rupert\s+holmes|kenny\s+loggins)\b/i,
+  ],
+  rejectAny: [
+    /\b(?:trap\b|drill\b|metal|hardcore|hyperpop|phonk|emo|screamo)\b/i,
+    /\b(?:bon\s+iver|clairo|noah\s+kahan|dayglow|gregory\s+alan\s+isakov|badbadnotgood|sufjan\s+stevens|phoebe\s+bridgers)\b/i,
+  ],
+  energy: { min: 0.35, max: 0.78 },
+  valence: { min: 0.35 },
+};
+
+const NIGHT_DRIVE_IDENTITY: WorldIdentityProfile = {
+  id: "night_drive_world",
+  requireAny: [
+    /\b(?:indie|alt|electronic|synth|dream\s+pop|soft\s+rock|post[-\s]?rock|chillwave)\b/i,
+    /\b(?:the\s+national|war\s+on\s+drugs|m83|chromatics|kavinsky|the\s+midnight|tame\s+impala|beach\s+house|radiohead)\b/i,
+  ],
+  rejectAny: [
+    /\b(?:metal|hardcore|trap\b|drill\b|country|bluegrass|arena\s+rock|classic\s+rock)\b/i,
+    /\b(?:queen\b(?!\s+of\s+the\s+stone)|led\s+zeppelin|ac\/?dc|guns\s+n'?\s*roses|bon\s+jovi|def\s+leppard|dmx\b|travis\s+scott)\b/i,
+    /\b(?:bon\s+iver|clairo|noah\s+kahan|dayglow|gregory\s+alan\s+isakov|badbadnotgood|sufjan\s+stevens)\b/i,
+  ],
+  energy: { min: 0.28, max: 0.72 },
+  valence: { max: 0.62 },
+};
+
 const OLDER_SIBLING_IDENTITY: WorldIdentityProfile = {
   id: "older_sibling_world",
   requireAny: [
@@ -823,6 +877,8 @@ const IDENTITY_BY_LOCK_ID: Record<string, WorldIdentityProfile> = {
   britpop_world: BRITPOP_IDENTITY,
   film_ending_world: FILM_ENDING_IDENTITY,
   dad_secret_world: DAD_SECRET_IDENTITY,
+  yacht_rock_world: YACHT_ROCK_IDENTITY,
+  night_drive_world: NIGHT_DRIVE_IDENTITY,
   older_sibling_world: OLDER_SIBLING_IDENTITY,
   latin_summer_rooftop_world: LATIN_SUMMER_ROOFTOP_IDENTITY,
   commute_world: COMMUTE_WORLD_IDENTITY,
@@ -936,13 +992,18 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   if (/\bgoth\b|\bgothic\b|\bdarkwave\b|\bpost[-\s]?punk\b|\bindustrial\s+goth\b/i.test(p)) {
     ids.push("goth_world");
   }
-  if (
-    /\b(?:dad\s+rock|yacht\s+rock|arena\s+rock|classic\s+rock|70s?\s+rock|80s?\s+rock|seventies\s+rock|eighties\s+rock)\b/i.test(p) ||
+  if (/\barena\s+rock\b/i.test(p)) {
+    ids.push("classic_rock_world");
+  } else if (/\byacht\s+rock\b/i.test(p)) {
+    ids.push("yacht_rock_world");
+    ids.push("dad_secret_world");
+  } else if (
+    /\b(?:dad\s+rock|classic\s+rock|70s?\s+rock|80s?\s+rock|seventies\s+rock|eighties\s+rock)\b/i.test(p) ||
     /\b(?:70s?|seventies)\s+rock\b/i.test(p)
   ) {
     ids.push("classic_rock_world");
   }
-  if (/\bdad\s+rock\b|\byacht\s+rock\b/i.test(p)) ids.push("dad_secret_world");
+  if (/\bdad\s+rock\b/i.test(p)) ids.push("dad_secret_world");
   if (/\blo-?fi\b|\blofi\b|\bchillhop\b|\bstudy\s+beats?\b/i.test(p)) ids.push("lofi_world");
   if (/\bambient\b|\bsoundscape\b|\bno\s+vocals?\b/i.test(p)) ids.push("ambient_world");
   if (
@@ -961,7 +1022,10 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   if (/\bsynthwave\b|\bretrowave\b|\bneon\s+(?:drive|tek|techno|city|nights?|streets?)\b|\b90s?\s+neon\b/i.test(p)) {
     ids.push("neon_tek_drive");
   }
-  if (/\b(?:70s?|seventies)\s+disco\b|\bdisco\s+(?:party|dancefloor|night)\b|\bdisco\b.*\b(?:party|dance)\b/i.test(p)) {
+  if (
+    /\b(?:70s?|seventies)\s+disco\b|\bdisco\s+(?:party|dancefloor|night)\b|\bdisco\b.*\b(?:party|dance)\b/i.test(p) ||
+    (/\bdisco\b/i.test(p) && /\b(?:party|dancefloor|dancing|pregame|groove)\b/i.test(p))
+  ) {
     ids.push("disco_party_world");
   }
   if (
@@ -979,7 +1043,7 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   if (
     /\b(?:motorway|highway)\s+at\s+(?:night|midnight)\b|\b(?:empty|night)\s+(?:motorway|highway)\b|\bmotorway\s+at\s+midnight\b/i.test(p)
   ) {
-    if (!ids.includes("rainy_drive_world")) ids.push("melancholy_drive");
+    if (!ids.includes("rainy_drive_world")) ids.push("night_drive_world");
   }
   if (
     /\b(?:evening|sunset)\s+(?:drive|driving)\b|\b(?:night|late)\s+(?:drive|driving)\b.*\b(?:motorway|highway|road)\b/i.test(p) &&

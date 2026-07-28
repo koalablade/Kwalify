@@ -265,6 +265,8 @@ import {
   evaluateHumanQualityGate,
   HumanQualityGateError,
 } from "../core/editorial/human-quality-gate";
+import { evaluateIntentFidelity } from "../core/editorial/intent-fidelity-gate";
+import { resolveCommittedWorld } from "../core/committed-world";
 import {
   committedWorldQualitySignals,
   LANE_PURITY_WORLD_IDS,
@@ -12079,8 +12081,66 @@ router.post("/generate", async (req, res): Promise<void> => {
         delivery.tracks.length > 0 && artistCounts.size > 0
           ? Math.max(...artistCounts.values()) / delivery.tracks.length
           : null;
-      const terminalWorldIds = inferWorldIdentityIdsFromPrompt(vibe);
-      const terminalActiveWorldId = terminalWorldIds[0] ?? null;
+      const committedWorld = resolveCommittedWorld({
+        prompt: vibe,
+        sceneLock: sceneLockStatus,
+        sceneAliases,
+        scenePrediction: mergedScenePrediction,
+        lockedIntent,
+      });
+      const intentFidelity = evaluateIntentFidelity({
+        tracks: delivery.tracks.map((t) => ({
+          trackId: t.trackId,
+          trackName: t.trackName,
+          artistName: t.artistName,
+          albumName: t.albumName,
+          genreFamily: t.genreFamily,
+          genrePrimary: t.genrePrimary,
+          genres: t.genres ?? null,
+          spotifyArtistGenres: (t as { spotifyArtistGenres?: unknown }).spotifyArtistGenres,
+          albumGenres: (t as { albumGenres?: unknown }).albumGenres,
+          energy: t.energy ?? null,
+          valence: t.valence ?? null,
+          danceability: t.danceability ?? null,
+          instrumentalness: t.instrumentalness ?? null,
+          popularity: (t as { popularity?: number | null }).popularity ?? null,
+          acousticness: t.acousticness ?? null,
+        })),
+        committed: committedWorld,
+        prompt: vibe,
+        requestedLength,
+      });
+      if (committedWorld?.hardLock && !intentFidelity.passed && intentFidelity.worldVerifiedCount >= 3) {
+        const verifiedIds = new Set(
+          intentFidelity.salvageableTracks
+            .map((t) => t.trackId)
+            .filter((id): id is string => typeof id === "string" && id.length > 0),
+        );
+        const salvaged =
+          verifiedIds.size > 0
+            ? delivery.tracks.filter((t) => verifiedIds.has(t.trackId))
+            : (intentFidelity.salvageableTracks as typeof delivery.tracks);
+        assignFT(
+          "intent_fidelity_gate",
+          "hard lock world-verified honest partial",
+          salvaged.slice(0, intentFidelity.honestPartialCap),
+        );
+        finalApiTracks = formatTracksForApi(delivery.tracks, emotionProfile);
+        finalization = {
+          tracks: delivery.tracks as PlaylistTrack[],
+          diagnostics: {
+            ...finalization.diagnostics,
+            intentFidelityGate: intentFidelity,
+            degradedDelivery: true,
+            honestPartialPublished: true,
+          },
+        };
+      }
+      const terminalWorldIds =
+        committedWorld?.worldIds?.length
+          ? committedWorld.worldIds
+          : inferWorldIdentityIdsFromPrompt(vibe);
+      const terminalActiveWorldId = committedWorld?.id ?? terminalWorldIds[0] ?? null;
       const terminalTrackSignals = delivery.tracks.map((t) => ({
         artistName: t.artistName,
         genreFamily: t.genreFamily,
@@ -12123,6 +12183,10 @@ router.post("/generate", async (req, res): Promise<void> => {
         uniqueArtistCount: artistCounts.size,
         dominantArtistShare,
         promptLabel: vibe,
+        intentFidelityFailed:
+          committedWorld?.hardLock === true &&
+          (!intentFidelity.passed || !intentFidelity.openerPassed),
+        committedWorldHardLock: committedWorld?.hardLock ?? false,
         ...terminalWorldSignals,
         committedWorldLaneOk:
           terminalActiveWorldId && LANE_PURITY_WORLD_IDS.has(terminalActiveWorldId)
