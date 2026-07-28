@@ -45,6 +45,8 @@ import {
 
 import { enrichTaxonomyFromAtlas } from "./atlas-loader";
 
+import { buildExperiencePriority } from "./experience-priority";
+
 import type { WorldUnderstandingResult } from "./types";
 
 
@@ -176,6 +178,13 @@ export function interpretWorld(prompt: string): WorldUnderstandingResult {
     pushUnique(matchedConceptIds.lifeContext, ["difficult_period", "transition"]);
   }
 
+  const experiencePriority = buildExperiencePriority(
+    text,
+    taxonomy,
+    momentInterpretation,
+    ambiguousResolution,
+  );
+
   const experienceFingerprint = buildExperienceFingerprint(text, taxonomy, intent);
 
   const summerTransitionHint = momentInterpretation.lifeEvents.some(
@@ -196,6 +205,7 @@ export function interpretWorld(prompt: string): WorldUnderstandingResult {
   ].filter((h, i, arr) => arr.indexOf(h) === i);
 
   const humanMeanings = [
+    ...experiencePriority.humanMeanings,
     ...ambiguousResolution.humanMeanings,
     ...graph.humanMeanings,
     ...universal.humanMeanings,
@@ -214,7 +224,7 @@ export function interpretWorld(prompt: string): WorldUnderstandingResult {
     humanMeanings,
     graphExperiences: graph.experiences,
   });
-  const emotionalArc = buildEmotionalArc(humanExperience);
+  const emotionalArc = buildEmotionalArc(humanExperience, text);
 
   const composed = composeScene(taxonomy, matchedConceptIds, sceneHints[0], {
     sceneHints,
@@ -316,6 +326,7 @@ export function interpretWorld(prompt: string): WorldUnderstandingResult {
 
 
   const humanNarrative =
+    (experiencePriority.confidence >= 0.65 ? experiencePriority.dominantExperience : null) ||
     humanExperience.narrative ||
     buildHumanNarrative(
       scene.label,
@@ -444,6 +455,18 @@ export function interpretWorld(prompt: string): WorldUnderstandingResult {
         prioritizedConcepts: experienceReasoning.prioritizedConcepts,
         alternativeInterpretations: experienceReasoning.alternativeInterpretations,
         confidence: experienceReasoning.confidence,
+      },
+
+      experiencePriority: {
+        dominantExperience: experiencePriority.dominantExperience,
+        confidence: experiencePriority.confidence,
+        conceptRoles: experiencePriority.conceptRoles.map((c) => ({
+          label: c.label,
+          role: c.role,
+          layer: c.layer,
+          whyMentioned: c.whyMentioned,
+        })),
+        humanMeanings: experiencePriority.humanMeanings,
       },
 
     },

@@ -123,6 +123,15 @@ export interface HumanExperienceAuditReport {
     bottleneck: string;
     path_to_improvement: string[];
   };
+  /** Per difficulty/style slice when stratified sampling is used */
+  style_breakdown?: Array<{
+    style: string;
+    count: number;
+    overall_pct: number;
+    weakest_dimension: AuditDimension;
+    weakest_pct: number;
+  }>;
+  stratified?: boolean;
 }
 
 const ACTIVITY_SIGNALS: Array<{ re: RegExp; tokens: string[] }> = [
@@ -283,12 +292,90 @@ const CURRENT_WEIGHTS = {
   environment: 0.5,
 };
 
-function loadBenchmark(limit?: number): BenchmarkPrompt[] {
-  const path = join(__dirname, "../../tests/human-experience-benchmark.json");
+function loadBenchmarkFull(benchmarkPath?: string): BenchmarkPrompt[] {
+  const path =
+    benchmarkPath ?? join(__dirname, "../../tests/human-experience-benchmark.json");
   if (!existsSync(path)) return [];
   const raw = JSON.parse(readFileSync(path, "utf8")) as { prompts: BenchmarkPrompt[] };
-  const prompts = raw.prompts ?? [];
-  return limit ? prompts.slice(0, limit) : prompts;
+  return raw.prompts ?? [];
+}
+
+export interface BenchmarkLoadOptions {
+  limit?: number;
+  stratified?: boolean;
+  benchmarkPath?: string;
+  styles?: string[];
+  minWords?: number;
+}
+
+function filterBenchmarkPrompts(
+  prompts: BenchmarkPrompt[],
+  options?: Pick<BenchmarkLoadOptions, "styles" | "minWords">,
+): BenchmarkPrompt[] {
+  let filtered = prompts;
+  if (options?.styles?.length) {
+    const allowed = new Set(options.styles.map((s) => s.toLowerCase()));
+    filtered = filtered.filter((p) => allowed.has((p.style || p.category).toLowerCase()));
+  }
+  if (options?.minWords && options.minWords > 0) {
+    filtered = filtered.filter(
+      (p) => p.prompt.trim().split(/\s+/).filter(Boolean).length >= options.minWords!,
+    );
+  }
+  return filtered;
+}
+
+/** Evenly sample across style/difficulty buckets (golden, short, medium, long, messy, …). */
+export function stratifiedBenchmarkSample(
+  prompts: BenchmarkPrompt[],
+  limit: number,
+): BenchmarkPrompt[] {
+  if (limit >= prompts.length) return [...prompts];
+
+  const byStyle = new Map<string, BenchmarkPrompt[]>();
+  for (const p of prompts) {
+    const style = p.style || p.category || "unknown";
+    const bucket = byStyle.get(style) ?? [];
+    bucket.push(p);
+    byStyle.set(style, bucket);
+  }
+
+  const styleOrder = ["golden", "short", "medium", "long", "messy", "poetic", "british", "ambiguous"];
+  const styles = [
+    ...styleOrder.filter((s) => byStyle.has(s)),
+    ...[...byStyle.keys()].filter((s) => !styleOrder.includes(s)).sort(),
+  ];
+
+  const result: BenchmarkPrompt[] = [];
+  const golden = byStyle.get("golden") ?? [];
+  result.push(...golden.slice(0, limit));
+  let remaining = limit - result.length;
+  const otherStyles = styles.filter((s) => s !== "golden");
+  if (otherStyles.length === 0 || remaining <= 0) return result.slice(0, limit);
+
+  let leftover = remaining % otherStyles.length;
+  const basePerStyle = Math.floor(remaining / otherStyles.length);
+
+  for (const style of otherStyles) {
+    const bucket = byStyle.get(style) ?? [];
+    const take = Math.min(bucket.length, basePerStyle + (leftover > 0 ? 1 : 0));
+    if (leftover > 0) leftover -= 1;
+    if (take === 0) continue;
+    const step = Math.max(1, Math.floor(bucket.length / take));
+    for (let i = 0; i < take; i++) {
+      const idx = Math.min(i * step, bucket.length - 1);
+      result.push(bucket[idx]!);
+    }
+  }
+
+  return result.slice(0, limit);
+}
+
+function loadBenchmark(options?: BenchmarkLoadOptions): BenchmarkPrompt[] {
+  const prompts = filterBenchmarkPrompts(loadBenchmarkFull(options?.benchmarkPath), options);
+  const limit = options?.limit;
+  if (!limit) return prompts;
+  return options?.stratified ? stratifiedBenchmarkSample(prompts, limit) : prompts.slice(0, limit);
 }
 
 function matchAny(haystack: string[], needles: string[]): boolean {
@@ -688,6 +775,204 @@ function buildDebugSnapshot(result: WorldUnderstandingResult): AuditFailure["deb
   };
 }
 
+export const AUDIT_DIMENSIONS: AuditDimension[] = [
+  "humanExperience",
+  "emotionalInterpretation",
+  "narrative",
+  "activity",
+  "environment",
+  "weatherInterpretation",
+  "socialContext",
+  "lifeEventDetection",
+  "emotionalArc",
+  "playlistIntent",
+  "musicalBehaviour",
+];
+
+export interface AuditCaseRecord {
+  index: number;
+  prompt: string;
+  category: string;
+  style: string;
+  detectedScene: { id: string; label: string; score: number };
+  emotionalInterpretation: string[];
+  expectedExperienceDirection: Record<string, string[]>;
+  playlistReasoning: {
+    intent: string;
+    narrative: string;
+    emotionalArc: string;
+    musicalBehaviours: string[];
+    humanMeanings: string[];
+  };
+  priorityWeighting: Array<{
+    label: string;
+    role: string;
+    weights: { physical: number; emotional: number; narrative: number };
+  }>;
+  scoreBreakdown: DimensionResult[];
+  overallScore: number;
+  passed: boolean;
+  weaknesses: FailureCategory[];
+  improvementSuggestions: string[];
+  processingTimeMs: number;
+  error?: string;
+  failedDimensions?: Array<{ dimension: AuditDimension; expected: string[]; actual: string[] }>;
+  debug?: AuditFailure["debug"];
+}
+
+function auditCaseCore(
+  prompt: string,
+  category: string,
+  style: string,
+  index: number,
+): AuditCaseRecord {
+  const started = Date.now();
+  const result = interpretWorld(prompt);
+  const expectations = deriveExpectations(prompt, category);
+  const actualRaw = extractActual(result);
+
+  const dimensionKeyMap: Record<AuditDimension, keyof PromptExpectations | "musicalBehaviour"> = {
+    humanExperience: "humanExperience",
+    emotionalInterpretation: "emotion",
+    narrative: "narrative",
+    activity: "activity",
+    environment: "environment",
+    weatherInterpretation: "weather",
+    socialContext: "social",
+    lifeEventDetection: "lifeEvent",
+    emotionalArc: "emotionalArc",
+    playlistIntent: "playlistIntent",
+    musicalBehaviour: "requiresMusicalBehaviour",
+  };
+
+  const actualKeyMap: Record<AuditDimension, string> = {
+    humanExperience: "humanExperience",
+    emotionalInterpretation: "emotion",
+    narrative: "narrative",
+    activity: "activity",
+    environment: "environment",
+    weatherInterpretation: "weather",
+    socialContext: "social",
+    lifeEventDetection: "lifeEvent",
+    emotionalArc: "emotionalArc",
+    playlistIntent: "playlistIntent",
+    musicalBehaviour: "musicalBehaviour",
+  };
+
+  const scoreBreakdown: DimensionResult[] = AUDIT_DIMENSIONS.map((dim) => {
+    const expKey = dimensionKeyMap[dim];
+    const expected =
+      expKey === "requiresMusicalBehaviour"
+        ? []
+        : (expectations[expKey as keyof PromptExpectations] as string[]);
+    const actual = actualRaw[actualKeyMap[dim]] ?? [];
+    return scoreDimension(dim, expected, actual, category, result);
+  });
+
+  const overallScore =
+    Math.round(
+      (scoreBreakdown.reduce((s, d) => s + d.score, 0) / AUDIT_DIMENSIONS.length) * 1000,
+    ) / 1000;
+  const passed = scoreBreakdown.every((d) => d.passed);
+  const weaknesses = passed
+    ? []
+    : classifyFailures(prompt, category, expectations, actualRaw, scoreBreakdown, result);
+  const improvementSuggestions = weaknesses.length
+    ? [...new Set(weaknesses.map((w) => recommendFix([w], prompt)))]
+    : [];
+
+  const priority = result.debug.sceneConfidence?.conceptPriority ?? [];
+  const failedDimensions = scoreBreakdown
+    .filter((d) => !d.passed)
+    .map((d) => ({ dimension: d.dimension, expected: d.expected, actual: d.actual }));
+
+  return {
+    index,
+    prompt,
+    category,
+    style,
+    detectedScene: {
+      id: result.scene.id,
+      label: result.scene.label,
+      score: result.scene.score,
+    },
+    emotionalInterpretation: [
+      ...result.taxonomy.emotion,
+      ...result.humanExperience.inferredQualities,
+    ].slice(0, 8),
+    expectedExperienceDirection: {
+      humanExperience: expectations.humanExperience,
+      emotion: expectations.emotion,
+      narrative: expectations.narrative,
+      activity: expectations.activity,
+      environment: expectations.environment,
+      playlistIntent: expectations.playlistIntent,
+    },
+    playlistReasoning: {
+      intent: result.humanExperience.playlistIntent,
+      narrative: result.humanExperience.narrative || result.humanNarrative,
+      emotionalArc: result.emotionalArc.summary,
+      musicalBehaviours: result.humanExperience.musicalBehaviours,
+      humanMeanings: result.humanMeanings,
+    },
+    priorityWeighting: priority.slice(0, 8).map((c) => ({
+      label: c.label,
+      role: c.role,
+      weights: c.weights,
+    })),
+    scoreBreakdown,
+    overallScore,
+    passed,
+    weaknesses,
+    improvementSuggestions,
+    processingTimeMs: Date.now() - started,
+    ...(failedDimensions.length > 0
+      ? {
+          failedDimensions,
+          debug: buildDebugSnapshot(result),
+        }
+      : {}),
+  };
+}
+
+/** Audit a single benchmark case — safe for batch/overnight runners. */
+export function auditBenchmarkCase(
+  prompt: string,
+  category: string,
+  style: string,
+  index: number,
+): AuditCaseRecord {
+  try {
+    return auditCaseCore(prompt, category, style, index);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      index,
+      prompt,
+      category,
+      style,
+      detectedScene: { id: "error", label: "audit_error", score: 0 },
+      emotionalInterpretation: [],
+      expectedExperienceDirection: {},
+      playlistReasoning: {
+        intent: "unknown",
+        narrative: "",
+        emotionalArc: "",
+        musicalBehaviours: [],
+        humanMeanings: [],
+      },
+      priorityWeighting: [],
+      scoreBreakdown: [],
+      overallScore: 0,
+      passed: false,
+      weaknesses: ["wrong_experience"],
+      improvementSuggestions: [`Audit harness error: ${message}`],
+      processingTimeMs: 0,
+      error: message,
+    };
+  }
+}
+
 const ADVERSARIAL_PROMPTS: Record<string, string[]> = {
   short: ["rainy drive", "Sunday", "done with today", "need space"],
   messy: [
@@ -708,26 +993,14 @@ const ADVERSARIAL_PROMPTS: Record<string, string[]> = {
   ambiguous: ["summer night", "alone", "home", "road", "waiting"],
 };
 
-export function runHumanExperienceAudit(options?: {
-  limit?: number;
-  maxFailuresStored?: number;
-}): HumanExperienceAuditReport {
-  const prompts = loadBenchmark(options?.limit);
+export function runHumanExperienceAudit(
+  options?: BenchmarkLoadOptions & { maxFailuresStored?: number },
+): HumanExperienceAuditReport {
+  const stratified = options?.stratified ?? false;
+  const prompts = loadBenchmark(options);
   const maxFailures = options?.maxFailuresStored ?? 500;
 
-  const dimensions: AuditDimension[] = [
-    "humanExperience",
-    "emotionalInterpretation",
-    "narrative",
-    "activity",
-    "environment",
-    "weatherInterpretation",
-    "socialContext",
-    "lifeEventDetection",
-    "emotionalArc",
-    "playlistIntent",
-    "musicalBehaviour",
-  ];
+  const dimensions = AUDIT_DIMENSIONS;
 
   const dimensionTotals: Record<AuditDimension, number> = Object.fromEntries(
     dimensions.map((d) => [d, 0]),
@@ -744,64 +1017,33 @@ export function runHumanExperienceAudit(options?: {
   const failures: AuditFailure[] = [];
   const patternMap = new Map<string, FailurePattern>();
   const atlasGaps = new Map<string, { count: number; examples: string[] }>();
+  const styleStats = new Map<
+    string,
+    { count: number; dimensionTotals: Record<AuditDimension, number> }
+  >();
 
-  for (const { prompt, category } of prompts) {
-    const result = interpretWorld(prompt);
-    const expectations = deriveExpectations(prompt, category);
-    const actualRaw = extractActual(result);
+  for (let i = 0; i < prompts.length; i++) {
+    const { prompt, category, style } = prompts[i]!;
+    const styleKey = style || category || "unknown";
+    const caseRecord = auditBenchmarkCase(prompt, category, style ?? category, i);
 
-    const dimensionKeyMap: Record<AuditDimension, keyof PromptExpectations | "musicalBehaviour"> = {
-      humanExperience: "humanExperience",
-      emotionalInterpretation: "emotion",
-      narrative: "narrative",
-      activity: "activity",
-      environment: "environment",
-      weatherInterpretation: "weather",
-      socialContext: "social",
-      lifeEventDetection: "lifeEvent",
-      emotionalArc: "emotionalArc",
-      playlistIntent: "playlistIntent",
-      musicalBehaviour: "requiresMusicalBehaviour",
+    const styleBucket = styleStats.get(styleKey) ?? {
+      count: 0,
+      dimensionTotals: Object.fromEntries(dimensions.map((d) => [d, 0])) as Record<
+        AuditDimension,
+        number
+      >,
     };
-
-    const actualKeyMap: Record<AuditDimension, string> = {
-      humanExperience: "humanExperience",
-      emotionalInterpretation: "emotion",
-      narrative: "narrative",
-      activity: "activity",
-      environment: "environment",
-      weatherInterpretation: "weather",
-      socialContext: "social",
-      lifeEventDetection: "lifeEvent",
-      emotionalArc: "emotionalArc",
-      playlistIntent: "playlistIntent",
-      musicalBehaviour: "musicalBehaviour",
-    };
-
-    const dimensionResults: DimensionResult[] = dimensions.map((dim) => {
-      const expKey = dimensionKeyMap[dim];
-      const expected =
-        expKey === "requiresMusicalBehaviour"
-          ? []
-          : (expectations[expKey as keyof PromptExpectations] as string[]);
-      const actual = actualRaw[actualKeyMap[dim]] ?? [];
-      return scoreDimension(dim, expected, actual, category, result);
-    });
-
-    for (const dr of dimensionResults) {
+    styleBucket.count += 1;
+    for (const dr of caseRecord.scoreBreakdown) {
       dimensionTotals[dr.dimension] += dr.score;
+      styleBucket.dimensionTotals[dr.dimension] += dr.score;
     }
+    styleStats.set(styleKey, styleBucket);
 
-    const anyFailed = dimensionResults.some((d) => !d.passed);
+    const anyFailed = !caseRecord.passed;
     if (anyFailed) {
-      const failCategories = classifyFailures(
-        prompt,
-        category,
-        expectations,
-        actualRaw,
-        dimensionResults,
-        result,
-      );
+      const failCategories = caseRecord.weaknesses;
       for (const fc of failCategories) failureSummary[fc] += 1;
 
       const patternKey = extractPatternKey(prompt, failCategories);
@@ -827,17 +1069,25 @@ export function runHumanExperienceAudit(options?: {
         atlasGaps.set(gapKey, gap);
       }
 
-      if (failures.length < maxFailures) {
-        const failedDims = dimensionResults.filter((d) => !d.passed);
+      if (failures.length < maxFailures && caseRecord.failedDimensions && caseRecord.debug) {
         failures.push({
           prompt,
           category,
-          expected: Object.fromEntries(failedDims.map((d) => [d.dimension, d.expected])),
-          actual: Object.fromEntries(failedDims.map((d) => [d.dimension, d.actual])),
+          expected: Object.fromEntries(
+            caseRecord.failedDimensions.map((d) => [d.dimension, d.expected]),
+          ),
+          actual: Object.fromEntries(
+            caseRecord.failedDimensions.map((d) => [d.dimension, d.actual]),
+          ),
           category_failures: failCategories,
-          missing_reason: failedDims.map((d) => `${d.dimension}: expected ${d.expected.join("|") || "signal"}, got ${d.actual.join("|") || "none"}`).join("; "),
+          missing_reason: caseRecord.failedDimensions
+            .map(
+              (d) =>
+                `${d.dimension}: expected ${d.expected.join("|") || "signal"}, got ${d.actual.join("|") || "none"}`,
+            )
+            .join("; "),
           recommended_fix: recommendFix(failCategories, prompt),
-          debug: buildDebugSnapshot(result),
+          debug: caseRecord.debug,
         });
       }
     }
@@ -987,5 +1237,36 @@ export function runHumanExperienceAudit(options?: {
           : "Continue tuning scene competition weights before atlas expansion",
       ],
     },
+    ...(stratified
+      ? {
+          stratified: true,
+          style_breakdown: [...styleStats.entries()]
+            .map(([style, stats]) => {
+              const nStyle = Math.max(stats.count, 1);
+              const styleAccuracy = Object.fromEntries(
+                dimensions.map((d) => [
+                  d,
+                  Math.round((stats.dimensionTotals[d] / nStyle) * 1000) / 1000,
+                ]),
+              ) as Record<AuditDimension, number>;
+              const overallStyle =
+                Math.round(
+                  (dimensions.reduce((s, d) => s + styleAccuracy[d], 0) / dimensions.length) *
+                    1000,
+                ) / 10;
+              const weakestStyle = dimensions
+                .map((d) => ({ dimension: d, pct: Math.round(styleAccuracy[d] * 1000) / 10 }))
+                .sort((a, b) => a.pct - b.pct)[0]!;
+              return {
+                style,
+                count: stats.count,
+                overall_pct: overallStyle,
+                weakest_dimension: weakestStyle.dimension,
+                weakest_pct: weakestStyle.pct,
+              };
+            })
+            .sort((a, b) => a.overall_pct - b.overall_pct),
+        }
+      : {}),
   };
 }

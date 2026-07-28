@@ -10,7 +10,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runHumanExperienceAudit } from "../lib/world-understanding/human-experience-audit";
 
-function parseArgs(): { limit?: number; out: string } {
+function parseArgs(): { limit?: number; out: string; stratified: boolean } {
   const args = process.argv.slice(2);
   const get = (flag: string, fallback: string): string => {
     const idx = args.indexOf(flag);
@@ -20,17 +20,18 @@ function parseArgs(): { limit?: number; out: string } {
   return {
     limit: limitRaw ? Number(limitRaw) : undefined,
     out: get("--out", "backend/reports/human-experience-audit.json"),
+    stratified: args.includes("--stratified"),
   };
 }
 
 function main(): void {
-  const { limit, out } = parseArgs();
+  const { limit, out, stratified } = parseArgs();
   const started = Date.now();
   process.stderr.write(
-    `[human-experience-audit] Starting${limit ? ` (limit=${limit})` : " (full 10k)"}...\n`,
+    `[human-experience-audit] Starting${limit ? ` (limit=${limit}${stratified ? ", stratified by difficulty" : ""})` : stratified ? " (stratified)" : " (full 10k)"}...\n`,
   );
 
-  const report = runHumanExperienceAudit({ limit, maxFailuresStored: 500 });
+  const report = runHumanExperienceAudit({ limit, maxFailuresStored: 500, stratified });
 
   mkdirSync(join(out, ".."), { recursive: true });
   writeFileSync(out, JSON.stringify(report, null, 2), "utf8");
@@ -50,6 +51,9 @@ function main(): void {
           count: p.count,
         })),
         architecture_assessment: report.architecture_assessment,
+        ...(report.style_breakdown
+          ? { style_breakdown: report.style_breakdown, stratified: report.stratified }
+          : {}),
         report_path: out,
       },
       null,

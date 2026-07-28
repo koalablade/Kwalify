@@ -205,6 +205,17 @@ export interface WorldUnderstandingResult {
       alternativeInterpretations: string[];
       confidence: number;
     };
+    experiencePriority?: {
+      dominantExperience: string;
+      confidence: number;
+      conceptRoles: Array<{
+        label: string;
+        role: string;
+        layer: string;
+        whyMentioned: string;
+      }>;
+      humanMeanings: string[];
+    };
     semanticFingerprint?: SemanticFingerprint;
     emotionalArc?: EmotionalArc;
   };

@@ -1,10 +1,10 @@
 /** User-facing copy — cinematic brand voice */
 export const COPY = {
   eyebrow: "Your music · your moments",
-  headline: "What does this moment sound like?",
-  subhead: "Describe a moment. Kwalify finds the soundtrack hidden inside your favourite songs.",
+  headline: "Tell us a memory, a feeling, or a place.",
+  subhead: "Describe a moment — we'll find the soundtrack hiding in songs you already love.",
   landingPromise: "Turn the moments of your life into soundtracks from the music you already love.",
-  placeholder: "Driving home at 2am after a life-changing conversation…",
+  placeholder: "Rain on the windscreen, nowhere to be…",
   cta: {
     create: "Create soundtrack",
     connect: "Connect your soundtrack",
@@ -62,11 +62,12 @@ export const COPY = {
 };
 
 export const HERO_PROMPTS = [
-  { emoji: "🌧", label: "Rainy Sunday morning", prompt: "Rainy Sunday morning, slow and reflective" },
-  { emoji: "🚗", label: "Empty motorway at midnight", prompt: "Empty motorway at midnight, rain on the windscreen" },
+  { emoji: "🌧", label: "Rain on the windscreen", prompt: "Empty motorway at midnight, rain on the windscreen" },
+  { emoji: "🚗", label: "Parked up after work", prompt: "Just parked up, knackered, don't want to go inside yet" },
+  { emoji: "☕", label: "Sunday cuppa quiet", prompt: "Rainy Sunday morning with a cuppa, slow and reflective" },
   { emoji: "🌅", label: "Summer memories", prompt: "Summer 2016 — windows down, nowhere to be" },
-  { emoji: "💔", label: "After goodbye", prompt: "After goodbye — driving home alone at 2am" },
-  { emoji: "🎮", label: "Childhood nostalgia", prompt: "Childhood nostalgia — songs that feel like another life" },
+  { emoji: "🎉", label: "After the party", prompt: "After the party — everyone went home, house feels quiet" },
+  { emoji: "📸", label: "Old photos", prompt: "Looking through old photos, bittersweet and nostalgic" },
 ];
 
 export function heroChipsHtml({ attr = "data-hero-prompt", escFn }) {

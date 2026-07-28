@@ -212,7 +212,7 @@ export function buildHumanExperience(input: HumanExperienceInput): HumanExperien
     emotionalArcSummary: "",
   };
 
-  const arc = buildEmotionalArc(experience);
+  const arc = buildEmotionalArc(experience, input.prompt);
   experience.emotionalArcSummary = arc.summary;
 
   return experience;

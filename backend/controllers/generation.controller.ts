@@ -10550,7 +10550,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       archaeologyActive: !!archaeology,
     });
 
-    const momentUnderstandingLine = momentPipeline
+    const worldUnderstanding = momentPipeline?.worldUnderstanding;
+    const experiencePriority = worldUnderstanding?.debug?.experiencePriority;
+    const technicalMomentLine = momentPipeline
       ? buildMomentUnderstandingLine({
         vibe,
         dominantMomentLabel: buildDominantMomentLabel(
@@ -10571,6 +10573,13 @@ router.post("/generate", async (req, res): Promise<void> => {
         intent: momentPipeline.intent,
       })
       : null;
+
+    const momentUnderstandingLine =
+      experiencePriority &&
+      experiencePriority.confidence >= 0.6 &&
+      worldUnderstanding?.humanNarrative
+        ? worldUnderstanding.humanNarrative
+        : technicalMomentLine;
 
     if (momentUnderstandingLine || momentPipeline?.canonicalScene?.sceneId) {
       setGenerateLiveMeta(generateSessionUserId, requestId, {
@@ -13349,6 +13358,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       experienceScene,
       momentUnderstanding,
       momentUnderstandingLine,
+      humanNarrative: worldUnderstanding?.humanNarrative ?? null,
+      humanExperience: worldUnderstanding?.humanExperience ?? null,
+      experiencePriority: experiencePriority ?? null,
+      worldEmotionalArc: worldUnderstanding?.emotionalArc ?? null,
       emotionalIntelligence: momentPipeline
         ? {
             pipeline: momentPipeline.pipelineSummary,

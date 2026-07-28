@@ -95,7 +95,63 @@ const QUALITY_PHASE_MAP: Record<string, EmotionalArcPhase> = {
   grief: { label: "grief", emotion: "grief", weight: 0.3 },
   nostalgia: { label: "nostalgia", emotion: "nostalgia", weight: 0.3 },
   hope: { label: "hope", emotion: "hope", weight: 0.25 },
+  processing: { label: "processing", emotion: "reflection", weight: 0.25 },
+  escape: { label: "escape", emotion: "freedom", weight: 0.25 },
 };
+
+const PROMPT_ARC_OVERLAYS: Array<{
+  test: RegExp;
+  phases: EmotionalArcPhase[];
+}> = [
+  {
+    test: /\b(?:worst day|horrible day|awful day|difficult day|mare of a day|having a mare)\b/i,
+    phases: [
+      { label: "pressure", emotion: "stress", weight: 0.3 },
+      { label: "escape", emotion: "freedom", weight: 0.22 },
+      { label: "processing", emotion: "reflection", weight: 0.22 },
+      { label: "relief", emotion: "relief", weight: 0.18 },
+      { label: "quiet optimism", emotion: "hope", weight: 0.12 },
+    ],
+  },
+  {
+    test: /\b(?:finished exams|exams over|last exam|passed my exams|exams done)\b/i,
+    phases: [
+      { label: "pressure release", emotion: "relief", weight: 0.3 },
+      { label: "exhaustion", emotion: "exhaustion", weight: 0.22 },
+      { label: "processing", emotion: "reflection", weight: 0.2 },
+      { label: "freedom", emotion: "freedom", weight: 0.18 },
+      { label: "quiet optimism", emotion: "hope", weight: 0.12 },
+    ],
+  },
+  {
+    test: /\b(?:old photos|photo album|looking through photos|found old pictures|childhood photos)\b/i,
+    phases: [
+      { label: "return", emotion: "nostalgia", weight: 0.3 },
+      { label: "memory", emotion: "longing", weight: 0.25 },
+      { label: "processing", emotion: "reflection", weight: 0.22 },
+      { label: "bittersweet", emotion: "bittersweet", weight: 0.15 },
+      { label: "acceptance", emotion: "peace", weight: 0.12 },
+    ],
+  },
+  {
+    test: /\brain\s+(?:on|against)\s+(?:the\s+)?(?:windscreen|windshield|glass)\b/i,
+    phases: [
+      { label: "departure", emotion: "anticipation", weight: 0.2 },
+      { label: "motion", emotion: "freedom", weight: 0.25 },
+      { label: "processing", emotion: "reflection", weight: 0.3 },
+      { label: "arrival", emotion: "peace", weight: 0.25 },
+    ],
+  },
+  {
+    test: /\b(?:parked up|sitting in (?:the |my )?car before)\b/i,
+    phases: [
+      { label: "pressure", emotion: "exhaustion", weight: 0.28 },
+      { label: "pause", emotion: "relief", weight: 0.25 },
+      { label: "processing", emotion: "reflection", weight: 0.25 },
+      { label: "readiness", emotion: "relief", weight: 0.22 },
+    ],
+  },
+];
 
 function mergePhases(base: EmotionalArcPhase[], extra: EmotionalArcPhase[]): EmotionalArcPhase[] {
   const merged = [...base];
@@ -118,7 +174,7 @@ function buildSummary(phases: EmotionalArcPhase[]): string {
   return phases.map((p) => p.emotion).join(" → ");
 }
 
-export function buildEmotionalArc(experience: HumanExperience): EmotionalArc {
+export function buildEmotionalArc(experience: HumanExperience, prompt?: string): EmotionalArc {
   const base = INTENT_ARCS[experience.playlistIntent] ?? INTENT_ARCS.unknown;
   const qualityPhases: EmotionalArcPhase[] = [];
 
@@ -127,7 +183,16 @@ export function buildEmotionalArc(experience: HumanExperience): EmotionalArc {
     if (mapped) qualityPhases.push(mapped);
   }
 
-  const phases = mergePhases(base, qualityPhases);
+  let phases = mergePhases(base, qualityPhases);
+
+  if (prompt) {
+    for (const overlay of PROMPT_ARC_OVERLAYS) {
+      if (!overlay.test.test(prompt)) continue;
+      phases = mergePhases(overlay.phases, phases.slice(0, 2));
+      break;
+    }
+  }
+
   return {
     phases,
     summary: buildSummary(phases),

@@ -1367,10 +1367,21 @@ function humanizeJourneyStage(rawLabel, segmentId, index) {
 }
 
 function resolvePosterSceneLine(result) {
-  if (result.sceneId) {
+  const narrative =
+    result.humanNarrative ||
+    result.humanExperience?.narrative ||
+    result.experiencePriority?.dominantExperience ||
+    result.momentUnderstandingLine;
+  if (narrative && narrative.length > 12 && !/^i read this as:/i.test(narrative)) {
+    return narrative;
+  }
+  if (result.sceneLabel && !/^[A-Z_]+$/.test(result.sceneLabel)) {
+    return result.sceneLabel;
+  }
+  if (result.sceneId && !/^[A-Z_]+$/.test(String(result.sceneId))) {
     return String(result.sceneId).replace(/_/g, " ");
   }
-  return result.momentUnderstandingLine
+  return narrative
     || result.sceneLabel
     || (result.scoringDiagnostics?.semanticResolution?.sceneId
       ? result.scoringDiagnostics.semanticResolution.sceneId.replace(/_/g, " ")
@@ -1382,19 +1393,19 @@ function formatPosterTitleLines(result) {
   if (scene) {
     const cleaned = String(scene).trim().replace(/_/g, " ");
     const words = cleaned.split(/\s+/).filter(Boolean);
-    if (words.length >= 3) {
+    if (words.length >= 5) {
       const mid = Math.ceil(words.length / 2);
       return [
-        words.slice(0, mid).join(" ").toUpperCase(),
-        words.slice(mid).join(" ").toUpperCase(),
+        words.slice(0, mid).join(" "),
+        words.slice(mid).join(" "),
       ];
     }
-    return [cleaned.toUpperCase()];
+    return [cleaned];
   }
   const name = result.playlistName || result.name || "Your soundtrack";
   const parts = String(name).split(/\s*[-–—]\s*/).map((p) => p.trim()).filter(Boolean);
-  if (parts.length >= 2) return parts.slice(0, 2).map((p) => p.toUpperCase());
-  return [String(name).toUpperCase()];
+  if (parts.length >= 2) return parts.slice(0, 2);
+  return [String(name)];
 }
 
 function formatPosterTitle(result) {
@@ -1417,10 +1428,10 @@ function buildWhyItFitsHtml(result, trustLabels, playlistExplanation) {
   const bullets = [];
   const prompt = result.vibe || result.prompt || "";
   if (/drive|motorway|road|highway/i.test(prompt) && /rain|windscreen|windshield|wet/i.test(prompt)) {
-    bullets.push("Slow textures match the feeling of the road");
-    bullets.push("Familiar songs create a sense of memory");
-    bullets.push("The energy builds naturally instead of rushing");
-    bullets.push("Warm darkness that fits rain against the glass");
+    bullets.push("The road opens up like a private room");
+    bullets.push("Rain and distance without rushing the mood");
+    bullets.push("Songs that feel like memory, not background noise");
+    bullets.push("A gradual lift instead of a sudden change");
   }
   const humanized = trustLabels
     .map(humanizeTrustLabel)
@@ -1469,8 +1480,16 @@ function buildArtBackdropHtml(artUrls) {
 
 function buildMomentNarrative(result, prompt) {
   const p = String(prompt || "").toLowerCase();
+  const fromApi =
+    result.humanNarrative ||
+    result.humanExperience?.narrative ||
+    result.experiencePriority?.dominantExperience;
+  if (fromApi && fromApi.length > 24 && !TECHNICAL_TRUST_RE.test(fromApi)) {
+    const text = fromApi.charAt(0).toUpperCase() + fromApi.slice(1);
+    return text.endsWith(".") ? text : `${text}.`;
+  }
   const understanding = String(result.momentUnderstandingLine || "").trim();
-  if (understanding && understanding.length > 48 && !TECHNICAL_TRUST_RE.test(understanding)) {
+  if (understanding && understanding.length > 48 && !TECHNICAL_TRUST_RE.test(understanding) && !/^i read this as:/i.test(understanding)) {
     return understanding.charAt(0).toUpperCase() + understanding.slice(1) + (understanding.endsWith(".") ? "" : ".");
   }
   if (/drive|motorway|road|highway|journey/.test(p) && /rain|windscreen|windshield|wet|storm/.test(p)) {
@@ -1532,7 +1551,55 @@ function humanizeTrustLabel(raw) {
   return label.replace(/\b\w/g, (c) => c.toLowerCase()).replace(/^./, (c) => c.toUpperCase());
 }
 
-function buildJourneyActs(segmentDiagnostics, tracks) {
+const JOURNEY_PHASE_LABELS = {
+  pressure: "The weight of the day",
+  escape: "Leaving it behind",
+  processing: "Working it through",
+  relief: "When it loosens",
+  "quiet optimism": "A quieter hope",
+  exhaustion: "Running on empty",
+  departure: "Setting out",
+  motion: "On the move",
+  reflection: "Lost in thought",
+  arrival: "When you get there",
+  pause: "Five minutes of silence",
+  readiness: "Almost ready",
+  return: "Going back",
+  memory: "What you remember",
+  bittersweet: "Sweet and sore",
+  acceptance: "Making peace",
+  "pressure release": "Finally letting go",
+  freedom: "Room to breathe",
+  grief: "The ache",
+  nostalgia: "Looking back",
+  longing: "What you miss",
+  hope: "Something ahead",
+  safety: "Finding shelter",
+  rest: "Letting go",
+};
+
+function humanizeArcPhase(phase) {
+  const label = String(phase?.label || "").trim().toLowerCase();
+  const emotion = String(phase?.emotion || "").trim().toLowerCase();
+  const title =
+    JOURNEY_PHASE_LABELS[label] ||
+    JOURNEY_PHASE_LABELS[emotion] ||
+    (label ? label.replace(/\b\w/g, (c) => c.toUpperCase()) : "This feeling");
+  const desc =
+    emotion && emotion !== label
+      ? `When ${emotion.replace(/_/g, " ")} takes the lead.`
+      : "Part of how this moment unfolds in sound.";
+  return { label: title, lines: [desc] };
+}
+
+function buildJourneyActs(segmentDiagnostics, tracks, result) {
+  const arcPhases = result?.worldEmotionalArc?.phases;
+  if (Array.isArray(arcPhases) && arcPhases.length > 0) {
+    return arcPhases.slice(0, 5).map((phase) => ({
+      ...humanizeArcPhase(phase),
+      trackCount: null,
+    }));
+  }
   const trackCount = Array.isArray(tracks) ? tracks.length : 0;
   if (Array.isArray(segmentDiagnostics) && segmentDiagnostics.length > 0) {
     return segmentDiagnostics.slice(0, 5).map((seg, i) => {
@@ -1558,16 +1625,15 @@ function buildJourneyActs(segmentDiagnostics, tracks) {
   }));
 }
 
-function buildJourneyActsHtml(segmentDiagnostics, tracks) {
-  const acts = buildJourneyActs(segmentDiagnostics, tracks);
+function buildJourneyActsHtml(segmentDiagnostics, tracks, result) {
+  const acts = buildJourneyActs(segmentDiagnostics, tracks, result);
   if (!acts.length) return "";
   const items = acts.map((act, i) => {
-    const roman = JOURNEY_ACT_ROMAN[i] || String(i + 1);
-    const title = String(act.label).toUpperCase();
+    const title = String(act.label);
     const desc = act.lines[0] || "";
     return `
     <article class="journey-timeline-item" style="--journey-i:${i}">
-      <div class="journey-timeline-act">ACT ${roman}</div>
+      <div class="journey-timeline-act">${esc(String(i + 1).padStart(2, "0"))}</div>
       <div class="journey-timeline-content">
         <h3 class="journey-timeline-title">${esc(title)}</h3>
         <p class="journey-timeline-desc">${esc(desc)}</p>
@@ -2035,7 +2101,7 @@ function resultHtml(result) {
   const segmentDiagnostics = result.segmentDiagnostics
     || result.generationDiagnostics?.segmentDiagnostics
     || [];
-  const journeyActsHtml = buildJourneyActsHtml(segmentDiagnostics, result.tracks);
+  const journeyActsHtml = buildJourneyActsHtml(segmentDiagnostics, result.tracks, result);
   const coherenceGate = result.coherenceGate || result.generationDiagnostics?.coherenceGate || null;
   const sceneLockStatus = result.sceneLockStatus || result.generationDiagnostics?.sceneLockStatus || null;
   const coherenceBadgeHtml = buildCoherenceBadgeHtml(
@@ -2047,7 +2113,7 @@ function resultHtml(result) {
 
   const hasExplain = !!(result.v3Diagnostics?.playlistExplanation || result.playlistExplanation);
   const playlistExplanation = result.v3Diagnostics?.playlistExplanation || result.playlistExplanation;
-  const seeHowBuiltHtml = hasExplain ? renderTechnicalBuiltAccordion(playlistExplanation) : "";
+  const seeHowBuiltHtml = debugModeEnabled() && hasExplain ? renderTechnicalBuiltAccordion(playlistExplanation) : "";
   const explainSectionHtml = debugModeEnabled() && hasExplain ? renderPlaylistExplanation(playlistExplanation) : "";
 
   const tracks = Array.isArray(result.tracks) ? result.tracks : [];

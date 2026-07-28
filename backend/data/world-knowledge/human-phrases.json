@@ -274,6 +274,125 @@
       "notLiteral": "parking tutorial",
       "meaning": { "emotion": ["decompression", "avoidance", "reflection"], "activity": ["sitting", "delaying"], "environment": ["car", "driveway"] },
       "music": { "energy": 0.25, "textures": ["intimate", "slow"] }
+    },
+    {
+      "id": "done_in",
+      "phrase": "done in",
+      "notLiteral": "completed task",
+      "meaning": { "emotion": ["exhaustion", "weariness"], "lifeContext": ["after work", "long day"] },
+      "music": { "energy": 0.2, "textures": ["gentle", "recovering"] }
+    },
+    {
+      "id": "wrecked",
+      "phrase": "wrecked",
+      "notLiteral": "destroyed object",
+      "meaning": { "emotion": ["exhaustion", "overwhelm"], "lifeContext": ["after work", "burnout"] },
+      "music": { "energy": 0.2, "textures": ["soft", "recovering"] }
+    },
+    {
+      "id": "long_day",
+      "phrase": "long day",
+      "notLiteral": "calendar length",
+      "meaning": { "emotion": ["exhaustion", "relief"], "lifeContext": ["after work", "difficult day"] },
+      "music": { "energy": 0.25, "textures": ["settling", "recovering"] }
+    },
+    {
+      "id": "dead_on_feet",
+      "phrase": "dead on my feet",
+      "notLiteral": "physical death",
+      "meaning": { "emotion": ["exhaustion", "weariness"], "lifeContext": ["after work"] },
+      "music": { "energy": 0.18, "textures": ["gentle", "sparse"] }
+    },
+    {
+      "id": "running_on_empty",
+      "phrase": "running on empty",
+      "notLiteral": "fuel tank",
+      "meaning": { "emotion": ["exhaustion", "depletion"], "lifeContext": ["burnout", "need recovery"] },
+      "music": { "energy": 0.2, "textures": ["sparse", "recovering"] }
+    },
+    {
+      "id": "dont_want_inside",
+      "phrase": "don't want to go inside",
+      "notLiteral": "indoor activity preference",
+      "meaning": { "emotion": ["avoidance", "decompression", "reflection"], "activity": ["delaying", "sitting"], "environment": ["car", "doorstep"] },
+      "music": { "energy": 0.22, "textures": ["intimate", "slow"] }
+    },
+    {
+      "id": "just_parked_up",
+      "phrase": "just parked up",
+      "notLiteral": "parking manoeuvre",
+      "meaning": { "emotion": ["decompression", "exhaustion", "avoidance"], "activity": ["sitting", "delaying"], "environment": ["car", "driveway"], "lifeContext": ["after work"] },
+      "music": { "energy": 0.22, "textures": ["intimate", "settling"] }
+    },
+    {
+      "id": "need_five_minutes",
+      "phrase": "need five minutes",
+      "notLiteral": "timer setting",
+      "meaning": { "emotion": ["decompression", "overwhelm"], "activity": ["pausing", "resting"], "lifeContext": ["private moment"] },
+      "music": { "energy": 0.2, "textures": ["quiet", "intimate"] }
+    },
+    {
+      "id": "cant_face_going_in",
+      "phrase": "can't face going in",
+      "notLiteral": "physical facing direction",
+      "meaning": { "emotion": ["avoidance", "anxiety", "exhaustion"], "activity": ["delaying"], "lifeContext": ["after work", "overwhelm"] },
+      "music": { "energy": 0.22, "textures": ["tense", "intimate"] }
+    },
+    {
+      "id": "fancy_a_cuppa",
+      "phrase": "fancy a cuppa",
+      "notLiteral": "tea preference survey",
+      "meaning": { "emotion": ["comfort", "calm"], "activity": ["resting"], "environment": ["home", "domestic"], "lifeContext": ["self-care"] },
+      "music": { "energy": 0.3, "textures": ["warm", "gentle"] }
+    },
+    {
+      "id": "cosy_blanket",
+      "phrase": "cosy blanket",
+      "notLiteral": "home furnishings catalog",
+      "meaning": { "emotion": ["comfort", "safety", "calm"], "activity": ["resting"], "environment": ["home", "sofa"] },
+      "music": { "energy": 0.25, "textures": ["warm", "soft"] }
+    },
+    {
+      "id": "wrap_up_warm",
+      "phrase": "wrap up warm",
+      "notLiteral": "clothing advice",
+      "meaning": { "emotion": ["comfort", "safety"], "activity": ["resting"], "environment": ["home", "domestic"] },
+      "music": { "energy": 0.28, "textures": ["warm", "gentle"] }
+    },
+    {
+      "id": "everyone_went_home",
+      "phrase": "everyone went home",
+      "notLiteral": "travel logistics",
+      "meaning": { "emotion": ["loneliness", "reflection", "bittersweet"], "social": ["alone"], "lifeContext": ["social aftermath"] },
+      "music": { "energy": 0.28, "textures": ["sparse", "wistful"] }
+    },
+    {
+      "id": "after_the_party",
+      "phrase": "after the party",
+      "notLiteral": "event planning",
+      "meaning": { "emotion": ["exhaustion", "reflection", "bittersweet"], "social": ["alone"], "lifeContext": ["social aftermath", "late night"] },
+      "music": { "energy": 0.3, "textures": ["atmospheric", "settling"] }
+    },
+    {
+      "id": "empty_house_after",
+      "phrase": "empty house after everyone left",
+      "notLiteral": "property vacancy",
+      "meaning": { "emotion": ["loneliness", "reflection", "calm"], "social": ["alone"], "environment": ["home"], "lifeContext": ["social aftermath"] },
+      "music": { "energy": 0.25, "textures": ["sparse", "intimate"] }
+    },
+    {
+      "id": "house_feels_quiet",
+      "phrase": "house feels quiet",
+      "notLiteral": "acoustic measurement",
+      "meaning": { "emotion": ["loneliness", "calm", "reflection"], "social": ["alone"], "environment": ["home"], "lifeContext": ["social aftermath"] },
+      "music": { "energy": 0.25, "textures": ["quiet", "atmospheric"] }
+    },
+    {
+      "id": "last_one_left",
+      "phrase": "last one left",
+      "notLiteral": "competition ranking",
+      "meaning": { "emotion": ["loneliness", "reflection"], "social": ["alone"], "lifeContext": ["social aftermath"] },
+      "music": { "energy": 0.28, "textures": ["sparse", "wistful"] }
     }
   ]
 }

@@ -220,11 +220,27 @@ export function analyzeMomentPipeline(
       sceneId: worldUnderstanding.scene.id,
       sceneLabel: worldUnderstanding.scene.label,
       humanSummary: worldUnderstanding.scene.humanSummary,
+      humanNarrative: worldUnderstanding.humanNarrative,
       confidence: worldUnderstanding.confidence,
       emotions: worldUnderstanding.taxonomy.emotion.slice(0, 6),
       environment: worldUnderstanding.taxonomy.environment.slice(0, 6),
       musicEnergy: worldUnderstanding.musicBehaviour.energy,
       preferredGenres: worldUnderstanding.musicBehaviour.preferredGenres.slice(0, 5),
+      humanExperience: {
+        narrative: worldUnderstanding.humanExperience.narrative,
+        playlistIntent: worldUnderstanding.humanExperience.playlistIntent,
+        emotionalArcSummary: worldUnderstanding.humanExperience.emotionalArcSummary,
+        inferredQualities: worldUnderstanding.humanExperience.inferredQualities.slice(0, 6),
+      },
+      emotionalArc: {
+        summary: worldUnderstanding.emotionalArc.summary,
+        phases: worldUnderstanding.emotionalArc.phases.map((p) => ({
+          label: p.label,
+          emotion: p.emotion,
+          weight: p.weight,
+        })),
+      },
+      experiencePriority: worldUnderstanding.debug.experiencePriority,
       semanticMoment: {
         activity: worldUnderstanding.semanticMoment.activity.values.slice(0, 4),
         movement: worldUnderstanding.semanticMoment.movement.values.slice(0, 4),

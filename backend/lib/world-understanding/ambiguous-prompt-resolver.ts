@@ -12,9 +12,17 @@ export interface AmbiguousHypothesis {
   weight: number;
 }
 
+export interface InterpretationCandidate {
+  label: string;
+  confidence: number;
+}
+
 export interface AmbiguousPromptResolution {
   matched: boolean;
   hypotheses: AmbiguousHypothesis[];
+  primaryInterpretation: InterpretationCandidate | null;
+  secondaryInterpretations: InterpretationCandidate[];
+  confidence: number;
   taxonomyBoosts: Partial<WorldConceptTaxonomy>;
   sceneHints: string[];
   emotionBoosts: string[];
@@ -135,6 +143,10 @@ const ACTIVITY_PHRASE_HINTS: Array<{
   taxonomy: Partial<WorldConceptTaxonomy>;
   sceneHints?: string[];
   suppressWeather?: boolean;
+  primaryLabel?: string;
+  secondaryLabels?: string[];
+  confidence?: number;
+  humanMeanings?: string[];
 }> = [
   {
     test: /\bfinally clocked off\b/i,
@@ -171,6 +183,65 @@ const ACTIVITY_PHRASE_HINTS: Array<{
     },
     suppressWeather: true,
   },
+  {
+    test: /\brain\s+(?:on|against)\s+(?:the\s+)?(?:windscreen|windshield|glass)\b/i,
+    taxonomy: {
+      activity: ["driving", "reflecting"],
+      environment: ["car", "road"],
+      emotion: ["reflection", "solitude", "calm"],
+      lifeContext: ["private moment", "transition"],
+      sensory: ["rain", "wet glass"],
+    },
+    sceneHints: ["LATE_NIGHT_SOLITARY_JOURNEY", "NOCTURNAL_ESCAPE_DRIVE"],
+    suppressWeather: true,
+    primaryLabel: "reflective driving",
+    secondaryLabels: ["private decompression", "solitary motion", "no destination"],
+    confidence: 0.86,
+    humanMeanings: [
+      "Rain on the glass — a private journey through your own thoughts, not weather plus car objects.",
+    ],
+  },
+  {
+    test: /\b(?:no destination|nowhere to be|nowhere in particular|don't know where)\b/i,
+    taxonomy: {
+      activity: ["driving", "wandering"],
+      emotion: ["freedom", "reflection", "escape"],
+      lifeContext: ["open-ended journey"],
+    },
+    sceneHints: ["LATE_NIGHT_SOLITARY_JOURNEY", "NOCTURNAL_ESCAPE_DRIVE"],
+    suppressWeather: true,
+    primaryLabel: "aimless escape",
+    secondaryLabels: ["freedom", "processing on the move"],
+    confidence: 0.78,
+  },
+  {
+    test: /\b(?:just parked up|parked up after|parked up after work)\b/i,
+    taxonomy: {
+      activity: ["sitting", "delaying", "decompressing"],
+      environment: ["car", "driveway"],
+      emotion: ["exhaustion", "decompression", "avoidance"],
+      lifeContext: ["after work", "transition"],
+    },
+    suppressWeather: true,
+    primaryLabel: "parked decompression",
+    secondaryLabels: ["avoidance", "need five minutes"],
+    confidence: 0.82,
+    humanMeanings: ["Parked up — five minutes before the front door and everything waiting inside."],
+  },
+  {
+    test: /\bsitting in (?:the |my )?car after (?:work|a long day|the shift)\b/i,
+    taxonomy: {
+      activity: ["sitting", "delaying", "decompressing"],
+      environment: ["car"],
+      emotion: ["exhaustion", "decompression", "reflection"],
+      lifeContext: ["after work"],
+    },
+    suppressWeather: true,
+    primaryLabel: "post-work pause",
+    secondaryLabels: ["exhaustion", "private space"],
+    confidence: 0.84,
+    humanMeanings: ["Sitting in the car after work — the world can wait five minutes."],
+  },
 ];
 
 export function resolveAmbiguousPrompt(
@@ -180,6 +251,9 @@ export function resolveAmbiguousPrompt(
   const empty: AmbiguousPromptResolution = {
     matched: false,
     hypotheses: [],
+    primaryInterpretation: null,
+    secondaryInterpretations: [],
+    confidence: 0,
     taxonomyBoosts: {},
     sceneHints: [],
     emotionBoosts: [],
@@ -197,6 +271,9 @@ export function resolveAmbiguousPrompt(
   let hypotheses: AmbiguousHypothesis[] = [];
   let suppressWeatherReflection = false;
   let matched = false;
+  let primaryInterpretation: InterpretationCandidate | null = null;
+  const secondaryInterpretations: InterpretationCandidate[] = [];
+  let resolutionConfidence = 0;
 
   const isUltraShort = wordCount(trimmed) <= ULTRA_SHORT_MAX_WORDS;
 
@@ -209,6 +286,14 @@ export function resolveAmbiguousPrompt(
       sceneHints.push(...pattern.sceneHints);
       humanMeanings.push(...pattern.humanMeanings);
       if (pattern.suppressWeather) suppressWeatherReflection = true;
+      const sorted = [...pattern.hypotheses].sort((a, b) => b.weight - a.weight);
+      if (sorted[0]) {
+        primaryInterpretation = { label: sorted[0].label, confidence: sorted[0].weight };
+        resolutionConfidence = sorted[0].weight;
+      }
+      for (const h of sorted.slice(1, 4)) {
+        secondaryInterpretations.push({ label: h.label, confidence: h.weight });
+      }
       for (const h of pattern.hypotheses) {
         if (/reflect|sad|calm|nostalg|anticipat|uncertain|freedom|exhaust/i.test(h.label)) {
           emotionBoosts.push(h.label);
@@ -222,7 +307,21 @@ export function resolveAmbiguousPrompt(
     if (!hint.test.test(trimmed)) continue;
     matched = true;
     mergeTaxonomy(taxonomyBoosts, hint.taxonomy);
+    if (hint.sceneHints) sceneHints.push(...hint.sceneHints);
     if (hint.suppressWeather) suppressWeatherReflection = true;
+    if (hint.humanMeanings) humanMeanings.push(...hint.humanMeanings);
+    if (hint.primaryLabel) {
+      const conf = hint.confidence ?? 0.75;
+      if (!primaryInterpretation || conf > primaryInterpretation.confidence) {
+        primaryInterpretation = { label: hint.primaryLabel, confidence: conf };
+        resolutionConfidence = conf;
+      }
+      for (const label of hint.secondaryLabels ?? []) {
+        if (!secondaryInterpretations.some((s) => s.label === label)) {
+          secondaryInterpretations.push({ label, confidence: conf * 0.75 });
+        }
+      }
+    }
   }
 
   if (fingerprint) {
@@ -247,6 +346,9 @@ export function resolveAmbiguousPrompt(
   return {
     matched,
     hypotheses,
+    primaryInterpretation,
+    secondaryInterpretations: secondaryInterpretations.slice(0, 4),
+    confidence: Math.round(resolutionConfidence * 100) / 100,
     taxonomyBoosts,
     sceneHints: [...new Set(sceneHints)],
     emotionBoosts: [...new Set(emotionBoosts)],
