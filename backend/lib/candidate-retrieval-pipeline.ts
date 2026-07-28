@@ -30,8 +30,12 @@ import {
   recordFunnelStage,
   finalizeRetrievalFunnel,
 } from "../core/editorial/retrieval-funnel-trace";
-import { retrieveWithRecovery } from "../core/editorial/layered-world-retrieval";
+import { retrieveWithRecovery, retrievalTrackKey } from "../core/editorial/layered-world-retrieval";
 import { isUnknownGenreMetadata } from "../core/editorial/world-search-keywords";
+import {
+  scoreWorldBelongingRank,
+  WORLD_BELONGING_RETRIEVAL_MIN,
+} from "../core/editorial/world-belonging-retrieval";
 import {
   committedWorldArtistForbidden,
   resolveCommittedWorld,
@@ -856,16 +860,24 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
         expansionCandidates: opts.expansionCandidates ?? [],
       });
       const eligibleIds = new Set(eligible.map((t) => t.trackId));
+      const libraryByKey = new Map(opts.tracks.map((t) => [retrievalTrackKey(t), t]));
       if (layered.tracks.length > 0) {
-        const layeredIds = new Set(
-          layered.tracks.map((t) =>
-            String((t as { trackId?: string }).trackId ?? `${t.artistName}:${t.trackName}`),
-          ),
-        );
+        const layeredKeys = new Set(layered.tracks.map((t) => retrievalTrackKey(t)));
         for (const track of opts.tracks) {
-          if (layeredIds.has(track.trackId) && !eligibleIds.has(track.trackId)) {
+          if (
+            (layeredKeys.has(track.trackId) || layeredKeys.has(retrievalTrackKey(track))) &&
+            !eligibleIds.has(track.trackId)
+          ) {
             eligible.push(track);
             eligibleIds.add(track.trackId);
+          }
+        }
+        for (const layeredTrack of layered.tracks) {
+          const key = retrievalTrackKey(layeredTrack);
+          const match = libraryByKey.get(key) ?? libraryByKey.get(retrievalTrackKey(layeredTrack));
+          if (match && !eligibleIds.has(match.trackId)) {
+            eligible.push(match);
+            eligibleIds.add(match.trackId);
           }
         }
       }
@@ -888,7 +900,7 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
             },
             culturalProfile,
           );
-          if (culturalScore >= 0.45) {
+          if (culturalScore >= WORLD_BELONGING_RETRIEVAL_MIN) {
             eligible.push(track);
             eligibleIds.add(track.trackId);
           }
@@ -956,15 +968,15 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
           expansionCandidates: opts.expansionCandidates ?? [],
         });
         if (recovery.tracks.length > 0) {
-          const recoveryIds = new Set(
-            recovery.tracks.map((t) =>
-              String((t as { trackId?: string }).trackId ?? `${t.artistName}:${t.trackName}`),
-            ),
-          );
-          const recovered = opts.tracks.filter((t) => recoveryIds.has(t.trackId)) as T[];
+          const recoveryKeys = new Set(recovery.tracks.map((t) => retrievalTrackKey(t)));
+          const recovered = opts.tracks.filter(
+            (t) => recoveryKeys.has(t.trackId) || recoveryKeys.has(retrievalTrackKey(t)),
+          ) as T[];
           const expansionPool = (opts.expansionCandidates ?? []) as T[];
           const recoveredExpansion = expansionPool.filter(
-            (t) => recoveryIds.has(t.trackId) && !recovered.some((r) => r.trackId === t.trackId),
+            (t) =>
+              (recoveryKeys.has(t.trackId) || recoveryKeys.has(retrievalTrackKey(t))) &&
+              !recovered.some((r) => r.trackId === t.trackId),
           );
           const pool = [...recovered, ...recoveredExpansion];
           if (pool.length > 0) {
@@ -1289,6 +1301,37 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
     const libraryIdSet = new Set(opts.tracks.map((t) => t.trackId));
     const expansionIdSet = new Set((opts.expansionCandidates ?? []).map((t) => t.trackId));
     ordered = [...ordered].sort((a, b) => {
+      const belongA = scoreWorldBelongingRank(
+        {
+          trackName: a.trackName,
+          artistName: a.artistName,
+          albumName: a.albumName,
+          genreFamily: classifyFor(a, opts.classMap)?.genreFamily ?? null,
+          genrePrimary: classifyFor(a, opts.classMap)?.genrePrimary ?? null,
+          genres: classifyFor(a, opts.classMap)?.subGenres ?? null,
+          energy: a.energy ?? null,
+          valence: a.valence ?? null,
+          danceability: a.danceability ?? null,
+          releaseYear: a.releaseYear ?? null,
+        },
+        coverageProfile,
+      );
+      const belongB = scoreWorldBelongingRank(
+        {
+          trackName: b.trackName,
+          artistName: b.artistName,
+          albumName: b.albumName,
+          genreFamily: classifyFor(b, opts.classMap)?.genreFamily ?? null,
+          genrePrimary: classifyFor(b, opts.classMap)?.genrePrimary ?? null,
+          genres: classifyFor(b, opts.classMap)?.subGenres ?? null,
+          energy: b.energy ?? null,
+          valence: b.valence ?? null,
+          danceability: b.danceability ?? null,
+          releaseYear: b.releaseYear ?? null,
+        },
+        coverageProfile,
+      );
+      if (belongB !== belongA) return belongB - belongA;
       const tierA = classifyWorldCoverageTier(
         a,
         coverageProfile,

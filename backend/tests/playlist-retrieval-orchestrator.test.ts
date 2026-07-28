@@ -155,7 +155,47 @@ test("electHumanOpener prefers activity-fit opener", () => {
   assert.ok(opener.confidence > 0.4);
 });
 
-test("evaluateCandidateSufficiency detects weak pools", () => {
+test("orchestratePlaylistRetrieval trusts retrieval pool over era-starved supply heuristics", () => {
+  const classMap = new Map<string, {
+    genrePrimary: string;
+    genreFamily: string;
+    primarySubgenre: string;
+    secondarySubgenre: string | null;
+    subGenres: string[];
+  }>();
+  const artists = ["Taylor Swift", "Drake", "The Weeknd", "Ed Sheeran"];
+  const library = Array.from({ length: 200 }, (_, i) => {
+    const trackId = `disco-${i}`;
+    classMap.set(trackId, {
+      genrePrimary: "unknown",
+      genreFamily: "unknown",
+      primarySubgenre: "unknown",
+      secondarySubgenre: null,
+      subGenres: [],
+    });
+    return track(`disco-${i}`, {
+      artistName: artists[i % artists.length]!,
+      energy: 0.72,
+      danceability: 0.68,
+      releaseYear: 2018,
+    });
+  });
+  const result = orchestratePlaylistRetrieval({
+    tracks: library,
+    vibe: "disco rooftop party 1978",
+    intent: { activity: "party", mood: [], genreFamilies: [], primaryGenres: [] },
+    emotionProfile: { energy: 0.8, valence: 0.75, tension: 0.2, nostalgia: 0.3, calm: 0.1, environment: null, timeOfDay: null, motionState: null },
+    classMap,
+    requestedLength: 25,
+    sceneActive: true,
+    debugRetrieval: false,
+    noLibraryMode: false,
+  });
+  assert.equal(result.failure, undefined, "should not discard a non-empty retrieval pool");
+  assert.ok(result.tracks.length >= 25);
+});
+
+test("evaluateCandidateSufficiency scores weak gym pool low", () => {
   const weak = Array.from({ length: 40 }, (_, i) =>
     track(`w-${i}`, { energy: 0.15, tempo: 60, valence: 0.2 }),
   );

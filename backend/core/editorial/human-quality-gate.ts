@@ -82,7 +82,8 @@ export class HumanQualityGateError extends Error {
   }
 }
 
-const MIN_SALVAGEABLE = 6;
+/** V15: minimum honest delivery — 3+ preferred; never refuse 1-2 on hard-lock when anchors exist. */
+const MIN_SALVAGEABLE = 3;
 
 export function buildHumanQualityRefuseMessage(
   reasons: string[],
@@ -97,7 +98,7 @@ export function buildHumanQualityRefuseMessage(
       "would dilute the experience — try Discovery Mode or a broader festive prompt."
     );
   }
-  if (reasons.includes("stub_underfill") || count < MIN_SALVAGEABLE) {
+  if (reasons.includes("stub_underfill") || (count > 0 && count < MIN_SALVAGEABLE && !reasons.includes("v15_minimum_delivery"))) {
     return (
       `I only found ${count} strong match${count === 1 ? "" : "es"}` +
       (requested > 0 ? ` for a ${requested}-track request` : "") +
@@ -324,10 +325,27 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
     };
   }
 
-  // Refuse only truly unsavable stubs (<3), empty, seasonal leak, opener chain that survived sanitize, or empty wanted-christmas.
+  // Refuse only truly unsavable stubs (empty), seasonal leak, opener chain that survived sanitize, or empty wanted-christmas.
+  if (
+    count > 0 &&
+    count < 3 &&
+    input.committedWorldHardLock === true
+  ) {
+    return {
+      action: "honest_partial",
+      reasons: [...reasons, "v15_minimum_delivery"],
+      userMessage: buildHumanQualityPartialMessage(count, requested, [...reasons, "v15_minimum_delivery"]),
+      salvageableCount: count,
+      wouldSaveConfidence,
+      replayConfidence,
+      worldCoherenceOk,
+      stubUnderfill,
+    };
+  }
+
   if (
     empty ||
-    count < 3 ||
+    (count < 3 && input.committedWorldHardLock !== true) ||
     reasons.includes("holiday_requested_empty_supply") ||
     reasons.includes("seasonal_leakage") ||
     (reasons.includes("psych_indie_opener_chain") &&

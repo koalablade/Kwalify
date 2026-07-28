@@ -25,6 +25,12 @@ import {
 } from "./world-identity-score";
 import { isUnknownGenreMetadata, resolveWorldSearchKeywords } from "./world-search-keywords";
 import { markFunnelRecovery } from "./retrieval-funnel-trace";
+import {
+  artistOnWorldRoster,
+  trackBelongsForWorldRetrieval,
+  trackMatchesWorldInstrumentation,
+  WORLD_BELONGING_RETRIEVAL_MIN,
+} from "./world-belonging-retrieval";
 
 export type LayeredRetrievalInput = {
   prompt: string;
@@ -45,12 +51,18 @@ export type LayeredRetrievalResult = {
 
 type ScoredTrack = { track: WorldIdentityTrack; score: number; layer: string };
 
-const DEFAULT_MIN_WORLD_SCORE = 0.45;
+/** Retrieval floor — gates still enforce 80/85/90/95 later. */
+const DEFAULT_MIN_WORLD_SCORE = WORLD_BELONGING_RETRIEVAL_MIN;
 
-function trackId(track: WorldIdentityTrack): string {
+/** Stable retrieval key — matches library trackId or artist:title fallback. */
+export function retrievalTrackKey(track: WorldIdentityTrack): string {
   return String(
     (track as { trackId?: string }).trackId ?? `${track.artistName}:${track.trackName}`,
   );
+}
+
+function trackId(track: WorldIdentityTrack): string {
+  return retrievalTrackKey(track);
 }
 
 function normalizeArtist(artist: string): string {
@@ -167,7 +179,15 @@ function layerUserTasteMatch(
       profile.preferredEras.min != null &&
       track.releaseYear >= profile.preferredEras.min - 3 &&
       (profile.preferredEras.max == null || track.releaseYear <= profile.preferredEras.max + 3);
-    if (!identityMatch && !adjacentMatch && !keywordMatch && !eraMatch) continue;
+    if (
+      !identityMatch &&
+      !adjacentMatch &&
+      !keywordMatch &&
+      !eraMatch &&
+      !trackBelongsForWorldRetrieval(track, profile)
+    ) {
+      continue;
+    }
 
     // V15: unknown metadata is unknown — score via artist identity, not indie default
     const unknownMeta = isUnknownGenreMetadata(track.genreFamily, track.genrePrimary);
@@ -177,7 +197,40 @@ function layerUserTasteMatch(
   return out;
 }
 
-/** Layer 4: approved Spotify anchor expansion candidates. */
+/** Layer 4: profile roster — major/deep/cult/era artists a human DJ would accept. */
+function layerProfileRoster(
+  library: WorldIdentityTrack[],
+  profile: CulturalWorldProfile,
+  worldIds: string[],
+): ScoredTrack[] {
+  const out: ScoredTrack[] = [];
+  for (const track of library) {
+    if (!passesCulturalBoundary(track, profile, worldIds)) continue;
+    if (!artistOnWorldRoster(String(track.artistName ?? ""), profile)) continue;
+    out.push(scoreForLayer(track, profile, "roster", 0.62));
+  }
+  return out;
+}
+
+/** Layer 5: imperfect-but-belongs — instrumentation + world identity score, no perfect match required. */
+function layerWorldBelonging(
+  library: WorldIdentityTrack[],
+  profile: CulturalWorldProfile,
+  worldIds: string[],
+): ScoredTrack[] {
+  const out: ScoredTrack[] = [];
+  for (const track of library) {
+    if (!passesCulturalBoundary(track, profile, worldIds)) continue;
+    if (!trackBelongsForWorldRetrieval(track, profile)) continue;
+    const instrumentation = trackMatchesWorldInstrumentation(track, profile);
+    const worldScore = scoreTrackWorldIdentity(track, profile);
+    const base = instrumentation ? Math.max(worldScore, 0.48) : worldScore;
+    out.push(scoreForLayer(track, profile, "belonging", base));
+  }
+  return out;
+}
+
+/** Layer 6: approved Spotify anchor expansion candidates. */
 function layerSpotifyExpansion(
   expansion: WorldIdentityTrack[],
   profile: CulturalWorldProfile,
@@ -222,11 +275,15 @@ export function runLayeredWorldRetrieval(input: LayeredRetrievalInput): LayeredR
   const layer1 = layerAnchorArtists(userLibrary, culturalProfile, worldIds);
   const layer2 = layerCulturalNeighbours(userLibrary, culturalProfile, worldIds);
   const layer3 = layerUserTasteMatch(userLibrary, culturalProfile, worldIds, prompt, keywords);
-  const layer4 = layerSpotifyExpansion(expansionCandidates, culturalProfile, worldIds, minWorldScore);
+  const layer4 = layerProfileRoster(userLibrary, culturalProfile, worldIds);
+  const layer5 = layerWorldBelonging(userLibrary, culturalProfile, worldIds);
+  const layer6 = layerSpotifyExpansion(expansionCandidates, culturalProfile, worldIds, minWorldScore);
 
-  const merged = mergeDedupeRank([...layer1, ...layer2, ...layer3, ...layer4]);
+  const merged = mergeDedupeRank([...layer1, ...layer2, ...layer3, ...layer4, ...layer5, ...layer6]);
   const filtered = merged.filter(
-    (t) => scoreTrackWorldIdentity(t, culturalProfile) >= minWorldScore || isAnchorArtistForProfile(t.artistName, culturalProfile),
+    (t) =>
+      trackBelongsForWorldRetrieval(t, culturalProfile) ||
+      isAnchorArtistForProfile(t.artistName, culturalProfile),
   );
 
   return {
@@ -235,7 +292,9 @@ export function runLayeredWorldRetrieval(input: LayeredRetrievalInput): LayeredR
       anchor: layer1.length,
       neighbour: layer2.length,
       taste: layer3.length,
-      spotify_anchor: layer4.length,
+      roster: layer4.length,
+      belonging: layer5.length,
+      spotify_anchor: layer6.length,
       merged: merged.length,
       afterWorldScore: filtered.length,
     },
@@ -332,10 +391,25 @@ export function runNonePlaylistRecovery(input: LayeredRetrievalInput): LayeredRe
   };
 }
 
-/** Run layered retrieval with automatic none-recovery when pool is empty. */
+/** Run layered retrieval with automatic none-recovery when pool is thin (<3). */
 export function retrieveWithRecovery(input: LayeredRetrievalInput): LayeredRetrievalResult {
   const primary = runLayeredWorldRetrieval(input);
-  if (primary.tracks.length > 0) return primary;
+  if (primary.tracks.length >= 3) return primary;
   const recovery = runNonePlaylistRecovery(input);
-  return { ...recovery, recoveryUsed: true };
+  if (recovery.tracks.length === 0) return primary.tracks.length > 0 ? primary : recovery;
+
+  const seen = new Set(primary.tracks.map(trackId));
+  const merged = [...primary.tracks];
+  for (const track of recovery.tracks) {
+    const id = trackId(track);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    merged.push(track);
+  }
+  return {
+    ...recovery,
+    tracks: merged,
+    layerCounts: { ...primary.layerCounts, ...recovery.layerCounts, merged_total: merged.length },
+    recoveryUsed: true,
+  };
 }

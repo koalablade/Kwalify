@@ -13,6 +13,8 @@ import {
   type ActivityIntentInput,
   type ActivityTrackInput,
 } from "./activity-profiles";
+import { artistSupportsWorld } from "../core/editorial/artist-identity-map";
+import { resolveCommittedWorld } from "../core/committed-world";
 
 export type SupplyTrackInput = ActivityTrackInput & {
   trackId: string;
@@ -170,6 +172,8 @@ export function estimateValidCandidateSupply<T extends SupplyTrackInput>(
 ): ValidCandidateSupply {
   const expectations = genreExpectations(opts.intent, opts.vibe);
   const minRequired = minRequiredValidCandidates(opts.requestedLength);
+  const committed = resolveCommittedWorld({ prompt: opts.vibe, lockedIntent: opts.intent });
+  const worldIds = committed?.hardLock ? (committed.worldIds ?? []) : [];
   const sample = opts.tracks.length > 2400
     ? opts.tracks.filter((_, index) => index % Math.ceil(opts.tracks.length / 2400) === 0)
     : opts.tracks;
@@ -183,14 +187,24 @@ export function estimateValidCandidateSupply<T extends SupplyTrackInput>(
     const genreOk = trackMatchesGenreExpectation(track, classification, expectations);
     const eraStrict = trackMatchesEra(track, opts.intent, false);
     const eraRelaxed = trackMatchesEra(track, opts.intent, true);
+    const worldArtistMatch =
+      worldIds.length > 0 && artistSupportsWorld(String(track.artistName ?? ""), worldIds);
+    const eraOkStrict = eraStrict || worldArtistMatch;
+    const eraOkRelaxed = eraRelaxed || worldArtistMatch;
 
     const strictActivity = trackPassesStrictActivity(track, classification, opts.vibe, opts.intent);
     const relaxedActivity = trackPassesRelaxedActivity(track, opts.intent);
     const recoveryActivity = trackPassesRecoveryActivity(track, opts.intent);
 
-    if (strictActivity && genreOk && eraStrict) strictValidCount += 1;
-    if (relaxedActivity && (expectations.length === 0 || genreOk || relaxedActivity) && eraRelaxed) relaxedValidCount += 1;
-    if (recoveryActivity && eraRelaxed) recoveryValidCount += 1;
+    if (strictActivity && (genreOk || worldArtistMatch) && eraOkStrict) strictValidCount += 1;
+    if (
+      relaxedActivity &&
+      (expectations.length === 0 || genreOk || relaxedActivity || worldArtistMatch) &&
+      eraOkRelaxed
+    ) {
+      relaxedValidCount += 1;
+    }
+    if (recoveryActivity && eraOkRelaxed) recoveryValidCount += 1;
   }
 
   const scale = opts.tracks.length > 0 ? opts.tracks.length / Math.max(1, sample.length) : 1;

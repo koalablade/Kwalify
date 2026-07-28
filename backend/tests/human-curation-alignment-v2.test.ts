@@ -92,6 +92,16 @@ describe("human-quality-gate", () => {
     const err = new HumanQualityGateError(result);
     assert.equal(err.code, "HUMAN_QUALITY_GATE_REFUSED");
     assert.equal(err.result.action, "refuse");
+
+    const hardLockThin = evaluateHumanQualityGate({
+      trackCount: 2,
+      requestedLength: 25,
+      committedWorldHardLock: true,
+      wouldSpotifyMakeThis: true,
+      dominantWorldDensity: 0.8,
+    });
+    assert.equal(hardLockThin.action, "honest_partial");
+    assert.ok(hardLockThin.reasons.includes("v15_minimum_delivery"));
   });
 });
 

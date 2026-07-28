@@ -923,9 +923,16 @@ export function orchestratePlaylistRetrieval<T extends RetrievalTrackInput>(
   );
 
   const postMin = functionalPrompt ? 40 : 28;
-  const confidenceBlocksRetrieval =
+  const retrievalPoolSize = retrievalResult?.tracks.length ?? 0;
+  const retrievalPoolSufficient = retrievalPoolSize >= Math.max(3, Math.ceil(minRequired * 0.3));
+  let confidenceBlocksRetrieval =
     combinedConfidence < postMin &&
     validCandidateSupply.relaxedValidCount < minRequired;
+  // Pre-retrieval supply heuristics can read 0 (e.g. era-locked disco + modern library)
+  // while layered retrieval already assembled a valid pool — trust retrieval output.
+  if (retrievalPoolSufficient) {
+    confidenceBlocksRetrieval = false;
+  }
 
   if (!opts.noLibraryMode && confidenceBlocksRetrieval) {
     if (attemptBlendedRescue()) {

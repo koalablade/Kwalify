@@ -50,6 +50,8 @@ import {
   passesWorldIdentity,
   worldIdentityProfilesForLock,
 } from "./editorial/world-identity-gate";
+import { culturalProfileForCommittedWorld } from "./editorial/cultural-identity-profile";
+import { trackBelongsForWorldRetrieval } from "./editorial/world-belonging-retrieval";
 import { HONEST_PARTIAL_MIN } from "./editorial/intent-collapse-layer";
 import { scorePlaylistCoherence } from "./playlist-coherence-audit";
 import type { GenerationPolicy } from "../lib/library-generation-policy";
@@ -4277,30 +4279,35 @@ export async function buildPlaylistPipeline<T extends {
     if (!worldBoundary.hardLock) return;
     const profiles = worldIdentityProfiles();
     if (profiles.length === 0) return;
+    const culturalProfile = culturalProfileForCommittedWorld(
+      worldBoundary.lockAnchors,
+      worldBoundary.lockAnchors[0] ?? "",
+    );
     for (const song of worldScanLibrary) {
       const enriched = enrichWorldIdentity(song as T & { trackId: string });
       const classification = classMap.get(song.trackId);
-      if (
-        passesWorldIdentity(
-          {
-            trackName: enriched.trackName ?? null,
-            artistName: enriched.artistName ?? null,
-            albumName: enriched.albumName ?? null,
-            genrePrimary: classification?.genrePrimary ?? null,
-            genreFamily: classification?.genreFamily ?? null,
-            genres: classification?.subGenres ?? null,
-            spotifyArtistGenres: (enriched as { spotifyArtistGenres?: unknown }).spotifyArtistGenres,
-            albumGenres: (enriched as { albumGenres?: unknown }).albumGenres,
-            energy: song.energy ?? null,
-            valence: song.valence ?? null,
-            danceability: song.danceability ?? null,
-            instrumentalness: (song as T & { instrumentalness?: number | null }).instrumentalness ?? null,
-            popularity: (song as T & { popularity?: number | null }).popularity ?? null,
-          },
-          profiles,
-          { hardLock: true },
-        )
-      ) {
+      const identityTrack = {
+        trackName: enriched.trackName ?? null,
+        artistName: enriched.artistName ?? null,
+        albumName: enriched.albumName ?? null,
+        genrePrimary: classification?.genrePrimary ?? null,
+        genreFamily: classification?.genreFamily ?? null,
+        genres: classification?.subGenres ?? null,
+        spotifyArtistGenres: (enriched as { spotifyArtistGenres?: unknown }).spotifyArtistGenres,
+        albumGenres: (enriched as { albumGenres?: unknown }).albumGenres,
+        energy: song.energy ?? null,
+        valence: song.valence ?? null,
+        danceability: song.danceability ?? null,
+        instrumentalness: (song as T & { instrumentalness?: number | null }).instrumentalness ?? null,
+        popularity: (song as T & { popularity?: number | null }).popularity ?? null,
+        releaseYear: (song as { releaseYear?: number | null }).releaseYear ?? null,
+      };
+      if (passesWorldIdentity(identityTrack, profiles, { hardLock: true })) {
+        worldVerifiedTrackIds.add(song.trackId);
+        continue;
+      }
+      // Retrieval widening: imperfect-but-belongs stays in verified pool for V3 context.
+      if (culturalProfile && trackBelongsForWorldRetrieval(identityTrack, culturalProfile)) {
         worldVerifiedTrackIds.add(song.trackId);
       }
     }
