@@ -74,8 +74,8 @@ function Test-KwalifyApiAlive {
 function Assert-KwalifySafeToRestart {
   param([string]$Reason = "restart")
   if (Test-KwalifyGenerationBusy) {
-    Write-Host "  Refusing $Reason — playlist generation or benchmark is active." -ForegroundColor Yellow
-    Write-Host "  Wait for generation to finish, or use stop-kwalify.bat if you must interrupt."
+    Write-Host "  Refusing $Reason - playlist generation or benchmark is active." -ForegroundColor Yellow
+    Write-Host '  Wait for generation to finish, or use stop-kwalify.bat if you must interrupt.'
     return $false
   }
   return $true
