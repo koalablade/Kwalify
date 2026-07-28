@@ -7,6 +7,8 @@ export type PromptNegationProfile = {
   suppressChristmas: boolean;
   suppressRap: boolean;
   suppressGuitar: boolean;
+  suppressAcoustic: boolean;
+  suppressSad: boolean;
   suppressedTerms: string[];
 };
 
@@ -21,6 +23,10 @@ const RAP_NEGATION_RE =
 
 const GUITAR_NEGATION_RE = /\b(?:no|not|without)\s+guitar/i;
 
+const ACOUSTIC_NEGATION_RE = /\b(?:no|not|without)\s+acoustic/i;
+
+const SAD_NEGATION_RE = /\b(?:no|not|without)\s+sad(?:\s+songs?)?\b/i;
+
 const CHRISTMAS_TRACK_RE =
   /\b(?:christmas|xmas|noel|santa|jingle|winter wonderland|silent night|holiday song|festive|yuletide|deck the halls|last christmas|all i want for christmas|wonderful christmastime|fairytale of new york|merry christmas|christmastime|rudolph|frosty|feliz navidad|baby it'?s cold outside|mistletoe|sleigh)\b/i;
 
@@ -32,6 +38,12 @@ const RAP_ARTIST_HINT_RE =
 
 const GUITAR_GENRE_RE =
   /\b(?:rock|metal|punk|grunge|indie\s+rock|alt(?:ernative)?\s+rock|classic\s+rock|hard\s+rock|acoustic|folk|country|americana|blues\s+rock)\b/i;
+
+const ACOUSTIC_SIGNAL_RE =
+  /\b(?:acoustic|unplugged|singer[-\s]?songwriter|folk\b|americana|indie\s+folk)\b/i;
+
+const SAD_SIGNAL_RE =
+  /\b(?:sad|ballad|slowcore|sadcore|melanchol|heartbreak|tearjerker|weepy|miserable)\b/i;
 
 function trackTextBlob(track: {
   trackName?: string | null;
@@ -63,12 +75,16 @@ export function parsePromptNegationEnforcement(prompt: string): PromptNegationPr
     CHRISTMAS_NEGATION_RE.test(prompt) || WINTER_NO_CHRISTMAS_RE.test(prompt);
   const suppressRap = RAP_NEGATION_RE.test(prompt);
   const suppressGuitar = GUITAR_NEGATION_RE.test(prompt);
+  const suppressAcoustic = ACOUSTIC_NEGATION_RE.test(prompt);
+  const suppressSad = SAD_NEGATION_RE.test(prompt);
 
   if (suppressChristmas) suppressedTerms.push("christmas");
   if (suppressRap) suppressedTerms.push("rap");
   if (suppressGuitar) suppressedTerms.push("guitar");
+  if (suppressAcoustic) suppressedTerms.push("acoustic");
+  if (suppressSad) suppressedTerms.push("sad");
 
-  return { suppressChristmas, suppressRap, suppressGuitar, suppressedTerms };
+  return { suppressChristmas, suppressRap, suppressGuitar, suppressAcoustic, suppressSad, suppressedTerms };
 }
 
 /** Returns violation reason or null when track is admissible. */
@@ -125,6 +141,22 @@ export function trackViolatesPromptNegation(
     }
   }
 
+  if (profile.suppressAcoustic) {
+    const acousticness =
+      typeof track.acousticness === "number" && Number.isFinite(track.acousticness)
+        ? track.acousticness
+        : null;
+    if (ACOUSTIC_SIGNAL_RE.test(blob) || (acousticness != null && acousticness > 0.62)) {
+      return "negation:acoustic";
+    }
+  }
+
+  if (profile.suppressSad) {
+    if (SAD_SIGNAL_RE.test(blob) || SAD_SIGNAL_RE.test(titleAlbum)) {
+      return "negation:sad";
+    }
+  }
+
   return null;
 }
 
@@ -148,4 +180,53 @@ export function countOpenerNegationViolations<
     if (trackViolatesPromptNegation(track, profile)) count += 1;
   }
   return count;
+}
+
+/** Count negation violations across the full delivered playlist. */
+export function countAllNegationViolations<
+  T extends {
+    trackName?: string | null;
+    artistName?: string | null;
+    albumName?: string | null;
+    genreFamily?: string | null;
+    genrePrimary?: string | null;
+    genres?: string[] | null;
+    spotifyArtistGenres?: unknown;
+    acousticness?: number | null;
+    instrumentalness?: number | null;
+  },
+>(tracks: T[], profile: PromptNegationProfile): number {
+  if (profile.suppressedTerms.length === 0) return 0;
+  let count = 0;
+  for (const track of tracks) {
+    if (trackViolatesPromptNegation(track, profile)) count += 1;
+  }
+  return count;
+}
+
+/** Final delivery pass — remove any track that violates explicit negations. */
+export function filterTracksForDeliveryNegation<
+  T extends {
+    trackName?: string | null;
+    artistName?: string | null;
+    albumName?: string | null;
+    genreFamily?: string | null;
+    genrePrimary?: string | null;
+    genres?: string[] | null;
+    spotifyArtistGenres?: unknown;
+    acousticness?: number | null;
+    instrumentalness?: number | null;
+  },
+>(tracks: T[], profile: PromptNegationProfile): { tracks: T[]; removed: number } {
+  if (profile.suppressedTerms.length === 0) return { tracks, removed: 0 };
+  const kept: T[] = [];
+  let removed = 0;
+  for (const track of tracks) {
+    if (trackViolatesPromptNegation(track, profile)) {
+      removed += 1;
+      continue;
+    }
+    kept.push(track);
+  }
+  return { tracks: kept, removed };
 }

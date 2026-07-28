@@ -14,7 +14,7 @@ import {
   type ActivityProfile,
   type ActivityTrackInput,
 } from "./activity-profiles";
-import { inferWorldIdentityIdsFromPrompt, isSafetyBlanketOutsideWorld } from "../core/editorial/world-identity-gate";
+import { inferWorldIdentityIdsFromPrompt, isSafetyBlanketOutsideWorld, estimateWorldMembership, worldIdentityProfilesForLock } from "../core/editorial/world-identity-gate";
 import { resolveCommittedWorld } from "../core/committed-world";
 import {
   detectUkHipHopScene,
@@ -224,6 +224,15 @@ const COMMITTED_WORLD_RETRIEVAL_IDS = [
   "gym_rock_world",
   "angry_rock_world",
   "britpop_world",
+  "madchester_world",
+  "uk_garage_world",
+  "80s_night_drive_world",
+  "rainy_motorway_world",
+  "road_trip_singalong_world",
+  "heavy_gym_world",
+  "running_energy_world",
+  "arena_rock_world",
+  "dad_rock_world",
   "lofi_world",
   "focus_study_world",
 ] as const;
@@ -248,6 +257,15 @@ const COMMITTED_WORLD_GENRE_FAMILIES: Record<string, string[]> = {
   gym_rock_world: ["rock", "metal"],
   angry_rock_world: ["rock", "metal"],
   britpop_world: ["rock", "indie"],
+  madchester_world: ["rock", "electronic"],
+  uk_garage_world: ["electronic", "hip_hop"],
+  "80s_night_drive_world": ["electronic", "rock"],
+  rainy_motorway_world: ["electronic", "rock"],
+  road_trip_singalong_world: ["rock", "pop"],
+  heavy_gym_world: ["rock", "metal"],
+  running_energy_world: ["electronic", "pop", "hip_hop"],
+  arena_rock_world: ["rock"],
+  dad_rock_world: ["rock", "pop"],
   lofi_world: ["indie", "electronic", "hip_hop", "jazz"],
   focus_study_world: ["electronic", "indie", "jazz"],
 };
@@ -370,9 +388,10 @@ export function buildPromptRetrievalProfile(
     sourceQuotas.exploratory = Math.max(0.04, sourceQuotas.exploratory - 0.08);
     sourceQuotas.forgotten_favourites = Math.max(0.08, sourceQuotas.forgotten_favourites - 0.1);
   } else if (committedWorldId) {
-    sourceQuotas.genre_match = Math.min(0.38, sourceQuotas.genre_match + 0.1);
+    sourceQuotas.genre_match = Math.min(0.42, sourceQuotas.genre_match + 0.14);
+    sourceQuotas.emotional_match = Math.min(sourceQuotas.emotional_match, 0.06);
     sourceQuotas.forgotten_favourites = Math.max(0.1, sourceQuotas.forgotten_favourites - 0.08);
-    sourceQuotas.exploratory = Math.max(0.05, sourceQuotas.exploratory - 0.06);
+    sourceQuotas.exploratory = Math.max(0.04, sourceQuotas.exploratory - 0.08);
     if (genre.families.length === 0) {
       for (const family of COMMITTED_WORLD_GENRE_FAMILIES[committedWorldId] ?? []) genre.families.push(family);
       genre.confidence = Math.max(genre.confidence, 0.72);
@@ -426,6 +445,38 @@ function genreRetrievalFit(
   return Math.min(1, score);
 }
 
+function worldRetrievalFit(
+  track: RetrievalTrackInput,
+  classification: ActivityClassificationInput,
+  retrievalWorldIds: string[],
+): number {
+  if (retrievalWorldIds.length === 0) return 0.5;
+  const profiles = worldIdentityProfilesForLock({ anchors: retrievalWorldIds });
+  return estimateWorldMembership(
+    {
+      trackName: track.trackName,
+      artistName: track.artistName,
+      albumName: track.albumName,
+      genrePrimary: classification?.genrePrimary ?? null,
+      genreFamily: classification?.genreFamily ?? null,
+      genres: classification?.subGenres ?? null,
+      energy: track.energy ?? null,
+      valence: track.valence ?? null,
+      danceability: track.danceability ?? null,
+    },
+    profiles,
+  );
+}
+
+function blendWorldOverEmotion(
+  baseScore: number,
+  worldFit: number,
+  committedWorldActive: boolean,
+): number {
+  if (!committedWorldActive) return baseScore;
+  return baseScore * 0.28 + worldFit * 0.72;
+}
+
 function favouriteArtistFit(
   track: RetrievalTrackInput,
   artistCounts: Map<string, number>,
@@ -477,7 +528,7 @@ function scoreOpeningCandidate(
   const emotion = quickEmotionFit(track, { energy: 0.5, valence: 0.5, tension: 0.5, nostalgia: 0.5, calm: 0.5, environment: null, timeOfDay: null, motionState: null });
   if (retrievalProfile.activity === "party_pregame") return pop * 0.55 + (track.energy ?? 0.5) * 0.45;
   if (retrievalProfile.activity === "gym") return (track.energy ?? 0.5) * 0.65 + (track.danceability ?? 0.5) * 0.35;
-  if (retrievalProfile.activity === "driving") return emotion * 0.5 + pop * 0.2 + (track.valence ?? 0.5) * 0.3;
+  if (retrievalProfile.activity === "driving") return emotion * 0.2 + pop * 0.15 + (track.valence ?? 0.5) * 0.15;
   return emotion;
 }
 
@@ -790,9 +841,12 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
 
   const activityRanked = eligible
     .map((track) => {
+      const classification = classifyFor(track, opts.classMap);
       let score = retrievalProfile.activityProfile
-        ? scoreActivityCandidateFit(track, classifyFor(track, opts.classMap), retrievalProfile.activityProfile, opts.vibe)
+        ? scoreActivityCandidateFit(track, classification, retrievalProfile.activityProfile, opts.vibe)
         : quickEmotionFit(track, opts.emotionProfile);
+      const worldFit = worldRetrievalFit(track, classification, retrievalWorldIds);
+      score = blendWorldOverEmotion(score, worldFit, retrievalWorldIds.length > 0);
       if (
         retrievalProfile.activity === "party_pregame" &&
         !retrievalProfile.ukHipHopScene?.active &&
@@ -805,14 +859,23 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
     .sort((a, b) => b.score - a.score);
 
   const emotionalRanked = eligible
-    .map((track) => ({ track, score: scoreModifiersFor(track, quickEmotionFit(track, opts.emotionProfile)) }))
+    .map((track) => {
+      const classification = classifyFor(track, opts.classMap);
+      const worldFit = worldRetrievalFit(track, classification, retrievalWorldIds);
+      const emotion = quickEmotionFit(track, opts.emotionProfile);
+      const score = blendWorldOverEmotion(emotion, worldFit, retrievalWorldIds.length > 0);
+      return { track, score: scoreModifiersFor(track, score) };
+    })
     .sort((a, b) => b.score - a.score);
 
   const genreRanked = eligible
-    .map((track) => ({
-      track,
-      score: scoreModifiersFor(track, genreRetrievalFit(track, classifyFor(track, opts.classMap), retrievalProfile)),
-    }))
+    .map((track) => {
+      const classification = classifyFor(track, opts.classMap);
+      const genreFit = genreRetrievalFit(track, classification, retrievalProfile);
+      const worldFit = worldRetrievalFit(track, classification, retrievalWorldIds);
+      const score = blendWorldOverEmotion(genreFit, worldFit, retrievalWorldIds.length > 0);
+      return { track, score: scoreModifiersFor(track, score) };
+    })
     .sort((a, b) => b.score - a.score);
 
   const favouriteRanked = eligible
@@ -891,8 +954,12 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
   };
 
   const sourceOrder: RetrievalSourceId[] = retrievalProfile.highConfidenceActivity
-    ? ["activity_match", "sonic_match", "forgotten_favourites", "genre_match", "emotional_match", "exploratory", "favourite_artists"]
-    : ["forgotten_favourites", "sonic_match", "emotional_match", "genre_match", "activity_match", "exploratory", "favourite_artists"];
+    ? retrievalWorldIds.length > 0
+      ? ["genre_match", "activity_match", "sonic_match", "forgotten_favourites", "emotional_match", "exploratory", "favourite_artists"]
+      : ["activity_match", "sonic_match", "forgotten_favourites", "genre_match", "emotional_match", "exploratory", "favourite_artists"]
+    : retrievalWorldIds.length > 0
+      ? ["genre_match", "forgotten_favourites", "sonic_match", "activity_match", "emotional_match", "exploratory", "favourite_artists"]
+      : ["forgotten_favourites", "sonic_match", "activity_match", "genre_match", "emotional_match", "exploratory", "favourite_artists"];
 
   for (const sourceId of sourceOrder) {
     const quota = Math.max(8, Math.floor(broadCap * retrievalProfile.sourceQuotas[sourceId]));

@@ -269,6 +269,10 @@ import {
   evaluateIntentFidelity,
   selectIntentFidelityHonestPartialTracks,
 } from "../core/editorial/intent-fidelity-gate";
+import {
+  evaluateWorldProof,
+  filterTracksByWorldIdentity,
+} from "../core/editorial/world-proof-gate";
 import { resolveCommittedWorld } from "../core/committed-world";
 import {
   committedWorldQualitySignals,
@@ -454,6 +458,7 @@ import {
 import { openingLockTrackIdsFromTracks } from "../core/editorial/opener-hygiene";
 import {
   countOpenerNegationViolations,
+  filterTracksForDeliveryNegation,
   parsePromptNegationEnforcement,
   trackViolatesPromptNegation,
 } from "../lib/prompt-negation-enforcement";
@@ -12096,7 +12101,16 @@ router.post("/generate", async (req, res): Promise<void> => {
         scenePrediction: mergedScenePrediction,
         lockedIntent,
       });
-      const intentFidelity = evaluateIntentFidelity({
+      const terminalNegationProfileEarly = parsePromptNegationEnforcement(vibe);
+      const negationDeliveryFilter = filterTracksForDeliveryNegation(delivery.tracks, terminalNegationProfileEarly);
+      if (negationDeliveryFilter.removed > 0 && negationDeliveryFilter.tracks.length >= 3) {
+        assignFT(
+          "prompt_negation_enforcement",
+          "delivery negation strip",
+          negationDeliveryFilter.tracks,
+        );
+      }
+      const worldProof = evaluateWorldProof({
         tracks: delivery.tracks.map((t) => ({
           trackId: t.trackId,
           trackName: t.trackName,
@@ -12118,12 +12132,13 @@ router.post("/generate", async (req, res): Promise<void> => {
         prompt: vibe,
         requestedLength,
       });
+      const intentFidelity = worldProof.fidelity;
       if (
         committedWorld?.hardLock &&
-        !intentFidelity.passed &&
+        (!worldProof.passed || !intentFidelity.passed) &&
         intentFidelity.salvageableTracks.length >= 3
       ) {
-        const salvaged = selectIntentFidelityHonestPartialTracks(
+        const salvaged = filterTracksByWorldIdentity(
           delivery.tracks,
           intentFidelity,
           committedWorld,
@@ -12210,7 +12225,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         negationViolations: terminalNegationViolations,
         intentFidelityFailed:
           committedWorld?.hardLock === true &&
-          (!intentFidelity.passed || !intentFidelity.openerPassed),
+          (!worldProof.passed || !intentFidelity.passed || !intentFidelity.openerPassed),
+        worldProofFailed:
+          committedWorld?.hardLock === true && !worldProof.passed,
         committedWorldHardLock: committedWorld?.hardLock ?? false,
         ...terminalWorldSignals,
         committedWorldLaneOk:

@@ -24,21 +24,31 @@ export type CommittedWorld = {
 };
 
 const EXPLICIT_GENRE_WORLD: Array<{ pattern: RegExp; id: string }> = [
-  { pattern: /\bdad\s*'?s?\s+rock\b|\bdad\s+rock\b/i, id: "classic_rock_world" },
+  { pattern: /\bdad\s*'?s?\s+rock\b|\bdad\s+rock\b/i, id: "dad_rock_world" },
   { pattern: /\byacht\s+rock\b/i, id: "yacht_rock_world" },
-  { pattern: /\barena\s+rock\b/i, id: "classic_rock_world" },
+  { pattern: /\barena\s+rock\b/i, id: "arena_rock_world" },
   { pattern: /\bclassic\s+rock\b|\b70s?\s+rock\b|\b80s?\s+rock\b/i, id: "classic_rock_world" },
-  { pattern: /\b(?:70s?|seventies)\s+disco\b|\bdisco\b.*\b(?:party|rooftop|dance)\b/i, id: "disco_party_world" },
+  { pattern: /\b(?:70s?|seventies)\s+disco\b|\bdisco\b.*\b(?:party|rooftop|dance)\b/i, id: "disco_1970s_world" },
+  { pattern: /\b(?:madchester|stone\s+roses|happy\s+mondays|baggy)\b/i, id: "madchester_world" },
   { pattern: /\b(?:madchester|britpop)\b/i, id: "britpop_world" },
-  { pattern: /\b(?:ukg|uk\s+garage|2-?step|speed\s+garage|grime)\b/i, id: "britpop_world" },
+  { pattern: /\b(?:ukg|uk\s+garage|2-?step|speed\s+garage)\b/i, id: "uk_garage_world" },
+  { pattern: /\b(?:80s?|eighties)\s+(?:night\s+)?drive\b/i, id: "80s_night_drive_world" },
+  { pattern: /\b(?:rainy|rain)\s+motorway\b/i, id: "rainy_motorway_world" },
+  { pattern: /\broad\s+trip\b.*\b(?:sing|singalong|anthem)\b/i, id: "road_trip_singalong_world" },
+  { pattern: /\bpetrol\s+station\b.*\b2\s*am\b/i, id: "petrol_station_2am_world" },
+  { pattern: /\bpub\s+singalong\b/i, id: "pub_singalong_world" },
+  { pattern: /\brooftop\s+party\b/i, id: "rooftop_party_world" },
   { pattern: /\b(?:pregame|pre[-\s]?game|getting\s+ready.*go\s+out)\b/i, id: "party_prep_world" },
   { pattern: /\b(?:heavy|aggressive)\s+(?:gym|workout)\b|\bgym\b.*\baggressive\b|\baggressive\b.*\b(?:gym|workout|pump)\b/i, id: "angry_rock_world" },
   {
     pattern: /\bmetal\b.*\b(?:gym|workout|training)\b|\b(?:gym|workout|training)\b.*\bmetal\b/i,
     id: "angry_rock_world",
   },
-  { pattern: /\bgym\s+rock\b|\bheavy\s+gym\b|\bgym\s+pump\b.*\brock\b|\brock\b.*\bgym\b/i, id: "gym_rock_world" },
+  { pattern: /\bangry\s+rock\b/i, id: "angry_rock_world" },
+  { pattern: /\b(?:heavy|hard)\s+gym\b|\bgym\s+workout\b/i, id: "heavy_gym_world" },
+  { pattern: /\bgym\s+rock\b|\bgym\s+pump\b.*\brock\b|\brock\b.*\bgym\b/i, id: "gym_rock_world" },
   { pattern: /\b(?:gym|workout|training\s+session|lifting|cardio|weights)\b/i, id: "gym_rock_world" },
+  { pattern: /\b(?:running|run)\b.*\benergy\b|\benergy\b.*\b(?:running|run)\b/i, id: "running_energy_world" },
   { pattern: /\bgrunge\b/i, id: "grunge_world" },
   { pattern: /\bgoth\b|\bgothic\b/i, id: "goth_world" },
   { pattern: /\bpop[-\s]?punk\b/i, id: "pop_punk_world" },
@@ -50,6 +60,10 @@ const EXPLICIT_SCENE_WORLD: Array<{ pattern: RegExp; id: string }> = [
     pattern:
       /\b(?:empty\s+)?motorway\b.*\b(?:midnight|rain|windscreen)\b|\b(?:midnight|rain)\b.*\b(?:empty\s+)?motorway\b|\bempty\s+motorway\s+at\s+midnight\b/i,
     id: "rainy_drive_world",
+  },
+  {
+    pattern: /\b(?:rainy|rain)\s+motorway\b/i,
+    id: "rainy_motorway_world",
   },
   {
     pattern: /\b(?:motorway|highway)\s+at\s+(?:night|midnight)\b|\bnight\s+drive\b|\b(?:empty|night)\s+(?:motorway|highway)\b/i,
@@ -142,6 +156,9 @@ export function resolveCommittedWorld(opts: {
   if (!id) return null;
 
   const worldIds = [...new Set([id, ...inferred, ...(boundary.lockAnchors ?? [])])];
+  if (id === "dad_rock_world" && !worldIds.includes("classic_rock_world")) {
+    worldIds.push("classic_rock_world", "dad_secret_world");
+  }
   const source = sourceFromBoundary(boundary, explicitGenre, explicitScene, opts.sceneLock ?? null);
   const hardLock =
     Boolean(explicitGenre || explicitScene) ||

@@ -1455,18 +1455,22 @@ export function selectEditorialWorld(opts: {
 
   if (committed?.hardLock && committed.source === "explicit_genre") {
     const committedTag =
-      committed.id === "classic_rock_world" || committed.id === "yacht_rock_world" || committed.id === "dad_secret_world"
+      committed.id === "dad_rock_world" || committed.id === "classic_rock_world" || committed.id === "yacht_rock_world" || committed.id === "dad_secret_world" || committed.id === "arena_rock_world"
         ? "rock_anthem_drive"
-      : committed.id === "gym_rock_world" || committed.id === "angry_rock_world"
+      : committed.id === "gym_rock_world" || committed.id === "angry_rock_world" || committed.id === "heavy_gym_world"
         ? "metal_intensity"
-      : committed.id === "disco_party_world"
+      : committed.id === "disco_party_world" || committed.id === "disco_1970s_world"
         ? "disco_party_nostalgia"
       : committed.id === "goth_world"
         ? "goth_darkwave_night"
       : committed.id === "grunge_world"
         ? "grunge_90s_night"
-      : committed.id === "rainy_drive_world" || committed.id === "night_drive_world"
+      : committed.id === "80s_night_drive_world" || committed.id === "rainy_motorway_world" || committed.id === "rainy_drive_world" || committed.id === "night_drive_world"
         ? "late_night_city_rain"
+      : committed.id === "madchester_world" || committed.id === "britpop_world"
+        ? "rock_anthem_drive"
+      : committed.id === "running_energy_world" || committed.id === "gym_energy_world"
+        ? "gym_boost"
       : null;
     if (committedTag) {
       const forced = EDITORIAL_WORLDS.find((row) => row.tag === committedTag);
@@ -1519,6 +1523,9 @@ export function selectEditorialWorld(opts: {
     : /\bquiet\s+rage\b|\bsimmer(?:ing)?\s+(?:rage|anger)\b|\brepressed\s+(?:rage|anger)\b/i.test(lower)
       ? "quiet_rage_simmer"
     : /\bgrunge\b|\bseattle\s+(?:sound|grunge)\b/i.test(lower) ? "grunge_90s_night"
+    : /\b(?:madchester|stone\s+roses|happy\s+mondays)\b/i.test(lower) ? "rock_anthem_drive"
+    : /\b(?:80s?|eighties)\s+(?:night\s+)?drive\b/i.test(lower) ? "night_drive_electronic"
+    : /\b(?:rainy|rain)\s+motorway\b/i.test(lower) ? "night_drive_electronic"
     : /\b(?:rave|club)\s+comedown\b|\bpost[-\s]?rave\b|\bcomedown\b.*\b(?:bus|rave|club|after)\b/i.test(lower)
       ? "rave_comedown_afterglow"
     : /\b(?:dad\s+rock|yacht\s+rock|arena\s+rock|classic\s+rock|70s?\s+rock|80s?\s+rock)\b/i.test(lower)
@@ -1564,7 +1571,7 @@ export function selectEditorialWorld(opts: {
   }
 
   const genreLockActive = lockedFamilies.length > 0 || opts.lockedIntent.genreFamilies.length > 0;
-  if (genreLockActive || (committed?.hardLock && committed.source === "explicit_genre")) {
+  if (genreLockActive || committed?.hardLock || (committed?.worldIds?.length ?? 0) > 0) {
     candidatePool = candidatePool.filter((row) => row.world.tag !== "indie_balanced_default");
   }
 

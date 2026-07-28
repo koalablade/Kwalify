@@ -51,6 +51,14 @@ import {
   evaluateIntentFidelity,
   selectIntentFidelityHonestPartialTracks,
 } from "../editorial/intent-fidelity-gate";
+import {
+  evaluateWorldProof,
+  filterTracksByWorldIdentity,
+} from "../editorial/world-proof-gate";
+import {
+  filterTracksForDeliveryNegation,
+  parsePromptNegationEnforcement,
+} from "../../lib/prompt-negation-enforcement";
 import { detectUkHipHopScene } from "../../lib/uk-hip-hop-scene";
 import { promptSuppressesChristmas } from "../../lib/human-scene-knowledge";
 import { artistEcosystemBoost, type ArtistEcosystemGraph } from "../../lib/artist-ecosystem-graph";
@@ -2904,7 +2912,29 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         })),
       ).purity
     : null;
-  const intentFidelity = evaluateIntentFidelity({
+  const negationProfile = parsePromptNegationEnforcement(vibe);
+  const negationFiltered = filterTracksForDeliveryNegation(
+    finalTracks.map((t) => ({
+      trackName: t.trackName,
+      artistName: t.artistName,
+      albumName: t.albumName,
+      genreFamily: t.genreFamily,
+      genrePrimary: t.genrePrimary,
+      spotifyArtistGenres: (t as { spotifyArtistGenres?: unknown }).spotifyArtistGenres,
+      acousticness: t.acousticness,
+      instrumentalness: (t as { instrumentalness?: number | null }).instrumentalness,
+    })),
+    negationProfile,
+  );
+  if (negationFiltered.removed > 0) {
+    const keptIds = new Set(
+      negationFiltered.tracks.map((t) => `${t.artistName ?? ""}|${t.trackName ?? ""}`),
+    );
+    finalTracks = finalTracks.filter((t) =>
+      keptIds.has(`${t.artistName ?? ""}|${t.trackName ?? ""}`),
+    );
+  }
+  const worldProof = evaluateWorldProof({
     tracks: finalTracks.map((t) => ({
       trackId: t.trackId,
       trackName: t.trackName,
@@ -2922,6 +2952,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     prompt: vibe,
     requestedLength: targetCount,
   });
+  const intentFidelity = worldProof.fidelity;
   const humanQualityGate: HumanQualityGateResult = evaluateHumanQualityGate({
     trackCount: finalTracks.length,
     requestedLength: targetCount,
@@ -2941,11 +2972,19 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     feelGoodLanePurity,
     intentFidelityFailed:
       committedWorld?.hardLock === true &&
-      (!intentFidelity.passed || !intentFidelity.openerPassed),
+      (!worldProof.passed || !intentFidelity.openerPassed),
+    worldProofFailed:
+      committedWorld?.hardLock === true && !worldProof.passed,
     committedWorldHardLock: committedWorld?.hardLock ?? false,
   });
   if (humanQualityGate.action === "refuse") {
     throw new HumanQualityGateError(humanQualityGate);
+  }
+  if (
+    committedWorld?.hardLock === true &&
+    (!worldProof.passed || !intentFidelity.passed || intentFidelity.worldVerifiedCount < finalTracks.length)
+  ) {
+    finalTracks = filterTracksByWorldIdentity(finalTracks, intentFidelity, committedWorld);
   }
   if (
     humanQualityGate.action === "honest_partial" &&

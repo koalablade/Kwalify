@@ -11,6 +11,8 @@ import {
   type WorldIdentityProfile,
 } from "./world-identity-gate";
 import { OPENER_FILLER_PATTERN, isRemixBaitTrackTitle, isUkSceneWorld, shouldSuppressVagueLandfillOpeners } from "./opener-hygiene";
+import { WORLD_PROOF_SLOTS } from "./world-proof-gate";
+import { artistForbiddenInWorld } from "./artist-identity-map";
 
 export type IntentFidelityTrack = {
   trackId?: string;
@@ -49,8 +51,8 @@ const GYM_WORLD_IDS = new Set([
   "boss_fight",
 ]);
 
-const OPENER_SLOTS = 3;
-const SAMPLE_INDICES = [0, 1, 2, 4, 9];
+const OPENER_SLOTS = WORLD_PROOF_SLOTS;
+const SAMPLE_INDICES = [0, 1, 2, 3, 4, 9, 14];
 /** Worlds where mid/late playlist drift must trigger honest partial. */
 const TAIL_COHERENCE_WORLDS = new Set([
   "yacht_rock_world",
@@ -80,6 +82,7 @@ function trackPasses(
   hardLock: boolean,
   worldIds: string[],
 ): boolean {
+  if (artistForbiddenInWorld(track.artistName, worldIds)) return false;
   if (isSafetyBlanketOutsideWorld(track.artistName, worldIds)) return false;
   return passesWorldIdentity(
     {
@@ -260,14 +263,16 @@ export function evaluateIntentFidelity(opts: {
   const passed =
     !hardLock ||
     (openerPassed &&
-      verifiedShare >= 0.55 &&
-      samplePassRate >= 0.6 &&
+      verifiedShare >= 0.85 &&
+      samplePassRate >= 0.75 &&
       tailPassRate >= 0.67);
 
   const salvageableTracks =
     verified.length >= 3
       ? verified.slice(0, honestPartialCap)
-      : verified;
+      : verified.length > 0
+        ? verified
+        : [];
 
   return {
     passed,
@@ -282,11 +287,10 @@ export function evaluateIntentFidelity(opts: {
   };
 }
 
-/** World-verified honest partial — never keep opener fillers when hard-locked. */
 export function selectIntentFidelityHonestPartialTracks<
   T extends IntentFidelityTrack & { trackId?: string },
 >(tracks: T[], result: IntentFidelityResult, committed: CommittedWorld | null): T[] {
-  if (!committed?.hardLock || (result.passed && result.openerPassed)) {
+  if (!committed?.hardLock) {
     return tracks;
   }
   const cap = result.honestPartialCap;
@@ -303,6 +307,9 @@ export function selectIntentFidelityHonestPartialTracks<
   }
   if (result.salvageableTracks.length > 0) {
     return (result.salvageableTracks as T[]).slice(0, cap);
+  }
+  if (result.passed && result.openerPassed) {
+    return tracks;
   }
   return tracks.slice(0, Math.min(cap, tracks.length));
 }

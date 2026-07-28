@@ -40,6 +40,8 @@ export type HumanQualityGateInput = {
   psychIndieOpenerFillers?: number | null;
   /** Intent fidelity gate failed on sampled tracks or opener. */
   intentFidelityFailed?: boolean | null;
+  /** Tracks 1–5 failed to prove the committed world before ship. */
+  worldProofFailed?: boolean | null;
   /** Committed world hard-lock active for this prompt. */
   committedWorldHardLock?: boolean | null;
   /** Tracks in first 3 that violate explicit negation (no rap, no guitar, no christmas). */
@@ -123,6 +125,12 @@ export function buildHumanQualityPartialMessage(
   requestedLength: number,
   reasons: string[],
 ): string {
+  if (reasons.includes("intent_fidelity_failed") || reasons.includes("world_proof_failed")) {
+    return (
+      `Found ${salvageableCount} track${salvageableCount === 1 ? "" : "s"} that genuinely fit this world — ` +
+      "publishing only those rather than padding with mismatched filler."
+    );
+  }
   if (reasons.includes("world_incoherent") || reasons.includes("degraded_delivery")) {
     return (
       `I found about ${salvageableCount} tracks that belong together for this prompt ` +
@@ -168,6 +176,10 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   if (input.degradedDelivery) reasons.push("degraded_delivery");
   if (input.humanSavePassed === false) reasons.push("human_save_failed");
   if (input.intentFidelityFailed === true) reasons.push("intent_fidelity_failed");
+  if (input.worldProofFailed === true) {
+    reasons.push("world_proof_failed");
+    if (!reasons.includes("intent_fidelity_failed")) reasons.push("intent_fidelity_failed");
+  }
   if (
     input.committedWorldHardLock === true &&
     typeof input.psychIndieOpenerFillers === "number" &&
@@ -302,15 +314,20 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   }
   if (
     reasons.includes("intent_fidelity_failed") ||
+    reasons.includes("world_proof_failed") ||
     (input.committedWorldHardLock === true && reasons.includes("world_lane_mash")) ||
     (input.committedWorldHardLock === true && reasons.includes("negation_violation"))
   ) {
     if (salvageableCount >= 3) {
       const partialCap = Math.min(salvageableCount, Math.min(12, Math.ceil(requested * 0.4)));
+      const worldProofMessage =
+        reasons.includes("world_proof_failed")
+          ? `Found ${partialCap} track${partialCap === 1 ? "" : "s"} that genuinely fit this world — publishing only those rather than padding with mismatched filler.`
+          : buildHumanQualityPartialMessage(partialCap, requested, reasons);
       return {
         action: "honest_partial",
         reasons,
-        userMessage: buildHumanQualityPartialMessage(partialCap, requested, reasons),
+        userMessage: worldProofMessage,
         salvageableCount: partialCap,
         wouldSaveConfidence,
         replayConfidence,
@@ -395,6 +412,7 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   if (
     input.committedWorldHardLock === true &&
     (input.humanSavePassed === false ||
+      input.worldProofFailed === true ||
       (typeof input.curatorScore === "number" && input.curatorScore < 0.72) ||
       reasons.includes("negation_violation"))
   ) {
@@ -411,6 +429,27 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
         stubUnderfill,
       };
     }
+  }
+
+  if (
+    input.committedWorldHardLock === true &&
+    (input.humanSavePassed === false ||
+      input.worldProofFailed === true ||
+      reasons.includes("world_proof_failed") ||
+      reasons.includes("intent_fidelity_failed")) &&
+    count > Math.min(12, Math.ceil(requested * 0.4))
+  ) {
+    const partialCap = Math.min(count, Math.min(12, Math.ceil(requested * 0.4)));
+    return {
+      action: "honest_partial",
+      reasons: reasons.length > 0 ? reasons : ["world_proof_failed"],
+      userMessage: `Found ${partialCap} track${partialCap === 1 ? "" : "s"} that genuinely fit this world — publishing only those rather than padding with mismatched filler.`,
+      salvageableCount: partialCap,
+      wouldSaveConfidence,
+      replayConfidence,
+      worldCoherenceOk,
+      stubUnderfill,
+    };
   }
 
   return {
