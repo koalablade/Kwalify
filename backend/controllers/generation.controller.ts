@@ -13254,6 +13254,13 @@ router.post("/generate", async (req, res): Promise<void> => {
         throw new HumanQualityGateError(lateHqg);
       }
       if (
+        lateCommittedWorld?.hardLock &&
+        finalApiTracks.length > lateIntentFidelity.honestPartialCap
+      ) {
+        finalApiTracks = finalApiTracks.slice(0, lateIntentFidelity.honestPartialCap);
+        deliveredTracks = syncTracksToApiOrder(deliveredTracks, finalApiTracks);
+      }
+      if (
         lateHqg.action === "honest_partial" &&
         lateHqg.salvageableCount > 0 &&
         finalApiTracks.length > lateHqg.salvageableCount &&

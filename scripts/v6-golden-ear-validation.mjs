@@ -51,6 +51,7 @@ const PROMPTS = [
 const LANDFILL = /\b(bon iver|clairo|noah kahan|dayglow|gregory alan isakov|badbadnotgood|phoebe bridgers)\b/i;
 
 function trackLine(t) {
+  if (typeof t === "string") return t;
   const artist = t.artistName ?? t.artist ?? t.artist_name ?? "?";
   const name = t.trackName ?? t.name ?? t.title ?? "?";
   return `${artist} — ${name}`;
@@ -88,8 +89,8 @@ function scorePlaylist(tracks, spec) {
 
   return {
     trackCount: tracks.length,
-    first3: first3.map(trackLine),
-    first10: first10.map(trackLine),
+    first3,
+    first10,
     forbiddenInFirst3: f3bad,
     forbiddenInFirst10: f10bad,
     worldHitsFirst10: f10good.length,
