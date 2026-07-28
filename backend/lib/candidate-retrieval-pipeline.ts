@@ -288,7 +288,7 @@ const COMMITTED_WORLD_GENRE_FAMILIES: Record<string, string[]> = {
 
 const HIGH_CONFIDENCE_QUOTAS: Record<RetrievalSourceId, number> = {
   activity_match: 0.32,
-  emotional_match: 0.08,
+  emotional_match: 0.05,
   genre_match: 0.14,
   favourite_artists: 0.04,
   exploratory: 0.1,
@@ -298,7 +298,7 @@ const HIGH_CONFIDENCE_QUOTAS: Record<RetrievalSourceId, number> = {
 
 const BALANCED_QUOTAS: Record<RetrievalSourceId, number> = {
   activity_match: 0.16,
-  emotional_match: 0.14,
+  emotional_match: 0.05,
   genre_match: 0.14,
   favourite_artists: 0.08,
   exploratory: 0.12,
@@ -507,9 +507,13 @@ function blendWorldOverEmotion(
   baseScore: number,
   worldFit: number,
   committedWorldActive: boolean,
+  hardLock = false,
 ): number {
   if (!committedWorldActive) return baseScore;
-  // V9: world identity score dominates — intent/emotion/taste follow.
+  if (hardLock) {
+    // V11: world identity dominates — emotion capped at 5% contribution.
+    return worldFit * 0.9 + baseScore * 0.05;
+  }
   return worldFit * 0.78 + baseScore * 0.22;
 }
 
@@ -1021,6 +1025,8 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
     return score;
   };
 
+  const hardLockActive = committedWorld?.hardLock === true && retrievalWorldIds.length > 0;
+
   const activityRanked = eligible
     .map((track) => {
       const classification = classifyFor(track, opts.classMap);
@@ -1033,7 +1039,7 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
         retrievalWorldIds,
         committedWorld?.id ?? retrievalProfile.committedWorldId,
       );
-      score = blendWorldOverEmotion(score, worldFit, retrievalWorldIds.length > 0);
+      score = blendWorldOverEmotion(score, worldFit, retrievalWorldIds.length > 0, hardLockActive);
       if (
         retrievalProfile.activity === "party_pregame" &&
         !retrievalProfile.ukHipHopScene?.active &&
@@ -1055,7 +1061,7 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
         committedWorld?.id ?? retrievalProfile.committedWorldId,
       );
       const emotion = quickEmotionFit(track, opts.emotionProfile);
-      const score = blendWorldOverEmotion(emotion, worldFit, retrievalWorldIds.length > 0);
+      const score = blendWorldOverEmotion(emotion, worldFit, retrievalWorldIds.length > 0, hardLockActive);
       return { track, score: scoreModifiersFor(track, score) };
     })
     .sort((a, b) => b.score - a.score);
@@ -1070,7 +1076,7 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
         retrievalWorldIds,
         committedWorld?.id ?? retrievalProfile.committedWorldId,
       );
-      const score = blendWorldOverEmotion(genreFit, worldFit, retrievalWorldIds.length > 0);
+      const score = blendWorldOverEmotion(genreFit, worldFit, retrievalWorldIds.length > 0, hardLockActive);
       return { track, score: scoreModifiersFor(track, score) };
     })
     .sort((a, b) => b.score - a.score);

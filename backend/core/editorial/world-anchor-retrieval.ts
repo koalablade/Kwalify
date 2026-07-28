@@ -38,7 +38,7 @@ export type WorldAnchorRetrievalResult = {
   };
 };
 
-const MIN_WORLD_SCORE = 0.45;
+const MIN_WORLD_SCORE = 0.5;
 const OPENER_WORLD_SCORE = 0.8;
 
 function normalizeArtistKey(artist: string): string {

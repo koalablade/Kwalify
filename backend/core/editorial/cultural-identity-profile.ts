@@ -9,8 +9,12 @@ export type CulturalWorldProfile = {
   /** Literal artist names for Spotify anchor search and coverage counting. */
   anchorArtistNames?: string[];
   anchorTracks: RegExp[];
+  /** Canonical legendary tracks — opener thesis candidates. */
+  legendaryTracks?: RegExp[];
   /** Adjacent artists that belong in the world but aren't canonical anchors. */
   adjacentArtists?: string[];
+  /** Modern artists that fit without breaking era integrity. */
+  acceptableModernArtists?: string[];
   /** Artists to never surface for this world (beyond regex forbidden lists). */
   avoidArtists?: string[];
   preferredEras: { min?: number; max?: number };
@@ -22,8 +26,17 @@ export type CulturalWorldProfile = {
   openerRules: {
     minWorldIdentityScore: number;
     preferAnchorArtist: boolean;
+    /** Anchor artist always beats adjacent for track 1. */
+    anchorBeatsAdjacent?: boolean;
     sequencing?: "cinematic_to_reflective" | "high_energy_cooldown";
   };
+};
+
+/** Profile id aliases — resolve prompt/world ids to canonical profiles. */
+const CULTURAL_PROFILE_ALIASES: Record<string, string> = {
+  "80s_drive": "80s_night_drive_world",
+  gym_world: "gym_rock_world",
+  disco_world: "disco_1970s_world",
 };
 
 /** Extract literal anchor artist names from profile (explicit list or regex sources). */
@@ -100,15 +113,17 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     ],
     anchorArtistNames: ["Queen", "AC/DC", "Eagles", "Fleetwood Mac", "Tom Petty", "Led Zeppelin", "Guns N' Roses"],
     adjacentArtists: ["Bruce Springsteen", "Def Leppard", "Foreigner", "Boston", "Kansas"],
+    acceptableModernArtists: ["Foo Fighters", "Muse"],
     avoidArtists: ["Bon Iver", "Phoebe Bridgers", "Clairo", "Noah Kahan"],
     anchorTracks: [/\bdon'?t\s+stop\s+me\s+now\b/i, /\bback\s+in\s+black\b/i, /\bhotel\s+california\b/i],
+    legendaryTracks: [/\bdon'?t\s+stop\s+me\s+now\b/i, /\bback\s+in\s+black\b/i, /\bhotel\s+california\b/i, /\bwelcome\s+to\s+the\s+jungle\b/i],
     preferredEras: { min: 1968, max: 1995 },
     energyRange: { min: 0.45, max: 0.92 },
     instrumentation: ["electric guitar", "drums", "bass", "arena rock"],
     vocalStyle: ["rock vocal", "anthemic"],
     forbiddenArtists: [...LANDFILL],
     forbiddenPatterns: [],
-    openerRules: { minWorldIdentityScore: 0.8, preferAnchorArtist: true },
+    openerRules: { minWorldIdentityScore: 0.8, preferAnchorArtist: true, anchorBeatsAdjacent: true },
   },
   dad_rock_world: {
     worldId: "dad_rock_world",
@@ -127,7 +142,7 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     vocalStyle: ["singalong", "heartland"],
     forbiddenArtists: [...LANDFILL],
     forbiddenPatterns: [],
-    openerRules: { minWorldIdentityScore: 0.8, preferAnchorArtist: true },
+    openerRules: { minWorldIdentityScore: 0.8, preferAnchorArtist: true, anchorBeatsAdjacent: true },
   },
   rainy_motorway_world: {
     worldId: "rainy_motorway_world",
@@ -140,8 +155,10 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     ],
     anchorArtistNames: ["M83", "Chromatics", "The War on Drugs", "Depeche Mode", "New Order"],
     adjacentArtists: ["Röyksopp", "Tycho", "Com Truise", "Washed Out", "College"],
-    avoidArtists: ["Drake", "Travis Scott", "Wallows", "Jungle Giants", "Bon Iver", "Phoebe Bridgers"],
     anchorTracks: [/\bmidnight\s+city\b/i, /\btick\s+of\s+the\s+clock\b/i, /\benjoy\s+the\s+silence\b/i],
+    legendaryTracks: [/\bmidnight\s+city\b/i, /\btick\s+of\s+the\s+clock\b/i, /\benjoy\s+the\s+silence\b/i, /\bblue\s+monday\b/i],
+    acceptableModernArtists: ["M83", "Chromatics", "The War on Drugs"],
+    avoidArtists: ["Drake", "Travis Scott", "Wallows", "Jungle Giants", "Bon Iver", "Phoebe Bridgers", "BLK", "KURUPT FM", "Kurupt FM"],
     preferredEras: { min: 1980, max: 2015 },
     energyRange: { min: 0.32, max: 0.78 },
     instrumentation: ["synth", "electronic", "cinematic", "shoegaze"],
@@ -204,6 +221,7 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     adjacentArtists: ["Duran Duran", "Tears for Fears", "Simple Minds", "Ultravox", "Gary Numan"],
     avoidArtists: ["Florence", "Florence and the Machine", "The 1975", "Fleetwood Mac", "Bon Iver"],
     anchorTracks: [/\benjoy\s+the\s+silence\b/i, /\bblue\s+monday\b/i],
+    legendaryTracks: [/\benjoy\s+the\s+silence\b/i, /\bblue\s+monday\b/i, /\bjust\s+like\s+heaven\b/i, /\bfriday\s+i'?m\s+in\s+love\b/i],
     preferredEras: { min: 1978, max: 1992 },
     energyRange: { min: 0.35, max: 0.82 },
     instrumentation: ["synthpop", "new wave", "post-punk"],
@@ -213,6 +231,7 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     openerRules: {
       minWorldIdentityScore: 0.8,
       preferAnchorArtist: true,
+      anchorBeatsAdjacent: true,
       sequencing: "cinematic_to_reflective",
     },
   },
@@ -227,15 +246,17 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     ],
     anchorArtistNames: ["The Stone Roses", "Happy Mondays", "New Order", "Oasis", "Inspiral Carpets"],
     adjacentArtists: ["The Charlatans", "James", "The Verve", "Primal Scream", "The La's"],
-    avoidArtists: ["Destructo Disk", "James Righton", "Bon Iver", "Phoebe Bridgers"],
+    acceptableModernArtists: ["The Charlatans", "Primal Scream"],
+    avoidArtists: ["Destructo Disk", "James Righton", "Bon Iver", "Phoebe Bridgers", "Arctic Monkeys", "Tame Impala"],
     anchorTracks: [/\bfools\s+gold\b/i, /\bstep\s+on\b/i, /\bi\s+am\s+the\s+resurrection\b/i],
+    legendaryTracks: [/\bfools\s+gold\b/i, /\bstep\s+on\b/i, /\bi\s+am\s+the\s+resurrection\b/i, /\bwonderwall\b/i],
     preferredEras: { min: 1985, max: 1998 },
     energyRange: { min: 0.42, max: 0.85 },
     instrumentation: ["baggy", "indie dance", "britpop"],
     vocalStyle: ["manchester", "northern"],
-    forbiddenArtists: [...LANDFILL, /\bdestructo\s+disk\b/i],
+    forbiddenArtists: [...LANDFILL, /\bdestructo\s+disk\b/i, /\bjames\s+righton\b/i],
     forbiddenPatterns: [/\b(?:country|americana|acoustic\s+folk)\b/i],
-    openerRules: { minWorldIdentityScore: 0.8, preferAnchorArtist: true },
+    openerRules: { minWorldIdentityScore: 0.8, preferAnchorArtist: true, anchorBeatsAdjacent: true },
   },
   grunge_world: {
     worldId: "grunge_world",
@@ -268,8 +289,10 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     ],
     anchorArtistNames: ["Metallica", "AC/DC", "Guns N' Roses", "Foo Fighters", "Rage Against the Machine"],
     adjacentArtists: ["Slipknot", "Disturbed", "Godsmack", "Papa Roach", "Linkin Park"],
+    acceptableModernArtists: ["Disturbed", "Godsmack", "Papa Roach"],
     avoidArtists: ["Fall Out Boy", "Paramore", "Bon Iver", "Phoebe Bridgers"],
     anchorTracks: [/\benter\s+sandman\b/i, /\bback\s+in\s+black\b/i, /\bwelcome\s+to\s+the\s+jungle\b/i],
+    legendaryTracks: [/\benter\s+sandman\b/i, /\bback\s+in\s+black\b/i, /\bwelcome\s+to\s+the\s+jungle\b/i],
     preferredEras: { min: 1975, max: 2015 },
     energyRange: { min: 0.72, max: 0.98 },
     instrumentation: ["hard rock", "metal", "punk rock"],
@@ -279,6 +302,29 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     openerRules: {
       minWorldIdentityScore: 0.8,
       preferAnchorArtist: true,
+      anchorBeatsAdjacent: true,
+      sequencing: "high_energy_cooldown",
+    },
+  },
+  gym_world: {
+    worldId: "gym_world",
+    anchorArtists: [/\bmetallica\b/i, /\bac\/?dc\b/i, /\bguns\s+n['']?\s*roses\b/i, /\bslayer\b/i],
+    anchorArtistNames: ["Metallica", "AC/DC", "Guns N' Roses", "Slayer", "Rage Against the Machine"],
+    adjacentArtists: ["Disturbed", "Godsmack", "Papa Roach", "Linkin Park", "Foo Fighters"],
+    acceptableModernArtists: ["Disturbed", "Godsmack"],
+    avoidArtists: ["Fall Out Boy", "Paramore", "Bon Iver", "Phoebe Bridgers"],
+    anchorTracks: [/\benter\s+sandman\b/i, /\bback\s+in\s+black\b/i, /\braining\s+blood\b/i],
+    legendaryTracks: [/\benter\s+sandman\b/i, /\bback\s+in\s+black\b/i, /\braining\s+blood\b/i],
+    preferredEras: { min: 1975, max: 2015 },
+    energyRange: { min: 0.75, max: 0.99 },
+    instrumentation: ["hard rock", "metal", "thrash metal"],
+    vocalStyle: ["aggressive", "stadium"],
+    forbiddenArtists: [...LANDFILL, /\bfall\s+out\s+boy\b/i, /\bparamore\b/i],
+    forbiddenPatterns: [...ACOUSTIC_BREAKUP, /\b(?:acoustic|folk|singer[-\s]?songwriter|ballad)\b/i],
+    openerRules: {
+      minWorldIdentityScore: 0.8,
+      preferAnchorArtist: true,
+      anchorBeatsAdjacent: true,
       sequencing: "high_energy_cooldown",
     },
   },
@@ -317,29 +363,95 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
   disco_1970s_world: {
     worldId: "disco_1970s_world",
     anchorArtists: [
-      /\bbe\s+bee\b/i,
+      /\bmichael\s+jackson\b/i,
       /\bbe\s+gees\b/i,
       /\bchic\b/i,
       /\bdonna\s+summer\b/i,
+      /\bearth[\s,]*wind\s*(?:&|and)\s*fire\b/i,
+      /\bsister\s+sledge\b/i,
+      /\bkc\s+(?:and\s+the\s+)?sunshine\s+band\b/i,
       /\bgloria\s+gaynor\b/i,
     ],
-    anchorArtistNames: ["Bee Gees", "Chic", "Donna Summer", "Gloria Gaynor", "KC and the Sunshine Band"],
-    adjacentArtists: ["Village People", "Sister Sledge", "Earth Wind & Fire", "Kool & the Gang", "Diana Ross"],
-    avoidArtists: ["Panic! At The Disco", "Panic at the Disco", "Bon Iver", "Phoebe Bridgers"],
-    anchorTracks: [/\bstayin'?alive\b/i, /\ble\s+freak\b/i, /\bi\s+will\s+survive\b/i],
+    anchorArtistNames: [
+      "Michael Jackson",
+      "Bee Gees",
+      "Chic",
+      "Donna Summer",
+      "Earth, Wind & Fire",
+      "Sister Sledge",
+      "KC and the Sunshine Band",
+      "Gloria Gaynor",
+    ],
+    adjacentArtists: ["Village People", "Kool & the Gang", "Diana Ross", "The Trammps", "Sylvester"],
+    acceptableModernArtists: [],
+    avoidArtists: [
+      "Panic! At The Disco",
+      "Panic at the Disco",
+      "Dua Lipa",
+      "The Weeknd",
+      "Bon Iver",
+      "Phoebe Bridgers",
+    ],
+    anchorTracks: [/\bstayin'?alive\b/i, /\ble\s+freak\b/i, /\bi\s+will\s+survive\b/i, /\bdon'?t\s+stop\s+'?til\s+you\s+get\s+enough\b/i],
+    legendaryTracks: [/\bstayin'?alive\b/i, /\ble\s+freak\b/i, /\bi\s+will\s+survive\b/i, /\bwe\s+are\s+family\b/i],
     preferredEras: { min: 1974, max: 1982 },
     energyRange: { min: 0.42, max: 0.88 },
     instrumentation: ["disco", "funk", "four-on-the-floor"],
     vocalStyle: ["dance", "soul"],
-    forbiddenArtists: [...LANDFILL, /\bpanic!\s+at\s+the\s+disco\b/i, /\bpanic\s+at\s+the\s+disco\b/i],
-    forbiddenPatterns: [/\b(?:metal|grunge|acoustic\s+folk)\b/i],
-    openerRules: { minWorldIdentityScore: 0.8, preferAnchorArtist: true },
+    forbiddenArtists: [
+      ...LANDFILL,
+      /\bpanic!\s+at\s+the\s+disco\b/i,
+      /\bpanic\s+at\s+the\s+disco\b/i,
+      /\bdua\s+lipa\b/i,
+      /\bthe\s+weeknd\b/i,
+    ],
+    forbiddenPatterns: [/\b(?:metal|grunge|acoustic\s+folk|indie\s+disco|nu[\s-]?disco)\b/i],
+    openerRules: { minWorldIdentityScore: 0.8, preferAnchorArtist: true, anchorBeatsAdjacent: true },
+  },
+  disco_world: {
+    worldId: "disco_world",
+    anchorArtists: [
+      /\bmichael\s+jackson\b/i,
+      /\bbe\s+gees\b/i,
+      /\bchic\b/i,
+      /\bdonna\s+summer\b/i,
+      /\bearth[\s,]*wind\s*(?:&|and)\s*fire\b/i,
+      /\bsister\s+sledge\b/i,
+      /\bkc\s+(?:and\s+the\s+)?sunshine\s+band\b/i,
+    ],
+    anchorArtistNames: [
+      "Michael Jackson",
+      "Bee Gees",
+      "Chic",
+      "Donna Summer",
+      "Earth, Wind & Fire",
+      "Sister Sledge",
+      "KC and the Sunshine Band",
+    ],
+    adjacentArtists: ["Village People", "Gloria Gaynor", "Kool & the Gang", "Diana Ross"],
+    avoidArtists: ["Panic! At The Disco", "Panic at the Disco", "Dua Lipa", "The Weeknd"],
+    anchorTracks: [/\bstayin'?alive\b/i, /\ble\s+freak\b/i, /\bdon'?t\s+stop\s+'?til\s+you\s+get\s+enough\b/i],
+    legendaryTracks: [/\bstayin'?alive\b/i, /\ble\s+freak\b/i, /\bwe\s+are\s+family\b/i],
+    preferredEras: { min: 1974, max: 1982 },
+    energyRange: { min: 0.42, max: 0.88 },
+    instrumentation: ["disco", "funk", "four-on-the-floor"],
+    vocalStyle: ["dance", "soul"],
+    forbiddenArtists: [
+      ...LANDFILL,
+      /\bpanic!\s+at\s+the\s+disco\b/i,
+      /\bpanic\s+at\s+the\s+disco\b/i,
+      /\bdua\s+lipa\b/i,
+      /\bthe\s+weeknd\b/i,
+    ],
+    forbiddenPatterns: [/\b(?:metal|grunge|acoustic\s+folk|indie\s+disco|nu[\s-]?disco)\b/i],
+    openerRules: { minWorldIdentityScore: 0.8, preferAnchorArtist: true, anchorBeatsAdjacent: true },
   },
 };
 
 /** Resolve the cultural profile for a committed world id. */
 export function getCulturalProfile(worldId: string): CulturalWorldProfile | null {
-  return CULTURAL_PROFILES[worldId] ?? null;
+  const resolvedId = CULTURAL_PROFILE_ALIASES[worldId] ?? worldId;
+  return CULTURAL_PROFILES[resolvedId] ?? CULTURAL_PROFILES[worldId] ?? null;
 }
 
 /** Merge profiles when multiple world ids are active — union anchors/forbiddens, primary opener rules. */

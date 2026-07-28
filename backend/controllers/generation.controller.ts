@@ -272,7 +272,10 @@ import {
 import {
   evaluateWorldProof,
   filterTracksByWorldIdentity,
+  filterTracksByFullWorldProof,
 } from "../core/editorial/world-proof-gate";
+import { enforceThesisOpener, enforceThesisOpenerGate } from "../core/editorial/thesis-opener-gate";
+import { evaluateHumanUnderstoodGate } from "../core/editorial/human-understood-gate";
 import { resolveCommittedWorld, committedWorldArtistRepresentativeScore } from "../core/committed-world";
 import {
   committedWorldQualitySignals,
@@ -456,7 +459,6 @@ import {
   type OpenerHygieneDiagnostics,
 } from "../core/editorial/world-identity-gate";
 import { openingLockTrackIdsFromTracks } from "../core/editorial/opener-hygiene";
-import { enforceThesisOpenerGate } from "../core/editorial/thesis-opener-gate";
 import { applyWorldSequencing } from "../core/editorial/world-sequencer";
 import {
   assessWorldCoverage,
@@ -12160,24 +12162,25 @@ router.post("/generate", async (req, res): Promise<void> => {
           negationDeliveryFilter.tracks,
         );
       }
+      let thesisResult: ReturnType<typeof enforceThesisOpener> | null = null;
       if (committedWorld?.hardLock) {
-        const thesis = enforceThesisOpenerGate(
+        const culturalProfile = resolveCulturalProfileForCommitted(committedWorld);
+        thesisResult = enforceThesisOpener(
           delivery.tracks,
+          culturalProfile,
           committedWorld,
-          15,
           worldExpansionCandidates.length > 0
             ? (worldExpansionCandidates as typeof delivery.tracks)
             : undefined,
+          20,
         );
-        if (thesis.promoted || !thesis.passed) {
-          assignFT(
-            "world_thesis_opener",
-            thesis.passed ? "promote world thesis to track 1" : "thesis opener gate",
-            thesis.tracks,
-          );
-        }
-        const sequenced = applyWorldSequencing(thesis.tracks, committedWorld);
-        if (sequenced !== thesis.tracks) {
+        assignFT(
+          "world_thesis_opener",
+          thesisResult.passed ? "promote world thesis to track 1" : "thesis opener gate",
+          thesisResult.tracks as PlaylistTrack[],
+        );
+        const sequenced = applyWorldSequencing(thesisResult.tracks as PlaylistTrack[], committedWorld);
+        if (sequenced !== thesisResult.tracks) {
           assignFT("world_sequencer", "world-aware sequencing", sequenced);
         }
       }
@@ -12202,7 +12205,18 @@ router.post("/generate", async (req, res): Promise<void> => {
         committed: committedWorld,
         prompt: vibe,
         requestedLength,
+        coverageLevel: worldCoverageAssessment?.score ?? null,
       });
+      if (committedWorld?.hardLock) {
+        const fullWorldFiltered = filterTracksByFullWorldProof(
+          delivery.tracks,
+          committedWorld,
+          worldCoverageAssessment?.score ?? null,
+        );
+        if (fullWorldFiltered.removed > 0 && fullWorldFiltered.tracks.length >= 3) {
+          assignFT("world_proof_gate", "full playlist world validation strip", fullWorldFiltered.tracks);
+        }
+      }
       const intentFidelity = worldProof.fidelity;
       if (
         committedWorld?.hardLock &&
@@ -12255,6 +12269,16 @@ router.post("/generate", async (req, res): Promise<void> => {
       const terminalNegationViolations = delivery.tracks.filter((track) =>
         trackViolatesPromptNegation(track, terminalNegationProfile),
       ).length;
+      const terminalUnderstood = evaluateHumanUnderstoodGate({
+        trackCount: delivery.tracks.length,
+        requestedLength,
+        committed: committedWorld,
+        thesis: thesisResult,
+        worldProof,
+        negationViolations: terminalNegationViolations,
+        openerNegationViolations: terminalOpenerNegationViolations,
+        coverageLevel: worldCoverageAssessment?.score ?? null,
+      });
       const terminalHqg = evaluateHumanQualityGate({
         trackCount: delivery.tracks.length,
         requestedLength: requestedLength,
@@ -12318,11 +12342,21 @@ router.post("/generate", async (req, res): Promise<void> => {
         diagnostics: {
           ...finalization.diagnostics,
           humanQualityGate: terminalHqg,
+          humanUnderstoodGate: terminalUnderstood,
           ...(v3Hqg ? { humanQualityGateFromV3: v3Hqg } : {}),
         },
       };
-      if (terminalHqg.action === "refuse") {
-        throw new HumanQualityGateError(terminalHqg);
+      if (terminalHqg.action === "refuse" || terminalUnderstood.action === "refuse") {
+        throw new HumanQualityGateError(terminalHqg.action === "refuse" ? terminalHqg : {
+          action: "refuse",
+          reasons: terminalUnderstood.reasons,
+          userMessage: terminalUnderstood.userMessage,
+          salvageableCount: 0,
+          wouldSaveConfidence: 0,
+          replayConfidence: 0,
+          worldCoherenceOk: false,
+          stubUnderfill: false,
+        });
       }
       if (terminalHqg.action === "honest_partial") {
         if (
@@ -13227,6 +13261,34 @@ router.post("/generate", async (req, res): Promise<void> => {
       scenePrediction: mergedScenePrediction,
       lockedIntent,
     });
+    if (lateCommittedWorld?.hardLock && deliveredTracks.length > 0) {
+      const lateProfile = resolveCulturalProfileForCommitted(lateCommittedWorld);
+      const lateThesis = enforceThesisOpener(
+        deliveredTracks as PlaylistTrack[],
+        lateProfile,
+        lateCommittedWorld,
+        undefined,
+        20,
+      );
+      if (lateThesis.promoted || lateThesis.tracks[0]?.artistName !== deliveredTracks[0]?.artistName) {
+        deliveredTracks = lateThesis.tracks as PlaylistTrack[];
+        finalApiTracks = formatTracksForApi(
+          deliveredTracks,
+          emotionProfile,
+          momentPipeline?.canonicalScene?.sceneId ?? null,
+        );
+      }
+    }
+    const lateNegationFinal = parsePromptNegationEnforcement(vibe);
+    const lateNegationStrip = filterTracksForDeliveryNegation(deliveredTracks, lateNegationFinal);
+    if (lateNegationStrip.removed > 0 && lateNegationStrip.tracks.length >= 3) {
+      deliveredTracks = lateNegationStrip.tracks as PlaylistTrack[];
+      finalApiTracks = formatTracksForApi(
+        deliveredTracks,
+        emotionProfile,
+        momentPipeline?.canonicalScene?.sceneId ?? null,
+      );
+    }
     {
       const hygiene = applyFinalApiOpenerHygiene(finalApiTracks, inferredWorldIds, {
         minKeep: HONEST_PARTIAL_MIN,

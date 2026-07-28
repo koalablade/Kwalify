@@ -230,18 +230,42 @@ export function demoteRemixBaitOpeners<T extends RemixBaitTrack>(
 
 /**
  * Promote the strongest world-representative track to #1 — track 1 must be the thesis.
+ * When a cultural profile is provided, anchor artists beat adjacent beat weak emotional matches.
  */
+export function rankThesisOpenerCandidate<T extends { artistName?: string | null; artist?: string | null; trackName?: string | null }>(
+  track: T,
+  profile: {
+    openerRules?: { preferAnchorArtist?: boolean; anchorBeatsAdjacent?: boolean };
+  } | null,
+  scoreRepresentative: (track: T) => number,
+  isAnchor: (artist: string) => boolean,
+  isAdjacent: (artist: string) => boolean,
+): number {
+  const identityScore = scoreRepresentative(track);
+  if (identityScore <= 0) return -1;
+  const artist = trackArtistName(track);
+  const anchorBoost = profile?.openerRules?.preferAnchorArtist !== false && isAnchor(artist) ? 1000 : 0;
+  const adjacentBoost =
+    anchorBoost === 0 && profile?.openerRules?.anchorBeatsAdjacent !== false && isAdjacent(artist) ? 500 : 0;
+  return anchorBoost + adjacentBoost + identityScore;
+}
+
 export function promoteWorldThesisOpener<T extends { artistName?: string | null; artist?: string | null }>(
   tracks: T[],
   scoreRepresentative: (track: T, index: number) => number,
   searchDepth = 10,
+  rankCandidate?: (track: T, index: number) => number,
 ): { tracks: T[]; promoted: boolean; fromIndex: number } {
   if (tracks.length <= 1) return { tracks, promoted: false, fromIndex: 0 };
   const depth = Math.min(searchDepth, tracks.length);
   let bestIdx = 0;
-  let bestScore = scoreRepresentative(tracks[0]!, 0);
+  let bestScore = rankCandidate
+    ? rankCandidate(tracks[0]!, 0)
+    : scoreRepresentative(tracks[0]!, 0);
   for (let i = 1; i < depth; i++) {
-    const score = scoreRepresentative(tracks[i]!, i);
+    const score = rankCandidate
+      ? rankCandidate(tracks[i]!, i)
+      : scoreRepresentative(tracks[i]!, i);
     if (score > bestScore) {
       bestScore = score;
       bestIdx = i;

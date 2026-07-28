@@ -55,7 +55,9 @@ import {
   evaluateWorldProof,
   filterTracksByWorldIdentity,
 } from "../editorial/world-proof-gate";
-import { enforceThesisOpenerGate } from "../editorial/thesis-opener-gate";
+import { enforceThesisOpener } from "../editorial/thesis-opener-gate";
+import { resolveCulturalProfileForCommitted } from "../editorial/world-identity-score";
+import { filterTracksByFullWorldProof } from "../editorial/world-proof-gate";
 import { applyWorldSequencing } from "../editorial/world-sequencer";
 import {
   filterTracksForDeliveryNegation,
@@ -2937,8 +2939,13 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     );
   }
   if (committedWorld?.hardLock) {
-    const thesis = enforceThesisOpenerGate(finalTracks, committedWorld);
+    const culturalProfile = resolveCulturalProfileForCommitted(committedWorld);
+    const thesis = enforceThesisOpener(finalTracks, culturalProfile, committedWorld, undefined, 20);
     finalTracks = applyWorldSequencing(thesis.tracks, committedWorld);
+    const fullWorldFiltered = filterTracksByFullWorldProof(finalTracks, committedWorld);
+    if (fullWorldFiltered.removed > 0 && fullWorldFiltered.tracks.length >= 3) {
+      finalTracks = fullWorldFiltered.tracks as typeof finalTracks;
+    }
   }
   const worldProof = evaluateWorldProof({
     tracks: finalTracks.map((t) => ({

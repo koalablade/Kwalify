@@ -1,9 +1,10 @@
 /**
- * World proof gate — tracks 1–5 must prove the committed world before ship.
- * Track 1 sets identity; tracks 2–5 must continue it. Perfect opener + bad tail = fail.
+ * World proof gate — full-playlist cultural identity validation before ship.
+ * V11: sample tracks 1,2,3,5,10,15 — 80%+ pass on hard lock, 70%+ on medium.
  */
 
 import type { CommittedWorld } from "../committed-world";
+import type { CoverageLevel } from "./world-coverage";
 import {
   evaluateIntentFidelity,
   selectIntentFidelityHonestPartialTracks,
@@ -20,14 +21,22 @@ import { THESIS_OPENER_MIN_SCORE } from "./thesis-opener-gate";
 
 export { WORLD_PROOF_SLOTS, WORLD_BODY_PROOF_SLOTS };
 
+/** V11 full-playlist sample indices (0-based): tracks 1,2,3,5,10,15 */
+export const V11_FULL_PLAYLIST_SAMPLE_INDICES = [0, 1, 2, 4, 9, 14] as const;
+
 const OPENER_AVG_IDENTITY_THRESHOLD = 0.65;
 const BODY_MAX_OFF_WORLD = 1;
+const HARD_LOCK_SAMPLE_PASS_RATE = 0.8;
+const MEDIUM_LOCK_SAMPLE_PASS_RATE = 0.7;
+const SAMPLE_MIN_WORLD_SCORE = 0.5;
 
 export type WorldProofResult = {
   passed: boolean;
   trackOnePassed: boolean;
   continuationPassed: boolean;
   bodyPassed: boolean;
+  fullPlaylistPassed: boolean;
+  samplePassRate: number;
   openerAvgIdentityScore: number;
   bodyOffWorldCount: number;
   lastGoodIndex: number;
@@ -48,19 +57,55 @@ function trackLabel(track: IntentFidelityTrack): string {
   return `${track.artistName?.trim() || "?"} — ${track.trackName?.trim() || "?"}`;
 }
 
+function samplePassRateForTracks(
+  tracks: IntentFidelityTrack[],
+  profile: NonNullable<ReturnType<typeof resolveCulturalProfileForCommitted>>,
+  indices: readonly number[],
+): { passRate: number; failures: string[] } {
+  const failures: string[] = [];
+  const sampleIndices = indices.filter((i) => i < tracks.length);
+  if (sampleIndices.length === 0) return { passRate: 1, failures };
+  let passed = 0;
+  for (const idx of sampleIndices) {
+    const track = tracks[idx]!;
+    const score = scoreTrackWorldIdentity(track, profile);
+    if (score >= SAMPLE_MIN_WORLD_SCORE) {
+      passed += 1;
+    } else {
+      failures.push(`sample_off_world:${trackLabel(track)}:${score.toFixed(2)}`);
+    }
+  }
+  return { passRate: passed / sampleIndices.length, failures };
+}
+
+function requiredSamplePassRate(coverageLevel: CoverageLevel | null | undefined): number {
+  if (coverageLevel === "MEDIUM") return MEDIUM_LOCK_SAMPLE_PASS_RATE;
+  return HARD_LOCK_SAMPLE_PASS_RATE;
+}
+
 function culturalIdentityFailures(
   tracks: IntentFidelityTrack[],
   committed: CommittedWorld,
+  coverageLevel?: CoverageLevel | null,
 ): {
   openerAvg: number;
   bodyOffWorld: number;
   lastGoodIndex: number;
+  samplePassRate: number;
+  fullPlaylistPassed: boolean;
   failures: string[];
 } {
   const profile = resolveCulturalProfileForCommitted(committed);
   const failures: string[] = [];
   if (!profile) {
-    return { openerAvg: 1, bodyOffWorld: 0, lastGoodIndex: tracks.length - 1, failures };
+    return {
+      openerAvg: 1,
+      bodyOffWorld: 0,
+      lastGoodIndex: tracks.length - 1,
+      samplePassRate: 1,
+      fullPlaylistPassed: true,
+      failures,
+    };
   }
 
   const openerSlots = Math.min(WORLD_PROOF_SLOTS, tracks.length);
@@ -94,6 +139,8 @@ function culturalIdentityFailures(
     } else if (i >= bodyStart && i < bodyEnd && score < 0.45) {
       bodyOffWorld += 1;
       failures.push(`body_drift:${trackLabel(track)}`);
+    } else if (score < SAMPLE_MIN_WORLD_SCORE && lastGoodIndex >= i) {
+      lastGoodIndex = i - 1;
     }
   }
 
@@ -101,7 +148,22 @@ function culturalIdentityFailures(
     failures.push(`body_off_world_excess:${bodyOffWorld}`);
   }
 
-  return { openerAvg, bodyOffWorld, lastGoodIndex, failures };
+  const sample = samplePassRateForTracks(tracks, profile, V11_FULL_PLAYLIST_SAMPLE_INDICES);
+  const requiredRate = requiredSamplePassRate(coverageLevel);
+  const fullPlaylistPassed = sample.passRate >= requiredRate;
+  if (!fullPlaylistPassed) {
+    failures.push(`full_playlist_sample_fail:${sample.passRate.toFixed(2)}`);
+    failures.push(...sample.failures);
+  }
+
+  return {
+    openerAvg,
+    bodyOffWorld,
+    lastGoodIndex,
+    samplePassRate: sample.passRate,
+    fullPlaylistPassed,
+    failures,
+  };
 }
 
 export function evaluateWorldProof(opts: {
@@ -109,6 +171,7 @@ export function evaluateWorldProof(opts: {
   committed: CommittedWorld | null;
   prompt: string;
   requestedLength: number;
+  coverageLevel?: CoverageLevel | null;
 }): WorldProofResult {
   const fidelity = evaluateIntentFidelity(opts);
   const { tracks, committed } = opts;
@@ -119,6 +182,8 @@ export function evaluateWorldProof(opts: {
       trackOnePassed: fidelity.openerPassed,
       continuationPassed: true,
       bodyPassed: fidelity.bodyFailures.length === 0,
+      fullPlaylistPassed: true,
+      samplePassRate: 1,
       openerAvgIdentityScore: 1,
       bodyOffWorldCount: 0,
       lastGoodIndex: tracks.length - 1,
@@ -129,7 +194,7 @@ export function evaluateWorldProof(opts: {
     };
   }
 
-  const cultural = culturalIdentityFailures(tracks, committed);
+  const cultural = culturalIdentityFailures(tracks, committed, opts.coverageLevel);
   const proofFailures = [
     ...new Set([...fidelity.openerFailures, ...fidelity.bodyFailures, ...cultural.failures]),
   ];
@@ -149,6 +214,7 @@ export function evaluateWorldProof(opts: {
     trackOnePassed &&
     continuationPassed &&
     bodyPassed &&
+    cultural.fullPlaylistPassed &&
     fidelity.openerPassed &&
     cultural.openerAvg >= OPENER_AVG_IDENTITY_THRESHOLD &&
     allVerified &&
@@ -165,6 +231,8 @@ export function evaluateWorldProof(opts: {
     trackOnePassed,
     continuationPassed,
     bodyPassed,
+    fullPlaylistPassed: cultural.fullPlaylistPassed,
+    samplePassRate: cultural.samplePassRate,
     openerAvgIdentityScore: cultural.openerAvg,
     bodyOffWorldCount: cultural.bodyOffWorld,
     lastGoodIndex,
@@ -175,12 +243,50 @@ export function evaluateWorldProof(opts: {
   };
 }
 
-/** Strip every off-world track — honest partial beats padded broken playlist. */
+/** Strip off-world tracks — honest partial beats padded broken playlist. No generic backfill. */
 export function filterTracksByWorldIdentity<T extends IntentFidelityTrack & { trackId?: string }>(
   tracks: T[],
   result: IntentFidelityResult,
   committed: CommittedWorld | null,
 ): T[] {
   if (!committed?.hardLock) return tracks;
+  const profile = resolveCulturalProfileForCommitted(committed);
+  if (!profile) {
+    return selectIntentFidelityHonestPartialTracks(tracks, result, committed);
+  }
+  const kept: T[] = [];
+  for (const track of tracks) {
+    const score = scoreTrackWorldIdentity(track, profile);
+    if (score >= SAMPLE_MIN_WORLD_SCORE) kept.push(track);
+  }
+  if (kept.length >= 3) {
+    return kept.slice(0, result.honestPartialCap);
+  }
   return selectIntentFidelityHonestPartialTracks(tracks, result, committed);
+}
+
+/** V11 final pass — remove off-world tracks without generic backfill. */
+export function filterTracksByFullWorldProof<T extends IntentFidelityTrack & { trackId?: string }>(
+  tracks: T[],
+  committed: CommittedWorld | null,
+  coverageLevel?: CoverageLevel | null,
+): { tracks: T[]; removed: number } {
+  if (!committed?.hardLock) return { tracks, removed: 0 };
+  const profile = resolveCulturalProfileForCommitted(committed);
+  if (!profile) return { tracks, removed: 0 };
+
+  const kept: T[] = [];
+  let removed = 0;
+  for (const track of tracks) {
+    const score = scoreTrackWorldIdentity(track, profile);
+    if (score < SAMPLE_MIN_WORLD_SCORE) {
+      removed += 1;
+      continue;
+    }
+    kept.push(track);
+  }
+  if (kept.length >= 3) {
+    return { tracks: kept, removed };
+  }
+  return { tracks, removed: 0 };
 }

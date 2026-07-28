@@ -64,6 +64,9 @@ export function scoreTrackWorldIdentity(
 
   if (artist && artistMatchesAnchor(profile, artist)) return 1;
   if (title && trackMatchesAnchor(profile, title, artist)) return 0.95;
+  if (profile.legendaryTracks && title && matchesAny(profile.legendaryTracks, `${artist} ${title}`)) {
+    return 0.92;
+  }
 
   const identity = resolveArtistWorldIdentity(artist);
   if (identity?.naturalWorlds.includes(profile.worldId)) return 0.88;
