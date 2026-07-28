@@ -17,6 +17,12 @@ export type CulturalWorldProfile = {
   acceptableModernArtists?: string[];
   /** Artists to never surface for this world (beyond regex forbidden lists). */
   avoidArtists?: string[];
+  /** Genre tokens that betray this world. */
+  avoidGenres?: string[];
+  /** Energy bands that break world immersion. */
+  avoidEnergyPatterns?: Array<{ min?: number; max?: number; reason: string }>;
+  /** Human-readable ban reasons for logging. */
+  avoidReasons?: string[];
   preferredEras: { min?: number; max?: number };
   energyRange: { min?: number; max?: number };
   instrumentation: string[];
@@ -74,6 +80,28 @@ export function matchesAvoidArtist(artistName: string, profile: CulturalWorldPro
     return true;
   }
   return profile.forbiddenArtists.some((re) => re.test(artistName));
+}
+
+export function matchesAvoidGenre(genreBlob: string, profile: CulturalWorldProfile): boolean {
+  const blob = String(genreBlob ?? "").toLowerCase();
+  if (!blob) return false;
+  return (profile.avoidGenres ?? []).some((g) => blob.includes(g.toLowerCase().trim()));
+}
+
+export function matchesAvoidEnergy(
+  energy: number | null | undefined,
+  profile: CulturalWorldProfile,
+): string | null {
+  if (typeof energy !== "number" || !Number.isFinite(energy)) return null;
+  for (const pattern of profile.avoidEnergyPatterns ?? []) {
+    const hasMin = pattern.min != null;
+    const hasMax = pattern.max != null;
+    if (!hasMin && !hasMax) continue;
+    const aboveMin = hasMin ? energy >= pattern.min! : true;
+    const belowMax = hasMax ? energy <= pattern.max! : true;
+    if (aboveMin && belowMax) return pattern.reason;
+  }
+  return null;
 }
 
 const LANDFILL: RegExp[] = [
@@ -189,6 +217,20 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       "Florence + The Machine",
       "Florence and the Machine",
       "MGMT",
+      "Oasis",
+      "Onyx Deimos",
+      "Calvin Harris",
+      "David Guetta",
+      "Tiësto",
+      "Tiesto",
+      "Martin Garrix",
+      "Avicii",
+    ],
+    avoidGenres: ["uk garage", "grime", "phonk", "festival", "party anthem", "brostep", "dubstep"],
+    avoidEnergyPatterns: [{ min: 0.85, reason: "party_festival_energy" }],
+    avoidReasons: [
+      "oasis_onyx_deimos_break_motorway_nocturne",
+      "party_festival_artists_break_rainy_drive",
     ],
     preferredEras: { min: 1980, max: 2015 },
     energyRange: { min: 0.32, max: 0.78 },
@@ -283,7 +325,26 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       "M83",
     ],
     adjacentArtists: ["Duran Duran", "Ultravox", "Gary Numan", "Chromatics", "A Flock of Seagulls"],
-    avoidArtists: ["Florence", "Florence and the Machine", "The 1975", "Fleetwood Mac", "Bon Iver", "nimino", "Calvin Harris"],
+    avoidArtists: [
+      "Florence",
+      "Florence and the Machine",
+      "Florence + The Machine",
+      "The 1975",
+      "Fleetwood Mac",
+      "Bon Iver",
+      "nimino",
+      "Calvin Harris",
+      "Fred again..",
+      "Fred Again",
+      "French Montana",
+      "Gray Squat Rave",
+    ],
+    avoidGenres: ["trap", "hyperpop", "drill", "phonk", "uk drill", "cloud rap"],
+    avoidEnergyPatterns: [{ min: 0.88, reason: "party_banger_energy" }],
+    avoidReasons: [
+      "modern_trap_hyperpop_breaks_80s_night_drive",
+      "fred_again_french_montana_gray_squat_rave",
+    ],
     anchorTracks: [/\benjoy\s+the\s+silence\b/i, /\bblue\s+monday\b/i, /\bjust\s+like\s+heaven\b/i],
     legendaryTracks: [
       /\benjoy\s+the\s+silence\b/i,
@@ -568,6 +629,17 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       "Bon Iver",
       "Michael Kiwanuka",
       "Phoebe Bridgers",
+      "Florence",
+      "Florence + The Machine",
+      "Florence and the Machine",
+      "Phoebe Bridgers",
+      "Iron & Wine",
+      "Fleet Foxes",
+    ],
+    avoidGenres: ["indie folk", "indie rock", "bedroom pop", "art pop", "alternative r&b"],
+    avoidReasons: [
+      "florence_indie_folk_break_country_world",
+      "arctic_monkeys_break_country_purity",
     ],
     anchorTracks: [/\bring\s+of\s+fire\b/i, /\bjolene\b/i, /\bon\s+the\s+road\s+again\b/i],
     legendaryTracks: [/\bring\s+of\s+fire\b/i, /\bjolene\b/i, /\bon\s+the\s+road\s+again\b/i, /\bcountry\s+roads\b/i],
@@ -652,6 +724,9 @@ export function mergeCulturalProfiles(worldIds: string[]): CulturalWorldProfile 
   const anchorArtistNames: string[] = [];
   const adjacentArtists: string[] = [];
   const avoidArtists: string[] = [];
+  const avoidGenres: string[] = [];
+  const avoidEnergyPatterns: CulturalWorldProfile["avoidEnergyPatterns"] = [];
+  const avoidReasons: string[] = [];
   for (const p of profiles) {
     anchorArtists.push(...p.anchorArtists);
     anchorTracks.push(...p.anchorTracks);
@@ -660,6 +735,9 @@ export function mergeCulturalProfiles(worldIds: string[]): CulturalWorldProfile 
     if (p.anchorArtistNames) anchorArtistNames.push(...p.anchorArtistNames);
     if (p.adjacentArtists) adjacentArtists.push(...p.adjacentArtists);
     if (p.avoidArtists) avoidArtists.push(...p.avoidArtists);
+    if (p.avoidGenres) avoidGenres.push(...p.avoidGenres);
+    if (p.avoidEnergyPatterns) avoidEnergyPatterns.push(...p.avoidEnergyPatterns);
+    if (p.avoidReasons) avoidReasons.push(...p.avoidReasons);
   }
   return {
     ...primary,
@@ -667,6 +745,9 @@ export function mergeCulturalProfiles(worldIds: string[]): CulturalWorldProfile 
     anchorArtistNames: [...new Set(anchorArtistNames)],
     adjacentArtists: [...new Set(adjacentArtists)],
     avoidArtists: [...new Set(avoidArtists)],
+    avoidGenres: [...new Set(avoidGenres)],
+    avoidEnergyPatterns,
+    avoidReasons: [...new Set(avoidReasons)],
     anchorTracks,
     forbiddenArtists,
     forbiddenPatterns,

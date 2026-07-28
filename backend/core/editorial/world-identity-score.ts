@@ -3,7 +3,7 @@
  */
 
 import type { CulturalWorldProfile } from "./cultural-identity-profile";
-import { culturalProfileForCommittedWorld, getCulturalProfile, matchesAvoidArtist } from "./cultural-identity-profile";
+import { culturalProfileForCommittedWorld, getCulturalProfile, matchesAvoidArtist, matchesAvoidGenre, matchesAvoidEnergy } from "./cultural-identity-profile";
 import {
   artistForbiddenInWorld,
   artistSupportsWorld,
@@ -43,11 +43,23 @@ function trackMatchesAnchor(profile: CulturalWorldProfile, trackName: string, ar
   return matchesAny(profile.anchorTracks, blob);
 }
 
-function trackForbidden(profile: CulturalWorldProfile, artistName: string, trackName: string): boolean {
+function trackForbidden(profile: CulturalWorldProfile, artistName: string, trackName: string, track?: WorldIdentityTrack): boolean {
   const blob = `${artistName} ${trackName}`;
   if (artistName && matchesAvoidArtist(artistName, profile)) return true;
   if (artistName && matchesAny(profile.forbiddenArtists, artistName)) return true;
   if (blob && matchesAny(profile.forbiddenPatterns, blob)) return true;
+  if (track) {
+    const genreBlob = [
+      track.genreFamily ?? "",
+      track.genrePrimary ?? "",
+      ...(Array.isArray(track.genres) ? track.genres : []),
+      ...(Array.isArray(track.spotifyArtistGenres)
+        ? track.spotifyArtistGenres.filter((g): g is string => typeof g === "string")
+        : []),
+    ].join(" ");
+    if (matchesAvoidGenre(genreBlob, profile)) return true;
+    if (matchesAvoidEnergy(track.energy, profile)) return true;
+  }
   return false;
 }
 
@@ -59,7 +71,7 @@ export function scoreTrackWorldIdentity(
   const artist = String(track.artistName ?? "").trim();
   const title = String(track.trackName ?? "").trim();
 
-  if (trackForbidden(profile, artist, title)) return 0;
+  if (trackForbidden(profile, artist, title, track)) return 0;
   if (artistForbiddenInWorld(artist, [profile.worldId])) return 0;
 
   if (artist && artistMatchesAnchor(profile, artist)) return 1;

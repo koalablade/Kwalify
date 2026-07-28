@@ -57,8 +57,8 @@ import {
 } from "../editorial/world-proof-gate";
 import { enforceThesisOpener } from "../editorial/thesis-opener-gate";
 import { resolveCulturalProfileForCommitted } from "../editorial/world-identity-score";
-import { filterTracksByFullWorldProof } from "../editorial/world-proof-gate";
 import { applyWorldSequencing } from "../editorial/world-sequencer";
+import { applyWorldPurityGate } from "../editorial/world-purity-gate";
 import {
   filterTracksForDeliveryNegation,
   parsePromptNegationEnforcement,
@@ -2942,9 +2942,13 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     const culturalProfile = resolveCulturalProfileForCommitted(committedWorld);
     const thesis = enforceThesisOpener(finalTracks, culturalProfile, committedWorld, undefined, 20);
     finalTracks = applyWorldSequencing(thesis.tracks, committedWorld);
-    const fullWorldFiltered = filterTracksByFullWorldProof(finalTracks, committedWorld);
-    if (fullWorldFiltered.removed > 0 && fullWorldFiltered.tracks.length >= 3) {
-      finalTracks = fullWorldFiltered.tracks as typeof finalTracks;
+    const purity = applyWorldPurityGate(finalTracks, committedWorld, {
+      prompt: vibe,
+      requestedLength: targetCount,
+      preserveOpener: true,
+    });
+    if (purity.removed > 0 && purity.tracks.length >= 3) {
+      finalTracks = purity.tracks as typeof finalTracks;
     }
   }
   const worldProof = evaluateWorldProof({

@@ -461,6 +461,7 @@ import {
 } from "../core/editorial/world-identity-gate";
 import { openingLockTrackIdsFromTracks } from "../core/editorial/opener-hygiene";
 import { applyWorldSequencing } from "../core/editorial/world-sequencer";
+import { applyWorldPurityGate } from "../core/editorial/world-purity-gate";
 import {
   assessWorldCoverage,
   coverageUserMessage,
@@ -12184,6 +12185,15 @@ router.post("/generate", async (req, res): Promise<void> => {
         if (sequenced !== thesisResult.tracks) {
           assignFT("world_sequencer", "world-aware sequencing", sequenced);
         }
+        const purityEarly = applyWorldPurityGate(delivery.tracks as PlaylistTrack[], committedWorld, {
+          prompt: vibe,
+          requestedLength,
+          coverageLevel: worldCoverageAssessment?.score ?? null,
+          preserveOpener: true,
+        });
+        if (purityEarly.removed > 0 && purityEarly.tracks.length >= 3) {
+          assignFT("world_purity_gate", "V13 full-playlist world purity", purityEarly.tracks as PlaylistTrack[]);
+        }
       }
       const worldProof = evaluateWorldProof({
         tracks: delivery.tracks.map((t) => ({
@@ -13293,6 +13303,46 @@ router.post("/generate", async (req, res): Promise<void> => {
         emotionProfile,
         momentPipeline?.canonicalScene?.sceneId ?? null,
       );
+    }
+    if (lateCommittedWorld?.hardLock && deliveredTracks.length >= 3) {
+      const purityLate = applyWorldPurityGate(deliveredTracks as PlaylistTrack[], lateCommittedWorld, {
+        prompt: vibe,
+        requestedLength,
+        coverageLevel: worldCoverageAssessment?.score ?? null,
+        preserveOpener: true,
+      });
+      if (
+        purityLate.removed > 0 ||
+        purityLate.honestPartial ||
+        purityLate.tracks.length !== deliveredTracks.length
+      ) {
+        deliveredTracks = purityLate.tracks as PlaylistTrack[];
+        finalApiTracks = formatTracksForApi(
+          deliveredTracks,
+          emotionProfile,
+          momentPipeline?.canonicalScene?.sceneId ?? null,
+        );
+        finalization = {
+          tracks: delivery.tracks as PlaylistTrack[],
+          diagnostics: {
+            ...finalization.diagnostics,
+            worldPurityGate: {
+              removed: purityLate.removed,
+              removedReasons: purityLate.removedReasons,
+              checkpointFailures: purityLate.checkpointFailures,
+              wouldStillBelieve: purityLate.wouldStillBelieve,
+              honestPartial: purityLate.honestPartial,
+            },
+            ...(purityLate.honestPartial
+              ? {
+                  honestPartialPublished: true,
+                  degradedDelivery: true,
+                  humanQualityUserMessage: purityLate.coverageMessage,
+                }
+              : {}),
+          },
+        };
+      }
     }
     {
       const hygiene = applyFinalApiOpenerHygiene(finalApiTracks, inferredWorldIds, {
