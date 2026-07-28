@@ -6,7 +6,13 @@
 export type CulturalWorldProfile = {
   worldId: string;
   anchorArtists: RegExp[];
+  /** Literal artist names for Spotify anchor search and coverage counting. */
+  anchorArtistNames?: string[];
   anchorTracks: RegExp[];
+  /** Adjacent artists that belong in the world but aren't canonical anchors. */
+  adjacentArtists?: string[];
+  /** Artists to never surface for this world (beyond regex forbidden lists). */
+  avoidArtists?: string[];
   preferredEras: { min?: number; max?: number };
   energyRange: { min?: number; max?: number };
   instrumentation: string[];
@@ -19,6 +25,43 @@ export type CulturalWorldProfile = {
     sequencing?: "cinematic_to_reflective" | "high_energy_cooldown";
   };
 };
+
+/** Extract literal anchor artist names from profile (explicit list or regex sources). */
+export function extractAnchorArtistNames(profile: CulturalWorldProfile): string[] {
+  if (profile.anchorArtistNames && profile.anchorArtistNames.length > 0) {
+    return profile.anchorArtistNames;
+  }
+  return profile.anchorArtists
+    .map((re) => re.source.replace(/\\b/g, "").replace(/\\/g, "").trim())
+    .filter((s) => s.length > 1);
+}
+
+export function extractAdjacentArtistNames(profile: CulturalWorldProfile): string[] {
+  return profile.adjacentArtists ?? [];
+}
+
+export function matchesAdjacentArtist(artistName: string, profile: CulturalWorldProfile): boolean {
+  const artist = String(artistName ?? "").trim().toLowerCase();
+  if (!artist) return false;
+  return (profile.adjacentArtists ?? []).some((adj) => artist.includes(adj.toLowerCase()));
+}
+
+export function matchesAvoidArtist(artistName: string, profile: CulturalWorldProfile): boolean {
+  const artist = String(artistName ?? "").trim().toLowerCase();
+  if (!artist) return false;
+  if (
+    (profile.avoidArtists ?? []).some((a) => {
+      const needle = a.toLowerCase().trim();
+      if (!needle) return false;
+      if (artist.includes(needle) || needle.includes(artist)) return true;
+      const artistTokens = artist.split(/[+&/]/).map((t) => t.trim()).filter(Boolean);
+      return artistTokens.some((token) => needle.includes(token) || token.includes(needle));
+    })
+  ) {
+    return true;
+  }
+  return profile.forbiddenArtists.some((re) => re.test(artistName));
+}
 
 const LANDFILL: RegExp[] = [
   /\bbon\s+iver\b/i,
@@ -55,6 +98,9 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       /\bled\s+zeppelin\b/i,
       /\bguns\s+n['']?\s*roses\b/i,
     ],
+    anchorArtistNames: ["Queen", "AC/DC", "Eagles", "Fleetwood Mac", "Tom Petty", "Led Zeppelin", "Guns N' Roses"],
+    adjacentArtists: ["Bruce Springsteen", "Def Leppard", "Foreigner", "Boston", "Kansas"],
+    avoidArtists: ["Bon Iver", "Phoebe Bridgers", "Clairo", "Noah Kahan"],
     anchorTracks: [/\bdon'?t\s+stop\s+me\s+now\b/i, /\bback\s+in\s+black\b/i, /\bhotel\s+california\b/i],
     preferredEras: { min: 1968, max: 1995 },
     energyRange: { min: 0.45, max: 0.92 },
@@ -92,6 +138,9 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       /\bdepeche\s+mode\b/i,
       /\bnew\s+order\b/i,
     ],
+    anchorArtistNames: ["M83", "Chromatics", "The War on Drugs", "Depeche Mode", "New Order"],
+    adjacentArtists: ["Röyksopp", "Tycho", "Com Truise", "Washed Out", "College"],
+    avoidArtists: ["Drake", "Travis Scott", "Wallows", "Jungle Giants", "Bon Iver", "Phoebe Bridgers"],
     anchorTracks: [/\bmidnight\s+city\b/i, /\btick\s+of\s+the\s+clock\b/i, /\benjoy\s+the\s+silence\b/i],
     preferredEras: { min: 1980, max: 2015 },
     energyRange: { min: 0.32, max: 0.78 },
@@ -151,6 +200,9 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       /\ba\s+flock\s+of\s+seagulls\b/i,
       /\bthe\s+cure\b/i,
     ],
+    anchorArtistNames: ["Depeche Mode", "New Order", "Pet Shop Boys", "A Flock of Seagulls", "The Cure"],
+    adjacentArtists: ["Duran Duran", "Tears for Fears", "Simple Minds", "Ultravox", "Gary Numan"],
+    avoidArtists: ["Florence", "Florence and the Machine", "The 1975", "Fleetwood Mac", "Bon Iver"],
     anchorTracks: [/\benjoy\s+the\s+silence\b/i, /\bblue\s+monday\b/i],
     preferredEras: { min: 1978, max: 1992 },
     energyRange: { min: 0.35, max: 0.82 },
@@ -173,6 +225,9 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       /\boasis\b/i,
       /\binspiral\s+carpets\b/i,
     ],
+    anchorArtistNames: ["The Stone Roses", "Happy Mondays", "New Order", "Oasis", "Inspiral Carpets"],
+    adjacentArtists: ["The Charlatans", "James", "The Verve", "Primal Scream", "The La's"],
+    avoidArtists: ["Destructo Disk", "James Righton", "Bon Iver", "Phoebe Bridgers"],
     anchorTracks: [/\bfools\s+gold\b/i, /\bstep\s+on\b/i, /\bi\s+am\s+the\s+resurrection\b/i],
     preferredEras: { min: 1985, max: 1998 },
     energyRange: { min: 0.42, max: 0.85 },
@@ -190,6 +245,9 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       /\bsoundgarden\b/i,
       /\balice\s+in\s+chains\b/i,
     ],
+    anchorArtistNames: ["Nirvana", "Pearl Jam", "Soundgarden", "Alice in Chains"],
+    adjacentArtists: ["Stone Temple Pilots", "Mudhoney", "Screaming Trees", "Temple of the Dog"],
+    avoidArtists: ["Green Day", "Blink-182", "Fall Out Boy", "Bon Iver"],
     anchorTracks: [/\bsmells\s+like\s+teen\s+spirit\b/i, /\balive\b/i],
     preferredEras: { min: 1988, max: 1998 },
     energyRange: { min: 0.55, max: 0.92 },
@@ -208,6 +266,9 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       /\bfoo\s+fighters\b/i,
       /\bfoo\s+fighters\b/i,
     ],
+    anchorArtistNames: ["Metallica", "AC/DC", "Guns N' Roses", "Foo Fighters", "Rage Against the Machine"],
+    adjacentArtists: ["Slipknot", "Disturbed", "Godsmack", "Papa Roach", "Linkin Park"],
+    avoidArtists: ["Fall Out Boy", "Paramore", "Bon Iver", "Phoebe Bridgers"],
     anchorTracks: [/\benter\s+sandman\b/i, /\bback\s+in\s+black\b/i, /\bwelcome\s+to\s+the\s+jungle\b/i],
     preferredEras: { min: 1975, max: 2015 },
     energyRange: { min: 0.72, max: 0.98 },
@@ -262,6 +323,9 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       /\bdonna\s+summer\b/i,
       /\bgloria\s+gaynor\b/i,
     ],
+    anchorArtistNames: ["Bee Gees", "Chic", "Donna Summer", "Gloria Gaynor", "KC and the Sunshine Band"],
+    adjacentArtists: ["Village People", "Sister Sledge", "Earth Wind & Fire", "Kool & the Gang", "Diana Ross"],
+    avoidArtists: ["Panic! At The Disco", "Panic at the Disco", "Bon Iver", "Phoebe Bridgers"],
     anchorTracks: [/\bstayin'?alive\b/i, /\ble\s+freak\b/i, /\bi\s+will\s+survive\b/i],
     preferredEras: { min: 1974, max: 1982 },
     energyRange: { min: 0.42, max: 0.88 },
@@ -289,15 +353,24 @@ export function mergeCulturalProfiles(worldIds: string[]): CulturalWorldProfile 
   const anchorTracks: RegExp[] = [];
   const forbiddenArtists: RegExp[] = [];
   const forbiddenPatterns: RegExp[] = [];
+  const anchorArtistNames: string[] = [];
+  const adjacentArtists: string[] = [];
+  const avoidArtists: string[] = [];
   for (const p of profiles) {
     anchorArtists.push(...p.anchorArtists);
     anchorTracks.push(...p.anchorTracks);
     forbiddenArtists.push(...p.forbiddenArtists);
     forbiddenPatterns.push(...p.forbiddenPatterns);
+    if (p.anchorArtistNames) anchorArtistNames.push(...p.anchorArtistNames);
+    if (p.adjacentArtists) adjacentArtists.push(...p.adjacentArtists);
+    if (p.avoidArtists) avoidArtists.push(...p.avoidArtists);
   }
   return {
     ...primary,
     anchorArtists,
+    anchorArtistNames: [...new Set(anchorArtistNames)],
+    adjacentArtists: [...new Set(adjacentArtists)],
+    avoidArtists: [...new Set(avoidArtists)],
     anchorTracks,
     forbiddenArtists,
     forbiddenPatterns,

@@ -35,6 +35,7 @@ export function enforceThesisOpenerGate<T extends WorldIdentityTrack>(
   tracks: T[],
   committed: CommittedWorld | null,
   searchDepth = 15,
+  expansionCandidates?: T[],
 ): ThesisOpenerResult<T> {
   if (!committed?.hardLock || tracks.length === 0) {
     return { tracks, passed: true, promoted: false, fromIndex: 0, openerScore: 1, failures: [] };
@@ -47,6 +48,55 @@ export function enforceThesisOpenerGate<T extends WorldIdentityTrack>(
 
   const opener = tracks[0]!;
   const openerCheck = trackMeetsThesisOpener(opener, committed);
+
+  // World-perfect discovery opener > wrong liked song when opener scores < 0.8
+  if (!openerCheck.passed && expansionCandidates && expansionCandidates.length > 0) {
+    const bestExpansion = expansionCandidates
+      .map((track) => ({
+        track,
+        score: scoreTrackWorldIdentity(track, profile),
+        check: trackMeetsThesisOpener(track, committed),
+      }))
+      .filter((row) => row.check.passed && row.score >= THESIS_OPENER_MIN_SCORE)
+      .sort((a, b) => b.score - a.score)[0];
+
+    if (bestExpansion && bestExpansion.score > openerCheck.score) {
+      const out = tracks.slice();
+      const existingIdx = out.findIndex(
+        (t) =>
+          t.artistName === bestExpansion.track.artistName &&
+          t.trackName === bestExpansion.track.trackName,
+      );
+      if (existingIdx > 0) {
+        const [promoted] = out.splice(existingIdx, 1);
+        if (promoted) out.unshift(promoted);
+        return {
+          tracks: out,
+          passed: true,
+          promoted: true,
+          fromIndex: existingIdx,
+          openerScore: bestExpansion.score,
+          failures: [],
+        };
+      }
+      const deduped = out.filter(
+        (t) =>
+          !(
+            t.artistName === bestExpansion.track.artistName &&
+            t.trackName === bestExpansion.track.trackName
+          ),
+      );
+      return {
+        tracks: [bestExpansion.track, ...deduped],
+        passed: true,
+        promoted: true,
+        fromIndex: -1,
+        openerScore: bestExpansion.score,
+        failures: [],
+      };
+    }
+  }
+
   if (openerCheck.passed) {
     return {
       tracks,
@@ -58,8 +108,17 @@ export function enforceThesisOpenerGate<T extends WorldIdentityTrack>(
     };
   }
 
+  const searchPool =
+    expansionCandidates && expansionCandidates.length > 0
+      ? [...tracks, ...expansionCandidates.filter(
+          (c) => !tracks.some(
+            (t) => t.artistName === c.artistName && t.trackName === c.trackName,
+          ),
+        )]
+      : tracks;
+
   const thesis = promoteWorldThesisOpener(
-    tracks,
+    searchPool,
     (track) => scoreTrackWorldIdentity(track, profile),
     searchDepth,
   );

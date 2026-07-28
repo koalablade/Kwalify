@@ -3,7 +3,7 @@
  */
 
 import type { CulturalWorldProfile } from "./cultural-identity-profile";
-import { culturalProfileForCommittedWorld, getCulturalProfile } from "./cultural-identity-profile";
+import { culturalProfileForCommittedWorld, getCulturalProfile, matchesAvoidArtist } from "./cultural-identity-profile";
 import {
   artistForbiddenInWorld,
   artistSupportsWorld,
@@ -45,6 +45,7 @@ function trackMatchesAnchor(profile: CulturalWorldProfile, trackName: string, ar
 
 function trackForbidden(profile: CulturalWorldProfile, artistName: string, trackName: string): boolean {
   const blob = `${artistName} ${trackName}`;
+  if (artistName && matchesAvoidArtist(artistName, profile)) return true;
   if (artistName && matchesAny(profile.forbiddenArtists, artistName)) return true;
   if (blob && matchesAny(profile.forbiddenPatterns, blob)) return true;
   return false;

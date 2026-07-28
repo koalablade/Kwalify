@@ -7,6 +7,7 @@
 
 import { isZeroPsychOpenerWorld } from "./opener-hygiene";
 import { LANE_PURITY_WORLD_IDS } from "./world-coherence-score";
+import { coverageLevelToMaxTracks, type CoverageLevel } from "./world-coverage";
 
 export type HumanQualityGateAction = "pass" | "honest_partial" | "refuse";
 
@@ -54,6 +55,8 @@ export type HumanQualityGateInput = {
   worldMatchScore?: number | null;
   /** Emotion/audio similarity score 0–1 — secondary to world on hard lock. */
   emotionMatchScore?: number | null;
+  /** V10 world coverage level from library assessment. */
+  coverageLevel?: CoverageLevel | null;
 };
 
 export type HumanQualityGateResult = {
@@ -250,7 +253,11 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   }
 
   // Salvageable means we can honestly publish what we have (including mid-stubs 3–5).
-  const salvageableCount = count >= 3 ? count : 0;
+  const coverageCap =
+    input.coverageLevel && input.committedWorldHardLock
+      ? coverageLevelToMaxTracks(input.coverageLevel, requested)
+      : Math.min(12, Math.ceil(requested * 0.4));
+  const salvageableCount = count >= 3 ? Math.min(count, coverageCap) : 0;
 
   let wouldSaveConfidence = 0.55;
   if (wouldSpotify === true) wouldSaveConfidence += 0.22;
@@ -265,6 +272,57 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   if (artistShare != null && artistShare > 0.45) replayConfidence -= 0.12;
   if (count >= Math.ceil(requested * 0.75) && worldCoherenceOk) replayConfidence += 0.08;
   replayConfidence = clamp01(replayConfidence);
+
+  if (
+    input.committedWorldHardLock === true &&
+    input.coverageLevel === "VERY_LOW" &&
+    count > coverageCap
+  ) {
+    if (salvageableCount >= 3) {
+      return {
+        action: "honest_partial",
+        reasons: [...reasons, "very_low_world_coverage"],
+        userMessage: buildHumanQualityPartialMessage(salvageableCount, requested, ["very_low_world_coverage"]),
+        salvageableCount,
+        wouldSaveConfidence,
+        replayConfidence,
+        worldCoherenceOk,
+        stubUnderfill,
+      };
+    }
+    return {
+      action: "refuse",
+      reasons: [...reasons, "very_low_world_coverage"],
+      userMessage: buildHumanQualityRefuseMessage([...reasons, "very_low_world_coverage"], {
+        trackCount: count,
+        requestedLength: requested,
+        promptLabel: input.promptLabel,
+      }),
+      salvageableCount: 0,
+      wouldSaveConfidence,
+      replayConfidence,
+      worldCoherenceOk,
+      stubUnderfill,
+    };
+  }
+
+  if (
+    input.committedWorldHardLock === true &&
+    input.coverageLevel &&
+    input.coverageLevel !== "HIGH" &&
+    count > coverageCap
+  ) {
+    return {
+      action: "honest_partial",
+      reasons: [...reasons, "coverage_capped"],
+      userMessage: buildHumanQualityPartialMessage(salvageableCount, requested, ["coverage_capped"]),
+      salvageableCount,
+      wouldSaveConfidence,
+      replayConfidence,
+      worldCoherenceOk,
+      stubUnderfill,
+    };
+  }
 
   // Refuse only truly unsavable stubs (<3), empty, seasonal leak, opener chain that survived sanitize, or empty wanted-christmas.
   if (

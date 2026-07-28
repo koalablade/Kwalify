@@ -19,6 +19,12 @@ import { artistForbiddenInWorld } from "../core/editorial/artist-identity-map";
 import { culturalProfileForCommittedWorld } from "../core/editorial/cultural-identity-profile";
 import { scoreTrackWorldIdentity } from "../core/editorial/world-identity-score";
 import {
+  assessWorldCoverage,
+  classifyWorldCoverageTier,
+  compareWorldCoverageTier,
+  type WorldCoverageAssessment,
+} from "../core/editorial/world-coverage";
+import {
   committedWorldArtistForbidden,
   resolveCommittedWorld,
 } from "../core/committed-world";
@@ -178,6 +184,10 @@ export type RetrieveScoringCandidatesOpts<T extends RetrievalTrackInput> = {
   };
   /** Committed world ids — penalize psych-indie opener fillers outside natural worlds. */
   activeWorldIds?: string[];
+  /** V10: pre-fetched anchor expansion candidates (Spotify + library adjacent). */
+  expansionCandidates?: RetrievalTrackInput[];
+  /** V10: pre-computed world coverage assessment. */
+  worldCoverage?: WorldCoverageAssessment | null;
 };
 
 const SCENE_PATTERNS: Array<{ tag: string; pattern: RegExp; weight: number }> = [
@@ -826,6 +836,43 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
     } else if (worldEligible.length > 0) {
       eligible = worldEligible;
     }
+
+    const coverageAssessment =
+      opts.worldCoverage ??
+      assessWorldCoverage(
+        committedWorld,
+        worldEligible.length > 0 ? worldEligible : eligible,
+        culturalProfile,
+      );
+
+    if (opts.expansionCandidates && opts.expansionCandidates.length > 0 && culturalProfile) {
+      const libraryIds = new Set(eligible.map((t) => t.trackId));
+      const expansionToMerge = (opts.expansionCandidates as T[]).filter((t) => {
+        if (libraryIds.has(t.trackId)) return false;
+        const classification = classifyFor(t, opts.classMap);
+        const culturalScore = scoreTrackWorldIdentity(
+          {
+            trackName: t.trackName,
+            artistName: t.artistName,
+            albumName: t.albumName,
+            genreFamily: classification?.genreFamily ?? null,
+            genrePrimary: classification?.genrePrimary ?? null,
+            genres: classification?.subGenres ?? null,
+            energy: t.energy ?? null,
+            valence: t.valence ?? null,
+            danceability: t.danceability ?? null,
+            releaseYear: t.releaseYear ?? null,
+          },
+          culturalProfile,
+        );
+        return culturalScore >= 0.45;
+      });
+      if (expansionToMerge.length > 0) {
+        eligible = [...eligible, ...expansionToMerge];
+      }
+    }
+
+    (opts as { _worldCoverage?: WorldCoverageAssessment })._worldCoverage = coverageAssessment;
   }
 
   if (retrievalProfile.activityProfile) {
@@ -1140,7 +1187,33 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
     .map((row) => row.track)
     .filter((track) => seen.has(track.trackId));
   const remainder = merged.filter((track) => !openingIds.has(track.trackId));
-  const ordered = [...openingFront, ...remainder].slice(0, broadCap);
+  let ordered = [...openingFront, ...remainder].slice(0, broadCap);
+
+  const worldCoverageResult =
+    (opts as { _worldCoverage?: WorldCoverageAssessment })._worldCoverage ?? null;
+  const coverageProfile =
+    committedWorld?.hardLock && retrievalWorldIds.length > 0
+      ? culturalProfileForCommittedWorld(retrievalWorldIds, committedWorld.id)
+      : null;
+  if (coverageProfile && worldCoverageResult) {
+    const libraryIdSet = new Set(opts.tracks.map((t) => t.trackId));
+    const expansionIdSet = new Set((opts.expansionCandidates ?? []).map((t) => t.trackId));
+    ordered = [...ordered].sort((a, b) => {
+      const tierA = classifyWorldCoverageTier(
+        a,
+        coverageProfile,
+        libraryIdSet.has(a.trackId),
+        expansionIdSet.has(a.trackId),
+      );
+      const tierB = classifyWorldCoverageTier(
+        b,
+        coverageProfile,
+        libraryIdSet.has(b.trackId),
+        expansionIdSet.has(b.trackId),
+      );
+      return compareWorldCoverageTier(tierB, tierA);
+    });
+  }
 
   const diagnostics: RetrievalDiagnostics = {
     applied: true,
@@ -1172,6 +1245,12 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
     ...(opts.retrievalOverrides?.strategyId
       ? { strategyId: opts.retrievalOverrides.strategyId }
       : {}),
+    ...(worldCoverageResult
+      ? {
+          worldCoverage: worldCoverageResult,
+          expansionCandidateCount: opts.expansionCandidates?.length ?? 0,
+        }
+      : {}),
   };
 
   return {
@@ -1191,6 +1270,12 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
         sourceDistribution: diagnostics.sourceDistribution,
         openingCandidatesReserved: diagnostics.openingCandidatesReserved,
         ...(diagnostics.strategyId ? { strategyId: diagnostics.strategyId } : {}),
+        ...((diagnostics as { worldCoverage?: WorldCoverageAssessment }).worldCoverage
+          ? {
+              worldCoverage: (diagnostics as { worldCoverage?: WorldCoverageAssessment }).worldCoverage,
+              expansionCandidateCount: (diagnostics as { expansionCandidateCount?: number }).expansionCandidateCount,
+            }
+          : {}),
       },
   };
 }

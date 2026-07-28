@@ -26,6 +26,7 @@ import {
 } from "./candidate-retrieval-pipeline";
 import { inferWorldIdentityIdsFromPrompt } from "../core/editorial/world-identity-gate";
 import { resolveCommittedWorld } from "../core/committed-world";
+import type { WorldCoverageAssessment } from "../core/editorial/world-coverage";
 import type { LibrarySignals } from "./library-signals";
 import {
   buildPromptSonicTarget,
@@ -143,6 +144,10 @@ export type OrchestratePlaylistRetrievalOpts<T extends RetrievalTrackInput> = {
   };
   librarySignals?: LibrarySignals;
   sonicTasteProfile?: SonicTasteProfile | null;
+  /** V10: anchor expansion candidates from world-anchor-retrieval. */
+  expansionCandidates?: RetrievalTrackInput[];
+  /** V10: pre-computed world coverage assessment. */
+  worldCoverage?: WorldCoverageAssessment | null;
 };
 
 export type OrchestratePlaylistRetrievalResult<T extends RetrievalTrackInput> = {
@@ -888,6 +893,8 @@ export function orchestratePlaylistRetrieval<T extends RetrievalTrackInput>(
       sonicTasteProfile,
       recentTrackPenalty: opts.recentTrackPenalty,
       activeWorldIds,
+      expansionCandidates: opts.expansionCandidates,
+      worldCoverage: opts.worldCoverage,
       retrievalOverrides: {
         strategyId: strategyPlan.strategy,
         libraryGravityWeight: profileOverride.libraryGravityWeight,
@@ -930,6 +937,8 @@ export function orchestratePlaylistRetrieval<T extends RetrievalTrackInput>(
         sonicTasteProfile,
         recentTrackPenalty: opts.recentTrackPenalty,
         activeWorldIds,
+        expansionCandidates: opts.expansionCandidates,
+        worldCoverage: opts.worldCoverage,
         retrievalOverrides: {
           strategyId: strategyPlan.strategy,
           libraryGravityWeight: profileOverride.libraryGravityWeight,

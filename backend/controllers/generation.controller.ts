@@ -459,6 +459,14 @@ import { openingLockTrackIdsFromTracks } from "../core/editorial/opener-hygiene"
 import { enforceThesisOpenerGate } from "../core/editorial/thesis-opener-gate";
 import { applyWorldSequencing } from "../core/editorial/world-sequencer";
 import {
+  assessWorldCoverage,
+  coverageUserMessage,
+  shouldExpandWorldCoverage,
+  type WorldCoverageAssessment,
+} from "../core/editorial/world-coverage";
+import { retrieveWorldAnchorCandidates } from "../core/editorial/world-anchor-retrieval";
+import { resolveCulturalProfileForCommitted } from "../core/editorial/world-identity-score";
+import {
   countOpenerNegationViolations,
   filterTracksForDeliveryNegation,
   parsePromptNegationEnforcement,
@@ -6981,6 +6989,43 @@ router.post("/generate", async (req, res): Promise<void> => {
       lockedIntent.mood.length > 0 ||
       !!lockedIntent.energyLevel;
     const sonicTasteProfile = buildSonicTasteProfile(likedSongs);
+
+    let worldCoverageAssessment: WorldCoverageAssessment | null = null;
+    let worldExpansionCandidates: typeof likedSongs = [];
+    const committedWorldPreRetrieval = resolveCommittedWorld({
+      prompt: vibe,
+      lockedIntent,
+    });
+    const culturalProfilePre = resolveCulturalProfileForCommitted(committedWorldPreRetrieval);
+    if (committedWorldPreRetrieval?.hardLock && culturalProfilePre && !noLibraryMode) {
+      worldCoverageAssessment = assessWorldCoverage(
+        committedWorldPreRetrieval,
+        likedSongs,
+        culturalProfilePre,
+      );
+      if (shouldExpandWorldCoverage(worldCoverageAssessment.score)) {
+        try {
+          let expansionToken: string | null = null;
+          if (!devMode && req.session.spotifyTokens) {
+            const freshTokens = await getValidAccessToken(req.session.spotifyTokens!, userId);
+            expansionToken = freshTokens.accessToken;
+          }
+          const expansion = await retrieveWorldAnchorCandidates({
+            accessToken: expansionToken,
+            userLibrary: likedSongs,
+            culturalProfile: culturalProfilePre,
+            committedWorld: committedWorldPreRetrieval,
+          });
+          worldExpansionCandidates = expansion.tracks.filter(
+            (t): t is (typeof likedSongs)[number] =>
+              typeof (t as { trackId?: string }).trackId === "string",
+          ) as typeof likedSongs;
+        } catch (expansionErr) {
+          req.log.warn({ err: expansionErr }, "world anchor expansion failed — continuing with library only");
+        }
+      }
+    }
+
     const preScoringOrchestration = orchestratePlaylistRetrieval({
       tracks: likedSongs,
       vibe,
@@ -6996,6 +7041,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       debugRetrieval: auditMode,
       noLibraryMode: !!noLibraryMode,
       promptConfidence: promptConfidence?.score,
+      expansionCandidates:
+        worldExpansionCandidates.length > 0 ? worldExpansionCandidates : undefined,
+      worldCoverage: worldCoverageAssessment,
     });
 
     if (preScoringOrchestration.failure && !noLibraryMode) {
@@ -12113,7 +12161,14 @@ router.post("/generate", async (req, res): Promise<void> => {
         );
       }
       if (committedWorld?.hardLock) {
-        const thesis = enforceThesisOpenerGate(delivery.tracks, committedWorld);
+        const thesis = enforceThesisOpenerGate(
+          delivery.tracks,
+          committedWorld,
+          15,
+          worldExpansionCandidates.length > 0
+            ? (worldExpansionCandidates as typeof delivery.tracks)
+            : undefined,
+        );
         if (thesis.promoted || !thesis.passed) {
           assignFT(
             "world_thesis_opener",
@@ -12256,6 +12311,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           terminalActiveWorldId && LANE_PURITY_WORLD_IDS.has(terminalActiveWorldId)
             ? scoreCommittedWorldLanePurity(terminalActiveWorldId, terminalTrackSignals, { prompt: vibe }).ok
             : null,
+        coverageLevel: worldCoverageAssessment?.score ?? null,
       });
       finalization = {
         tracks: delivery.tracks as PlaylistTrack[],
@@ -13741,6 +13797,12 @@ router.post("/generate", async (req, res): Promise<void> => {
       noLibrarySpotify: noLibrarySpotifyDiagnostics,
       devMode,
       playlistConfidence,
+      ...(worldCoverageAssessment
+        ? {
+            coverageLevel: worldCoverageAssessment.score,
+            coverageMessage: coverageUserMessage(worldCoverageAssessment.score),
+          }
+        : {}),
       ...(humanExpectationDiagnostics ? { humanExpectation: humanExpectationDiagnostics } : {}),
       ...(thinLibraryPolicy.action !== "normal"
         ? {
