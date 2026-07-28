@@ -455,7 +455,9 @@ import {
   countWorldVerifiedLibrarySupply,
   type OpenerHygieneDiagnostics,
 } from "../core/editorial/world-identity-gate";
-import { openingLockTrackIdsFromTracks, promoteWorldThesisOpener } from "../core/editorial/opener-hygiene";
+import { openingLockTrackIdsFromTracks } from "../core/editorial/opener-hygiene";
+import { enforceThesisOpenerGate } from "../core/editorial/thesis-opener-gate";
+import { applyWorldSequencing } from "../core/editorial/world-sequencer";
 import {
   countOpenerNegationViolations,
   filterTracksForDeliveryNegation,
@@ -12111,12 +12113,17 @@ router.post("/generate", async (req, res): Promise<void> => {
         );
       }
       if (committedWorld?.hardLock) {
-        const thesis = promoteWorldThesisOpener(
-          delivery.tracks,
-          (track) => committedWorldArtistRepresentativeScore(committedWorld, track.artistName),
-        );
-        if (thesis.promoted) {
-          assignFT("world_thesis_opener", "promote world thesis to track 1", thesis.tracks);
+        const thesis = enforceThesisOpenerGate(delivery.tracks, committedWorld);
+        if (thesis.promoted || !thesis.passed) {
+          assignFT(
+            "world_thesis_opener",
+            thesis.passed ? "promote world thesis to track 1" : "thesis opener gate",
+            thesis.tracks,
+          );
+        }
+        const sequenced = applyWorldSequencing(thesis.tracks, committedWorld);
+        if (sequenced !== thesis.tracks) {
+          assignFT("world_sequencer", "world-aware sequencing", sequenced);
         }
       }
       const worldProof = evaluateWorldProof({

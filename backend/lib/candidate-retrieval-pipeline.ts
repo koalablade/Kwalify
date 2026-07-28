@@ -16,6 +16,8 @@ import {
 } from "./activity-profiles";
 import { inferWorldIdentityIdsFromPrompt, isSafetyBlanketOutsideWorld, estimateWorldMembership, passesWorldIdentity, worldIdentityProfilesForLock } from "../core/editorial/world-identity-gate";
 import { artistForbiddenInWorld } from "../core/editorial/artist-identity-map";
+import { culturalProfileForCommittedWorld } from "../core/editorial/cultural-identity-profile";
+import { scoreTrackWorldIdentity } from "../core/editorial/world-identity-score";
 import {
   committedWorldArtistForbidden,
   resolveCommittedWorld,
@@ -453,8 +455,27 @@ function worldRetrievalFit(
   track: RetrievalTrackInput,
   classification: ActivityClassificationInput,
   retrievalWorldIds: string[],
+  committedWorldId: string | null,
 ): number {
   if (retrievalWorldIds.length === 0) return 0.5;
+  const profile = culturalProfileForCommittedWorld(retrievalWorldIds, committedWorldId ?? retrievalWorldIds[0]!);
+  if (profile) {
+    return scoreTrackWorldIdentity(
+      {
+        trackName: track.trackName,
+        artistName: track.artistName,
+        albumName: track.albumName,
+        genreFamily: classification?.genreFamily ?? null,
+        genrePrimary: classification?.genrePrimary ?? null,
+        genres: classification?.subGenres ?? null,
+        energy: track.energy ?? null,
+        valence: track.valence ?? null,
+        danceability: track.danceability ?? null,
+        releaseYear: track.releaseYear ?? null,
+      },
+      profile,
+    );
+  }
   const profiles = worldIdentityProfilesForLock({ anchors: retrievalWorldIds });
   return estimateWorldMembership(
     {
@@ -478,7 +499,8 @@ function blendWorldOverEmotion(
   committedWorldActive: boolean,
 ): number {
   if (!committedWorldActive) return baseScore;
-  return baseScore * 0.28 + worldFit * 0.72;
+  // V9: world identity score dominates — intent/emotion/taste follow.
+  return worldFit * 0.78 + baseScore * 0.22;
 }
 
 function favouriteArtistFit(
@@ -756,10 +778,32 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
       prompt: opts.vibe,
       reason: committedWorld.reason,
     });
+    const culturalProfile = culturalProfileForCommittedWorld(
+      retrievalWorldIds,
+      committedWorld.id,
+    );
     const worldEligible = eligible.filter((track) => {
       const classification = classifyFor(track, opts.classMap);
       if (committedWorldArtistForbidden(committedWorld, track.artistName, track.trackName)) return false;
       if (artistForbiddenInWorld(track.artistName, retrievalWorldIds)) return false;
+      if (culturalProfile) {
+        const culturalScore = scoreTrackWorldIdentity(
+          {
+            trackName: track.trackName,
+            artistName: track.artistName,
+            albumName: track.albumName,
+            genreFamily: classification?.genreFamily ?? null,
+            genrePrimary: classification?.genrePrimary ?? null,
+            genres: classification?.subGenres ?? null,
+            energy: track.energy ?? null,
+            valence: track.valence ?? null,
+            danceability: track.danceability ?? null,
+            releaseYear: track.releaseYear ?? null,
+          },
+          culturalProfile,
+        );
+        if (culturalScore < 0.45) return false;
+      }
       return passesWorldIdentity(
         {
           trackName: track.trackName,
@@ -936,7 +980,12 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
       let score = retrievalProfile.activityProfile
         ? scoreActivityCandidateFit(track, classification, retrievalProfile.activityProfile, opts.vibe)
         : quickEmotionFit(track, opts.emotionProfile);
-      const worldFit = worldRetrievalFit(track, classification, retrievalWorldIds);
+      const worldFit = worldRetrievalFit(
+        track,
+        classification,
+        retrievalWorldIds,
+        committedWorld?.id ?? retrievalProfile.committedWorldId,
+      );
       score = blendWorldOverEmotion(score, worldFit, retrievalWorldIds.length > 0);
       if (
         retrievalProfile.activity === "party_pregame" &&
@@ -952,7 +1001,12 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
   const emotionalRanked = eligible
     .map((track) => {
       const classification = classifyFor(track, opts.classMap);
-      const worldFit = worldRetrievalFit(track, classification, retrievalWorldIds);
+      const worldFit = worldRetrievalFit(
+        track,
+        classification,
+        retrievalWorldIds,
+        committedWorld?.id ?? retrievalProfile.committedWorldId,
+      );
       const emotion = quickEmotionFit(track, opts.emotionProfile);
       const score = blendWorldOverEmotion(emotion, worldFit, retrievalWorldIds.length > 0);
       return { track, score: scoreModifiersFor(track, score) };
@@ -963,7 +1017,12 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
     .map((track) => {
       const classification = classifyFor(track, opts.classMap);
       const genreFit = genreRetrievalFit(track, classification, retrievalProfile);
-      const worldFit = worldRetrievalFit(track, classification, retrievalWorldIds);
+      const worldFit = worldRetrievalFit(
+        track,
+        classification,
+        retrievalWorldIds,
+        committedWorld?.id ?? retrievalProfile.committedWorldId,
+      );
       const score = blendWorldOverEmotion(genreFit, worldFit, retrievalWorldIds.length > 0);
       return { track, score: scoreModifiersFor(track, score) };
     })

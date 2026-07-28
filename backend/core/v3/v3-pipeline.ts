@@ -55,6 +55,8 @@ import {
   evaluateWorldProof,
   filterTracksByWorldIdentity,
 } from "../editorial/world-proof-gate";
+import { enforceThesisOpenerGate } from "../editorial/thesis-opener-gate";
+import { applyWorldSequencing } from "../editorial/world-sequencer";
 import {
   filterTracksForDeliveryNegation,
   parsePromptNegationEnforcement,
@@ -2933,6 +2935,10 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     finalTracks = finalTracks.filter((t) =>
       keptIds.has(`${t.artistName ?? ""}|${t.trackName ?? ""}`),
     );
+  }
+  if (committedWorld?.hardLock) {
+    const thesis = enforceThesisOpenerGate(finalTracks, committedWorld);
+    finalTracks = applyWorldSequencing(thesis.tracks, committedWorld);
   }
   const worldProof = evaluateWorldProof({
     tracks: finalTracks.map((t) => ({

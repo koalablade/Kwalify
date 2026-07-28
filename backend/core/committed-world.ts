@@ -6,6 +6,12 @@
 import type { SceneLockStatus } from "./scene-lock-mode";
 import { resolveWorldBoundary, type WorldBoundary } from "./world-boundary";
 import { inferWorldIdentityIdsFromPrompt } from "./editorial/world-identity-gate";
+import {
+  culturalProfileForCommittedWorld,
+  type CulturalWorldProfile,
+} from "./editorial/cultural-identity-profile";
+
+export { getCulturalProfile, type CulturalWorldProfile } from "./editorial/cultural-identity-profile";
 
 export type CommittedWorldSource =
   | "explicit_genre"
@@ -443,4 +449,10 @@ export function resolveCommittedWorld(opts: {
 
 export function committedWorldHonestPartialCap(requestedLength: number): number {
   return Math.min(12, Math.max(6, Math.ceil(requestedLength * 0.4)));
+}
+
+/** Resolve cultural identity profile for a committed world contract. */
+export function getCulturalProfileForCommitted(committed: CommittedWorld | null): CulturalWorldProfile | null {
+  if (!committed) return null;
+  return culturalProfileForCommittedWorld(committed.worldIds, committed.id);
 }
