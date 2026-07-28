@@ -21,6 +21,7 @@ import { initPool, SESSION_TABLE_DDL, pool } from "../lib/pg-pool";
 import { initDb } from "../db";
 import { markBootComplete } from "../lib/boot-state";
 import { setRuntimeReady } from "../lib/runtime-readiness";
+import { getSystemHealthState, resetSystemHealthForTests } from "../lib/system-health";
 import { createConcurrencyLimiter } from "../lib/concurrency-limiter";
 import { acquireGenerateSlot, releaseGenerateSlot, resolveGenerateLimiterDefaults } from "../lib/runtime-overload";
 import healthRouter from "../routes/health";
@@ -264,4 +265,20 @@ test("selfhost lowers default generate concurrency when env unset", () => {
     if (prevHost !== undefined) process.env.KWALIFY_HOST_MODE = prevHost;
     else delete process.env.KWALIFY_HOST_MODE;
   }
+});
+
+test("slow lone generation does not degrade system health (no false overload)", async () => {
+  resetSystemHealthForTests();
+  const limiter = createConcurrencyLimiter({
+    name: "smoke_slow_lone",
+    limitEnv: "SMOKE_SLOW_LONE_LIMIT_UNSET",
+    queueLimitEnv: "SMOKE_SLOW_LONE_QUEUE_UNSET",
+    defaultLimit: 2,
+    defaultQueueLimit: 4,
+    overloadLatencyMs: 5_000,
+  });
+  const release = await limiter.acquire();
+  limiter.recordLatency(120_000);
+  assert.equal(getSystemHealthState(), "HEALTHY", "slow lone request must not flip DEGRADED");
+  release();
 });

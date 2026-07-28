@@ -45,7 +45,7 @@ export function createConcurrencyLimiter(opts: {
   const limit = envInt(opts.limitEnv ?? "", opts.defaultLimit);
   const queueLimit = envInt(opts.queueLimitEnv ?? "", opts.defaultQueueLimit);
   const maxWaitMs = envInt(`${opts.name.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_QUEUE_MAX_WAIT_MS`, envInt("CONCURRENCY_QUEUE_MAX_WAIT_MS", 45_000));
-  const overloadQueueThreshold = opts.overloadQueueThreshold ?? Math.max(1, Math.floor(queueLimit * 0.8));
+  const overloadQueueThreshold = opts.overloadQueueThreshold ?? queueLimit;
   const overloadLatencyMs = opts.overloadLatencyMs ?? 30_000;
   const queue: Waiter[] = [];
   const latencies: number[] = [];
@@ -63,12 +63,14 @@ export function createConcurrencyLimiter(opts: {
 
   const logOverloadIfNeeded = (): void => {
     const snapshot = state();
+    const queueSaturated = snapshot.queued >= queueLimit;
     const queuePressure = snapshot.queued >= overloadQueueThreshold;
     // Slow lone requests are normal for playlist generation — only treat latency as overload when the queue is backing up.
     const latencyPressure = snapshot.queued > 0 && snapshot.averageLatencyMs >= overloadLatencyMs;
     if (!queuePressure && !latencyPressure) return;
-    recordSystemOverload();
-    logOverloadThrottled(opts.name, snapshot, "system_overloaded");
+    // Observability only — do not flip system health to DEGRADED (that bypasses V3 clustering).
+    // Real backpressure is enforced by QUEUE_FULL / QUEUE_TIMEOUT below.
+    logOverloadThrottled(opts.name, { ...snapshot, queueSaturated }, "system_overload_pressure");
   };
 
   const makeRelease = (): (() => void) => {

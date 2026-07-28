@@ -32,11 +32,14 @@ export function recordSystemFailure(ctx: FailureContext): void {
 }
 
 export function recordSystemOverload(): void {
-  overloadUntil = Date.now() + 30_000;
+  // Only set when callers reject work (queue full / timeout). Self-host playlist runs
+  // routinely take 60–120s — soft pressure must not bypass clustering for 30s.
+  const degradeMs = process.env["KWALIFY_HOST_MODE"] === "selfhost" ? 10_000 : 30_000;
+  overloadUntil = Date.now() + degradeMs;
   const now = Date.now();
   if (now - overloadRecordedLoggedAt < OVERLOAD_RECORDED_LOG_MS) return;
   overloadRecordedLoggedAt = now;
-  log.debug({ healthState: getSystemHealthState() }, "system_overload_recorded");
+  log.warn({ healthState: getSystemHealthState(), degradeMs }, "system_overload_recorded");
 }
 
 export function getSystemHealthState(): SystemHealthState {
@@ -47,4 +50,12 @@ export function getSystemHealthState(): SystemHealthState {
   if (failures.some((failure) => failure.type === "DB_FAILURE")) return "DEGRADED";
   if (recentStageFailures > 0) return "DEGRADED";
   return "HEALTHY";
+}
+
+/** Test-only — clears sliding overload window between isolated assertions. */
+export function resetSystemHealthForTests(): void {
+  if (process.env.NODE_ENV !== "test") return;
+  failures.length = 0;
+  overloadUntil = 0;
+  overloadRecordedLoggedAt = 0;
 }
