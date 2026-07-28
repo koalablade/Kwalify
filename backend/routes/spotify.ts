@@ -688,7 +688,8 @@ router.get("/spotify/sync/stream", async (req, res): Promise<void> => {
           clearInterval(timer);
           if (!closed) res.end();
         }
-      }).catch(() => {
+      }).catch((err) => {
+        logger.warn({ err, userId }, "Sync SSE pushStatus failed");
         clearInterval(timer);
         if (!closed) res.end();
       });

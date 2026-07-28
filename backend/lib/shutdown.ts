@@ -1,4 +1,5 @@
 import type { Logger } from "pino";
+import { captureError } from "./error-tracking";
 
 let _shuttingDown = false;
 let _graceStarted = false;
@@ -51,6 +52,7 @@ export function beginGracefulShutdown(
       scheduleShutdownExit(logger, 0, "Graceful shutdown cleanup complete — exiting");
     })
     .catch((err) => {
+      captureError(err, { source: "graceful_shutdown_cleanup" });
       logger.error({ err }, "Graceful shutdown cleanup failed — exiting");
       scheduleShutdownExit(logger, 1, "Graceful shutdown cleanup failed — exiting");
     });

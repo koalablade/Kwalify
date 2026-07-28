@@ -4,6 +4,7 @@
  */
 
 import { moduleLogger } from "./logger";
+import { captureError } from "./error-tracking";
 import { getExtendedOpsMetrics } from "./ops-metrics-extended";
 
 export { recordSpotifyApiMetrics, recordGenerationPhaseDuration, recordIntentSurvivalSample } from "./ops-metrics-extended";
@@ -94,6 +95,10 @@ export function recordSyncFailure(detail: {
   syncFailureLastAt = new Date().toISOString();
   bumpBucket(syncFailureBuckets);
   pushAlert("SYNC_FAILURE", detail);
+  captureError(detail.message ?? "Spotify sync failed", {
+    source: "sync_failure",
+    ...detail,
+  });
 }
 
 export function attachGenerateQueueState(state: OpsMetricsSnapshot["generateQueue"]): OpsMetricsSnapshot {

@@ -101,6 +101,7 @@ import {
   cancelGenerateSession,
   getActiveSessionRetryAfterMs,
 } from "../lib/generate-session";
+import { captureError } from "../lib/error-tracking";
 import { sanitizeLikedSongs } from "../lib/library-sanitize";
 import { getDiscoveryModeReadiness } from "../lib/discovery-mode";
 import { isShuttingDown } from "../lib/shutdown";
@@ -5067,6 +5068,7 @@ router.get("/generate/preview", (req, res): void => {
       })(),
     });
   } catch (err) {
+    captureError(err, { source: "generate_preview", path: "/generate/preview" });
     res.status(500).json({ error: "Preview analysis failed" });
   }
 });
@@ -13593,6 +13595,12 @@ router.post("/generate", async (req, res): Promise<void> => {
     cleanupClientDisconnectListeners?.();
     if (hardTimeoutTimer) clearTimeout(hardTimeoutTimer);
     if (heartbeatTimer) clearInterval(heartbeatTimer);
+    captureError(fatalErr, {
+      source: "generate_fatal",
+      code: "INTERNAL_ERROR",
+      userId: sessionUserId || undefined,
+      requestId: requestId || undefined,
+    });
     req.log.error(
       { err: fatalErr?.message, code: "INTERNAL_ERROR", userId: sessionUserId },
       "Unhandled error in /generate"

@@ -9,7 +9,7 @@
     "build": "node scripts/prepare-dist.mjs && node node_modules/typescript/bin/tsc && node backend/dist/scripts/scene-cohesion-human-save-gate.js",
     "start": "node backend/dist/server.js",
     "test": "npm run build && node --test backend/dist/tests/smoke-launch.test.js backend/dist/tests/process-safety.test.js backend/dist/tests/pipeline-authority.test.js backend/dist/tests/pipeline-authority-hardening.test.js backend/dist/tests/pipeline-authority-verification.test.js",
-    "test:smoke": "npm run build && node --test backend/dist/tests/smoke-launch.test.js backend/dist/tests/process-safety.test.js",
+    "test:smoke": "npm run build && node --test backend/dist/tests/smoke-launch.test.js backend/dist/tests/process-safety.test.js backend/dist/tests/error-tracking.test.js",
     "test:benchmark-bats": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-benchmark-bats.ps1",
     "test:start-syntax": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-start-syntax.ps1",
     "test:website-routes": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-website-routes.ps1",

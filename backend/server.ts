@@ -177,8 +177,6 @@ async function finishRuntimeInitialization(rawPool: pg.Pool, env: AppEnv): Promi
  *   7. background init    — schema + DB health; marks /readyz ready or failed
  */
 async function bootstrap(): Promise<void> {
-  await initSentryIfConfigured();
-
   // ── 1. Environment ──────────────────────────────────────────────────────────
   // validateEnv() returns {env, features} directly.
   // Bootstrap uses these values — never calls getEnv() / getFeatures(), which
@@ -260,8 +258,14 @@ async function bootstrap(): Promise<void> {
     });
 }
 
-installProcessSafetyHandlers();
-bootstrap().catch((err) => {
+async function main(): Promise<void> {
+  // Sentry must be live before process-safety handlers so early rejections/crashes are captured.
+  await initSentryIfConfigured();
+  installProcessSafetyHandlers();
+  await bootstrap();
+}
+
+main().catch((err) => {
   logger.error({ err }, "[boot] Fatal startup error — process exiting");
   process.exit(1);
 });

@@ -6,6 +6,7 @@ import { isShuttingDown } from "../lib/shutdown";
 import { pool } from "../lib/pg-pool";
 import { getFeatures } from "../lib/env";
 import { getGenerateOverloadState } from "../lib/runtime-overload";
+import { captureError } from "../lib/error-tracking";
 
 const router: IRouter = Router();
 
@@ -120,12 +121,30 @@ async function readinessHandler(_req: Request, res: Response): Promise<void> {
 }
 
 router.get("/readyz", (req, res) => {
-  void readinessHandler(req, res);
+  void readinessHandler(req, res).catch((err) => {
+    captureError(err, { source: "readyz", path: req.path });
+    if (!res.headersSent) {
+      res.status(503).json({
+        status: "not_ready",
+        error: "readiness_check_failed",
+        readiness: getRuntimeReadiness().state,
+      });
+    }
+  });
 });
 
 // Alias — some orchestrators/probes expect /readiness.
 router.get("/readiness", (req, res) => {
-  void readinessHandler(req, res);
+  void readinessHandler(req, res).catch((err) => {
+    captureError(err, { source: "readiness", path: req.path });
+    if (!res.headersSent) {
+      res.status(503).json({
+        status: "not_ready",
+        error: "readiness_check_failed",
+        readiness: getRuntimeReadiness().state,
+      });
+    }
+  });
 });
 
 export default router;

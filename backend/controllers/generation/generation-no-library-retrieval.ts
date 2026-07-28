@@ -9,6 +9,9 @@ import {
   fetchAudioFeatures,
   searchSpotifyTracks,
 } from "../../lib/spotify";
+import { moduleLogger } from "../../lib/logger";
+
+const log = moduleLogger("no-library-retrieval");
 
 function hasDecorativeEraOnly(lower: string): boolean {
   const decorativeEraContext = /\b(?:60'?s|70'?s|80'?s|90'?s|00'?s|10'?s|20'?s|1960'?s|1970'?s|1980'?s|1990'?s|2000'?s|2010'?s|2020'?s)\s+(?:car|cars|motor|motors|vehicle|vehicles|volvo|bmw|mercedes|honda|toyota|ford|garage|bedroom|room|fit|fashion|aesthetic|vibe)\b/i;
@@ -255,12 +258,15 @@ async function timeboxRetrievalSource<T>(
       timedOut: false,
       failed: false,
     }))
-    .catch(() => ({
-      value: fallback,
-      elapsedMs: Date.now() - startedAt,
-      timedOut: false,
-      failed: true,
-    }));
+    .catch((err) => {
+      log.warn({ err, source: _source }, "retrieval source failed");
+      return {
+        value: fallback,
+        elapsedMs: Date.now() - startedAt,
+        timedOut: false,
+        failed: true,
+      };
+    });
   const timeout = new Promise<TimedRetrievalSource<T>>((resolve) => {
     timer = setTimeout(() => {
       resolve({
