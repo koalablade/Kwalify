@@ -468,7 +468,14 @@ import {
   shouldExpandWorldCoverage,
   type WorldCoverageAssessment,
 } from "../core/editorial/world-coverage";
-import { retrieveWorldAnchorCandidates } from "../core/editorial/world-anchor-retrieval";
+import { retrieveWorldAnchorCandidates, exhaustWorldRetrieval } from "../core/editorial/world-anchor-retrieval";
+import {
+  beginRejectionTrace,
+  getRejectionTrace,
+  summarizeRejectionTrace,
+  diagnoseRetrievalShortfall,
+} from "../core/editorial/retrieval-rejection-trace";
+import { enforceCommittedWorldImmutability } from "../core/editorial/committed-world-guard";
 import { resolveCulturalProfileForCommitted } from "../core/editorial/world-identity-score";
 import {
   countOpenerNegationViolations,
@@ -7002,31 +7009,41 @@ router.post("/generate", async (req, res): Promise<void> => {
     });
     const culturalProfilePre = resolveCulturalProfileForCommitted(committedWorldPreRetrieval);
     if (committedWorldPreRetrieval?.hardLock && culturalProfilePre && !noLibraryMode) {
+      beginRejectionTrace();
       worldCoverageAssessment = assessWorldCoverage(
         committedWorldPreRetrieval,
         likedSongs,
         culturalProfilePre,
       );
-      if (shouldExpandWorldCoverage(worldCoverageAssessment.score)) {
-        try {
-          let expansionToken: string | null = null;
-          if (!devMode && req.session.spotifyTokens) {
-            const freshTokens = await getValidAccessToken(req.session.spotifyTokens!, userId);
-            expansionToken = freshTokens.accessToken;
-          }
-          const expansion = await retrieveWorldAnchorCandidates({
-            accessToken: expansionToken,
-            userLibrary: likedSongs,
-            culturalProfile: culturalProfilePre,
-            committedWorld: committedWorldPreRetrieval,
-          });
-          worldExpansionCandidates = expansion.tracks.filter(
-            (t): t is (typeof likedSongs)[number] =>
-              typeof (t as { trackId?: string }).trackId === "string",
-          ) as typeof likedSongs;
-        } catch (expansionErr) {
-          req.log.warn({ err: expansionErr }, "world anchor expansion failed — continuing with library only");
+      try {
+        let expansionToken: string | null = null;
+        if (!devMode && req.session.spotifyTokens) {
+          const freshTokens = await getValidAccessToken(req.session.spotifyTokens!, userId);
+          expansionToken = freshTokens.accessToken;
         }
+        const expansion = await exhaustWorldRetrieval({
+          accessToken: expansionToken,
+          userLibrary: likedSongs,
+          culturalProfile: culturalProfilePre,
+          committedWorld: committedWorldPreRetrieval,
+          targetValidCount: Math.max(25, length),
+          maxRounds: 4,
+        });
+        worldExpansionCandidates = expansion.tracks.filter(
+          (t): t is (typeof likedSongs)[number] =>
+            typeof (t as { trackId?: string }).trackId === "string",
+        ) as typeof likedSongs;
+        if (auditMode) {
+          req.log.info(
+            {
+              expansionDiagnostics: expansion.diagnostics,
+              rejectionStats: summarizeRejectionTrace(culturalProfilePre.worldId),
+            },
+            "V14 world retrieval exhaustion",
+          );
+        }
+      } catch (expansionErr) {
+        req.log.warn({ err: expansionErr }, "world anchor expansion failed — continuing with library only");
       }
     }
 
@@ -12148,13 +12165,21 @@ router.post("/generate", async (req, res): Promise<void> => {
         delivery.tracks.length > 0 && artistCounts.size > 0
           ? Math.max(...artistCounts.values()) / delivery.tracks.length
           : null;
-      const committedWorld = resolveCommittedWorld({
+      const committedWorldResolved = resolveCommittedWorld({
         prompt: vibe,
         sceneLock: sceneLockStatus,
         sceneAliases,
         scenePrediction: mergedScenePrediction,
         lockedIntent,
       });
+      const { world: committedWorld, drift: committedWorldDrift } = enforceCommittedWorldImmutability(
+        committedWorldPreRetrieval,
+        committedWorldResolved,
+        "delivery",
+      );
+      if (committedWorldDrift.drifted && auditMode) {
+        req.log.warn({ committedWorldDrift }, "V14 committed world drift blocked at delivery");
+      }
       const terminalNegationProfileEarly = parsePromptNegationEnforcement(vibe);
       const negationDeliveryFilter = filterTracksForDeliveryNegation(delivery.tracks, terminalNegationProfileEarly);
       if (negationDeliveryFilter.removed > 0 && negationDeliveryFilter.tracks.length >= 3) {
@@ -13269,13 +13294,18 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     let postFreezeOpenerDiagnostics: OpenerHygieneDiagnostics = {};
     const inferredWorldIds = inferWorldIdentityIdsFromPrompt(vibe);
-    const lateCommittedWorld = resolveCommittedWorld({
+    const lateCommittedResolved = resolveCommittedWorld({
       prompt: vibe,
       sceneLock: sceneLockStatus,
       sceneAliases,
       scenePrediction: mergedScenePrediction,
       lockedIntent,
     });
+    const { world: lateCommittedWorld } = enforceCommittedWorldImmutability(
+      committedWorldPreRetrieval,
+      lateCommittedResolved,
+      "late_delivery",
+    );
     if (lateCommittedWorld?.hardLock && deliveredTracks.length > 0) {
       const lateProfile = resolveCulturalProfileForCommitted(lateCommittedWorld);
       const lateThesis = enforceThesisOpener(
@@ -13340,6 +13370,32 @@ router.post("/generate", async (req, res): Promise<void> => {
                   humanQualityUserMessage: purityLate.coverageMessage,
                 }
               : {}),
+          },
+        };
+      }
+      if (
+        auditMode &&
+        (purityLate.honestPartial || deliveredTracks.length < requestedLength) &&
+        culturalProfilePre
+      ) {
+        const shortfall = diagnoseRetrievalShortfall(
+          culturalProfilePre.worldId,
+          getRejectionTrace(),
+          deliveredTracks.length,
+          requestedLength,
+          culturalProfilePre,
+        );
+        finalization = {
+          tracks: delivery.tracks as PlaylistTrack[],
+          diagnostics: {
+            ...finalization.diagnostics,
+            retrievalShortfall: {
+              currentCount: deliveredTracks.length,
+              targetCount: requestedLength,
+              gap: shortfall.gap,
+              suggestions: shortfall.suggestions,
+              rejectionStats: summarizeRejectionTrace(culturalProfilePre.worldId),
+            },
           },
         };
       }

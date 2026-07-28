@@ -13,6 +13,18 @@ export type CulturalWorldProfile = {
   legendaryTracks?: RegExp[];
   /** Adjacent artists that belong in the world but aren't canonical anchors. */
   adjacentArtists?: string[];
+  /** Major scene artists — tier below anchor, above deep cuts. */
+  majorArtists?: string[];
+  /** Lesser-known but world-correct tracks for dig-deeper retrieval. */
+  deepCuts?: string[];
+  /** Obscure but valid artists when anchors are exhausted. */
+  forgottenArtists?: string[];
+  /** Cult / niche artists that still belong. */
+  cultArtists?: string[];
+  /** Era-neighbour artists for expansion without breaking integrity. */
+  eraExtensions?: string[];
+  /** Artists acceptable as adjacency without being anchors (expansion filter). */
+  acceptableAdjacency?: string[];
   /** Modern artists that fit without breaking era integrity. */
   acceptableModernArtists?: string[];
   /** Artists to never surface for this world (beyond regex forbidden lists). */
@@ -57,6 +69,36 @@ export function extractAnchorArtistNames(profile: CulturalWorldProfile): string[
 
 export function extractAdjacentArtistNames(profile: CulturalWorldProfile): string[] {
   return profile.adjacentArtists ?? [];
+}
+
+export function extractMajorArtistNames(profile: CulturalWorldProfile): string[] {
+  return profile.majorArtists ?? [];
+}
+
+export function extractDeepCutNames(profile: CulturalWorldProfile): string[] {
+  return profile.deepCuts ?? [];
+}
+
+export function extractForgottenArtistNames(profile: CulturalWorldProfile): string[] {
+  return profile.forgottenArtists ?? [];
+}
+
+export function extractCultArtistNames(profile: CulturalWorldProfile): string[] {
+  return profile.cultArtists ?? [];
+}
+
+export function extractEraExtensionNames(profile: CulturalWorldProfile): string[] {
+  return profile.eraExtensions ?? [];
+}
+
+export function extractAcceptableAdjacencyNames(profile: CulturalWorldProfile): string[] {
+  return profile.acceptableAdjacency ?? [];
+}
+
+export function matchesAcceptableAdjacency(artistName: string, profile: CulturalWorldProfile): boolean {
+  const artist = String(artistName ?? "").trim().toLowerCase();
+  if (!artist) return false;
+  return (profile.acceptableAdjacency ?? []).some((adj) => artist.includes(adj.toLowerCase()));
 }
 
 export function matchesAdjacentArtist(artistName: string, profile: CulturalWorldProfile): boolean {
@@ -153,8 +195,14 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     ],
     anchorArtistNames: ["Queen", "AC/DC", "Eagles", "Fleetwood Mac", "Tom Petty", "Led Zeppelin", "Guns N' Roses"],
     adjacentArtists: ["Bruce Springsteen", "Def Leppard", "Foreigner", "Boston", "Kansas"],
+    majorArtists: ["Aerosmith", "Van Halen", "ZZ Top", "Rush", "Deep Purple"],
+    deepCuts: ["Thin Lizzy", "Bad Company", "Creedence Clearwater Revival", "The Who", "Cream"],
+    forgottenArtists: ["Blue Öyster Cult", "Foghat", "Styx", "REO Speedwagon"],
+    cultArtists: ["Mountain", "Grand Funk Railroad"],
+    eraExtensions: ["Dire Straits", "Journey", "Boston", "Styx"],
+    acceptableAdjacency: ["Tom Petty", "Dire Straits", "ELO", "Boston", "Journey", "Foreigner", "Def Leppard"],
     acceptableModernArtists: ["Foo Fighters", "Muse"],
-    avoidArtists: ["Bon Iver", "Phoebe Bridgers", "Clairo", "Noah Kahan"],
+    avoidArtists: ["Bon Iver", "Phoebe Bridgers", "Clairo", "Noah Kahan", "Storm Queen", "Fred again.."],
     anchorTracks: [/\bdon'?t\s+stop\s+me\s+now\b/i, /\bback\s+in\s+black\b/i, /\bhotel\s+california\b/i],
     legendaryTracks: [/\bdon'?t\s+stop\s+me\s+now\b/i, /\bback\s+in\s+black\b/i, /\bhotel\s+california\b/i, /\bwelcome\s+to\s+the\s+jungle\b/i],
     preferredEras: { min: 1968, max: 1995 },
@@ -175,6 +223,14 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       /\btom\s+petty\b/i,
       /\bjourney\b/i,
     ],
+    anchorArtistNames: ["Queen", "AC/DC", "Eagles", "Fleetwood Mac", "Tom Petty", "Journey"],
+    adjacentArtists: ["Bruce Springsteen", "Def Leppard", "Foreigner", "Boston", "Kansas"],
+    majorArtists: ["Aerosmith", "Van Halen", "ZZ Top", "Rush", "Deep Purple", "Foreigner", "Boston"],
+    deepCuts: ["Thin Lizzy", "Bad Company", "Creedence Clearwater Revival", "The Who", "Cream", "Kansas"],
+    forgottenArtists: ["Blue Öyster Cult", "Foghat", "Styx", "REO Speedwagon"],
+    cultArtists: ["Mountain", "Grand Funk Railroad"],
+    eraExtensions: ["Dire Straits", "Journey", "Boston", "Styx"],
+    acceptableAdjacency: ["Tom Petty", "Dire Straits", "ELO", "Boston", "Journey", "Foreigner", "Def Leppard"],
     anchorTracks: [/\bdon'?t\s+stop\s+believin\b/i, /\bgo\s+your\s+own\s+way\b/i],
     preferredEras: { min: 1970, max: 1992 },
     energyRange: { min: 0.42, max: 0.88 },
@@ -195,6 +251,12 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     ],
     anchorArtistNames: ["M83", "Chromatics", "The War on Drugs", "Depeche Mode", "New Order"],
     adjacentArtists: ["Röyksopp", "Tycho", "Com Truise", "Washed Out", "College"],
+    majorArtists: ["The Cure", "Pet Shop Boys", "Tears for Fears", "Ultravox", "Gary Numan"],
+    deepCuts: ["Cocteau Twins", "Slowdive", "My Bloody Valentine", "Boards of Canada", "Moby"],
+    forgottenArtists: ["Clan of Xymox", "Minimal Compact", "Section 25"],
+    cultArtists: ["John Foxx", "Visage", "Japan"],
+    eraExtensions: ["Simple Minds", "Talk Talk", "OMD"],
+    acceptableAdjacency: ["The Cure", "Pet Shop Boys", "Gary Numan", "Ultravox", "Cocteau Twins"],
     anchorTracks: [/\bmidnight\s+city\b/i, /\btick\s+of\s+the\s+clock\b/i, /\benjoy\s+the\s+silence\b/i],
     legendaryTracks: [/\bmidnight\s+city\b/i, /\btick\s+of\s+the\s+clock\b/i, /\benjoy\s+the\s+silence\b/i, /\bblue\s+monday\b/i],
     acceptableModernArtists: ["M83", "Chromatics", "The War on Drugs"],
@@ -225,6 +287,8 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       "Tiesto",
       "Martin Garrix",
       "Avicii",
+      "The Smiths",
+      "The 1975",
     ],
     avoidGenres: ["uk garage", "grime", "phonk", "festival", "party anthem", "brostep", "dubstep"],
     avoidEnergyPatterns: [{ min: 0.85, reason: "party_festival_energy" }],
@@ -325,6 +389,12 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       "M83",
     ],
     adjacentArtists: ["Duran Duran", "Ultravox", "Gary Numan", "Chromatics", "A Flock of Seagulls"],
+    majorArtists: ["OMD", "Ultravox", "Talk Talk", "Japan", "ABC", "Human League", "A-ha", "Roxy Music", "Peter Gabriel", "Prefab Sprout"],
+    deepCuts: ["Heaven 17", "Visage", "John Foxx", "Yazoo", "Erasure", "Orchestral Manoeuvres in the Dark"],
+    forgottenArtists: ["China Crisis", "Associates", "Teardrop Explodes", "Wire"],
+    cultArtists: ["Japan", "Talk Talk", "Cocteau Twins"],
+    eraExtensions: ["Duran Duran", "Gary Numan", "A Flock of Seagulls", "Simple Minds"],
+    acceptableAdjacency: ["OMD", "Ultravox", "Talk Talk", "Japan", "ABC", "Human League", "A-ha", "Roxy Music"],
     avoidArtists: [
       "Florence",
       "Florence and the Machine",
@@ -383,8 +453,14 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     ],
     anchorArtistNames: ["The Stone Roses", "Happy Mondays", "New Order", "Oasis", "Inspiral Carpets"],
     adjacentArtists: ["The Charlatans", "James", "The Verve", "Primal Scream", "The La's"],
+    majorArtists: ["Inspiral Carpets", "The Charlatans", "Primal Scream", "James", "Northside", "808 State", "Black Grape", "Electronic", "The Farm", "The Seahorses", "The La's"],
+    deepCuts: ["Northside", "Black Grape", "The Farm", "The Seahorses", "Ride", "Shack"],
+    forgottenArtists: ["Paris Angels", "The High", "Sub Sub", "The Mock Turtles"],
+    cultArtists: ["808 State", "Electronic", "Northside"],
+    eraExtensions: ["Primal Scream", "The Charlatans", "James", "Black Grape"],
+    acceptableAdjacency: ["The Charlatans", "Primal Scream", "James", "Inspiral Carpets", "808 State", "Black Grape"],
     acceptableModernArtists: ["The Charlatans", "Primal Scream"],
-    avoidArtists: ["Destructo Disk", "James Righton", "Bon Iver", "Phoebe Bridgers", "Arctic Monkeys", "Tame Impala"],
+    avoidArtists: ["Destructo Disk", "James Righton", "Bon Iver", "Phoebe Bridgers", "Arctic Monkeys", "Tame Impala", "James Hype", "Jesse James Solomon"],
     anchorTracks: [/\bfools\s+gold\b/i, /\bstep\s+on\b/i, /\bi\s+am\s+the\s+resurrection\b/i],
     legendaryTracks: [/\bfools\s+gold\b/i, /\bstep\s+on\b/i, /\bi\s+am\s+the\s+resurrection\b/i, /\bwonderwall\b/i],
     preferredEras: { min: 1985, max: 1998 },
@@ -405,6 +481,12 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     ],
     anchorArtistNames: ["Nirvana", "Pearl Jam", "Soundgarden", "Alice in Chains"],
     adjacentArtists: ["Stone Temple Pilots", "Mudhoney", "Screaming Trees", "Temple of the Dog"],
+    majorArtists: ["Mudhoney", "Screaming Trees", "Temple of the Dog", "Hole", "Bush"],
+    deepCuts: ["Tad", "Green River", "Mother Love Bone", "L7", "Silverchair"],
+    forgottenArtists: ["Dinosaur Jr.", "Swervedriver", "Babes in Toyland"],
+    cultArtists: ["Melvins", "Skin Yard", "Gruntruck"],
+    eraExtensions: ["Stone Temple Pilots", "Bush", "Silverchair"],
+    acceptableAdjacency: ["Stone Temple Pilots", "Mudhoney", "Screaming Trees", "Temple of the Dog"],
     avoidArtists: ["Green Day", "Blink-182", "Fall Out Boy", "Bon Iver"],
     anchorTracks: [/\bsmells\s+like\s+teen\s+spirit\b/i, /\balive\b/i],
     preferredEras: { min: 1988, max: 1998 },
@@ -427,6 +509,12 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     ],
     anchorArtistNames: ["Metallica", "AC/DC", "Guns N' Roses", "Foo Fighters", "Rage Against the Machine"],
     adjacentArtists: ["Slipknot", "Disturbed", "Godsmack", "Papa Roach", "Linkin Park", "Black Sabbath", "Iron Maiden", "Slayer"],
+    majorArtists: ["Slayer", "Megadeth", "Pantera", "Tool", "Korn", "System of a Down"],
+    deepCuts: ["Anthrax", "Testament", "Machine Head", "Lamb of God", "Gojira"],
+    forgottenArtists: ["Prong", "Biohazard", "Helmet", "Corrosion of Conformity"],
+    cultArtists: ["Ministry", "White Zombie", "Fear Factory"],
+    eraExtensions: ["Pantera", "Tool", "Rage Against the Machine", "System of a Down"],
+    acceptableAdjacency: ["Slipknot", "Disturbed", "Godsmack", "Papa Roach", "Linkin Park", "Pantera"],
     acceptableModernArtists: ["Disturbed", "Godsmack", "Papa Roach"],
     avoidArtists: [
       "Fall Out Boy",
@@ -438,6 +526,7 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       "Panic at the Disco",
       "Sonic Youth",
       "The Clash",
+      "The Offspring",
     ],
     anchorTracks: [/\benter\s+sandman\b/i, /\bback\s+in\s+black\b/i, /\bwelcome\s+to\s+the\s+jungle\b/i],
     legendaryTracks: [/\benter\s+sandman\b/i, /\bback\s+in\s+black\b/i, /\bwelcome\s+to\s+the\s+jungle\b/i],
@@ -576,6 +665,12 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       "Gloria Gaynor",
     ],
     adjacentArtists: ["Village People", "Kool & the Gang", "Diana Ross", "The Trammps", "Sylvester"],
+    majorArtists: ["Barry White", "Cameo", "Parliament", "Funkadelic", "Heatwave", "Lipps Inc"],
+    deepCuts: ["Cerrone", "Linda Clifford", "Odyssey", "Tavares", "Crown Heights Affair"],
+    forgottenArtists: ["A Taste of Honey", "Musique", "Instant Funk"],
+    cultArtists: ["Cerrone", "Crown Heights Affair", "Musique"],
+    eraExtensions: ["Kool & the Gang", "Barry White", "Cameo", "Heatwave"],
+    acceptableAdjacency: ["Barry White", "Cameo", "Parliament", "Funkadelic", "Kool & the Gang", "Heatwave", "Sylvester"],
     acceptableModernArtists: [],
     avoidArtists: [
       "Panic! At The Disco",
@@ -584,6 +679,10 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       "The Weeknd",
       "Bon Iver",
       "Phoebe Bridgers",
+      "Fred again..",
+      "Fred again",
+      "Calvin Harris",
+      "Storm Queen",
     ],
     anchorTracks: [/\bstayin'?alive\b/i, /\ble\s+freak\b/i, /\bi\s+will\s+survive\b/i, /\bdon'?t\s+stop\s+'?til\s+you\s+get\s+enough\b/i],
     legendaryTracks: [/\bstayin'?alive\b/i, /\ble\s+freak\b/i, /\bi\s+will\s+survive\b/i, /\bwe\s+are\s+family\b/i],
@@ -622,6 +721,12 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       "Alan Jackson",
     ],
     adjacentArtists: ["George Strait", "Merle Haggard", "Tim McGraw", "Carrie Underwood", "Morgan Wallen"],
+    majorArtists: ["George Strait", "Merle Haggard", "Tim McGraw", "Carrie Underwood", "Morgan Wallen", "Brad Paisley"],
+    deepCuts: ["Sturgill Simpson", "Jason Isbell", "Tyler Childers", "Colter Wall", "Margo Price"],
+    forgottenArtists: ["Jamey Johnson", "Cody Jinks", "Whitey Morgan"],
+    cultArtists: ["Sturgill Simpson", "Jason Isbell", "Tyler Childers"],
+    eraExtensions: ["Brad Paisley", "Keith Urban", "Eric Church"],
+    acceptableAdjacency: ["George Strait", "Merle Haggard", "Tim McGraw", "Brad Paisley", "Eric Church"],
     avoidArtists: [
       "Arctic Monkeys",
       "The Jungle Giants",
@@ -685,6 +790,12 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       "KC and the Sunshine Band",
     ],
     adjacentArtists: ["Village People", "Gloria Gaynor", "Kool & the Gang", "Diana Ross"],
+    majorArtists: ["Barry White", "Cameo", "Parliament", "Funkadelic", "Heatwave", "Gloria Gaynor"],
+    deepCuts: ["Cerrone", "Linda Clifford", "Odyssey", "Tavares"],
+    forgottenArtists: ["A Taste of Honey", "Musique", "Instant Funk"],
+    cultArtists: ["Cerrone", "Crown Heights Affair"],
+    eraExtensions: ["Barry White", "Cameo", "Heatwave"],
+    acceptableAdjacency: ["Barry White", "Cameo", "Parliament", "Funkadelic", "Kool & the Gang", "Heatwave"],
     avoidArtists: ["Panic! At The Disco", "Panic at the Disco", "Dua Lipa", "The Weeknd"],
     anchorTracks: [/\bstayin'?alive\b/i, /\ble\s+freak\b/i, /\bdon'?t\s+stop\s+'?til\s+you\s+get\s+enough\b/i],
     legendaryTracks: [/\bstayin'?alive\b/i, /\ble\s+freak\b/i, /\bwe\s+are\s+family\b/i],
@@ -723,6 +834,12 @@ export function mergeCulturalProfiles(worldIds: string[]): CulturalWorldProfile 
   const forbiddenPatterns: RegExp[] = [];
   const anchorArtistNames: string[] = [];
   const adjacentArtists: string[] = [];
+  const majorArtists: string[] = [];
+  const deepCuts: string[] = [];
+  const forgottenArtists: string[] = [];
+  const cultArtists: string[] = [];
+  const eraExtensions: string[] = [];
+  const acceptableAdjacency: string[] = [];
   const avoidArtists: string[] = [];
   const avoidGenres: string[] = [];
   const avoidEnergyPatterns: CulturalWorldProfile["avoidEnergyPatterns"] = [];
@@ -734,6 +851,12 @@ export function mergeCulturalProfiles(worldIds: string[]): CulturalWorldProfile 
     forbiddenPatterns.push(...p.forbiddenPatterns);
     if (p.anchorArtistNames) anchorArtistNames.push(...p.anchorArtistNames);
     if (p.adjacentArtists) adjacentArtists.push(...p.adjacentArtists);
+    if (p.majorArtists) majorArtists.push(...p.majorArtists);
+    if (p.deepCuts) deepCuts.push(...p.deepCuts);
+    if (p.forgottenArtists) forgottenArtists.push(...p.forgottenArtists);
+    if (p.cultArtists) cultArtists.push(...p.cultArtists);
+    if (p.eraExtensions) eraExtensions.push(...p.eraExtensions);
+    if (p.acceptableAdjacency) acceptableAdjacency.push(...p.acceptableAdjacency);
     if (p.avoidArtists) avoidArtists.push(...p.avoidArtists);
     if (p.avoidGenres) avoidGenres.push(...p.avoidGenres);
     if (p.avoidEnergyPatterns) avoidEnergyPatterns.push(...p.avoidEnergyPatterns);
@@ -744,6 +867,12 @@ export function mergeCulturalProfiles(worldIds: string[]): CulturalWorldProfile 
     anchorArtists,
     anchorArtistNames: [...new Set(anchorArtistNames)],
     adjacentArtists: [...new Set(adjacentArtists)],
+    majorArtists: [...new Set(majorArtists)],
+    deepCuts: [...new Set(deepCuts)],
+    forgottenArtists: [...new Set(forgottenArtists)],
+    cultArtists: [...new Set(cultArtists)],
+    eraExtensions: [...new Set(eraExtensions)],
+    acceptableAdjacency: [...new Set(acceptableAdjacency)],
     avoidArtists: [...new Set(avoidArtists)],
     avoidGenres: [...new Set(avoidGenres)],
     avoidEnergyPatterns,

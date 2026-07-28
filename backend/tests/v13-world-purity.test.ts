@@ -12,14 +12,16 @@ import {
 } from "../core/editorial/world-purity-gate";
 import { matchesAvoidArtist } from "../core/editorial/cultural-identity-profile";
 
-describe("V13 world purity", () => {
-  it("position thresholds: 90/80/70", () => {
-    assert.equal(worldPurityThresholdForPosition(0), 90);
+describe("V13 world purity (V14 thresholds)", () => {
+  it("position thresholds: 95/90/85/80 (V14)", () => {
+    assert.equal(worldPurityThresholdForPosition(0), 95);
+    assert.equal(worldPurityThresholdForPosition(1), 95);
+    assert.equal(worldPurityThresholdForPosition(2), 90);
     assert.equal(worldPurityThresholdForPosition(4), 90);
-    assert.equal(worldPurityThresholdForPosition(5), 80);
-    assert.equal(worldPurityThresholdForPosition(9), 80);
-    assert.equal(worldPurityThresholdForPosition(10), 70);
-    assert.equal(worldPurityThresholdForPosition(20), 70);
+    assert.equal(worldPurityThresholdForPosition(5), 85);
+    assert.equal(worldPurityThresholdForPosition(9), 85);
+    assert.equal(worldPurityThresholdForPosition(10), 80);
+    assert.equal(worldPurityThresholdForPosition(20), 80);
   });
 
   it("80s night drive bans Fred again.., French Montana, Gray Squat Rave", () => {
@@ -114,7 +116,7 @@ describe("V13 world purity", () => {
     const madThesis = enforceThesisOpener(madTracks, madProfile, madchester, undefined, 20);
     const madPurity = applyWorldPurityGate(madThesis.tracks, madchester, { requestedLength: 25 });
     assert.equal(madThesis.tracks[0]!.artistName, "Oasis");
-    assert.ok(scoreTrackPurityPercent(madPurity.tracks[0]!, madProfile) >= 90);
+    assert.ok(scoreTrackPurityPercent(madPurity.tracks[0]!, madProfile) >= 95);
 
     const dadRock = resolveCommittedWorld({ prompt: "dad rock BBQ with beers" })!;
     const dadProfile = getCulturalProfile("dad_rock_world")!;
@@ -131,7 +133,7 @@ describe("V13 world purity", () => {
     );
     const dadPurity = applyWorldPurityGate(dadThesis.tracks, dadRock, { requestedLength: 25 });
     assert.equal(dadThesis.tracks[0]!.artistName, "AC/DC");
-    assert.ok(dadPurity.tracks.length >= 2);
+    assert.ok(dadPurity.tracks.length >= 1);
 
     const disco = resolveCommittedWorld({ prompt: "disco rooftop party 1978" })!;
     const discoProfile = getCulturalProfile("disco_1970s_world")!;
@@ -148,7 +150,7 @@ describe("V13 world purity", () => {
     );
     const discoPurity = applyWorldPurityGate(discoThesis.tracks, disco, { requestedLength: 25 });
     assert.equal(discoThesis.tracks[0]!.artistName, "Michael Jackson");
-    assert.ok(discoPurity.tracks.length >= 2);
+    assert.ok(discoPurity.tracks.length >= 1);
 
     const gym = resolveCommittedWorld({ prompt: "heavy gym workout aggressive" })!;
     const gymProfile = getCulturalProfile(gym.id)!;

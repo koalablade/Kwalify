@@ -54,7 +54,7 @@ export function coverageUserMessage(level: CoverageLevel): string {
 }
 
 export function shouldExpandWorldCoverage(level: CoverageLevel): boolean {
-  return level === "LOW" || level === "MEDIUM";
+  return level === "LOW" || level === "MEDIUM" || level === "VERY_LOW";
 }
 
 /** Assess library coverage for a committed world before final retrieval ranking. */

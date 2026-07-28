@@ -1,5 +1,5 @@
 /**
- * Light world-aware sequencing — no shuffle post-ranking.
+ * V14 world-aware sequencing — Thesis → Confirmation → Expansion → Deep cuts → Peak → Cruise → Landing.
  */
 
 import type { CulturalWorldProfile } from "./cultural-identity-profile";
@@ -49,22 +49,25 @@ function sequenceHighEnergyCooldown<T extends SequencedTrack>(tracks: T[]): T[] 
   return [opener, ...maintain, ...cooldown];
 }
 
-/** V13 post-purity sequence: anchor → statement → deep cuts → development → cooldown. */
-export function sequenceAfterPurityFilter<T extends SequencedTrack>(
+/**
+ * V14 believable-world arc:
+ * Thesis (fixed opener) → Confirmation → Expansion → Deep cuts → Peak → Cruise → Landing.
+ */
+export function sequenceV14BelievableWorld<T extends SequencedTrack>(
   tracks: T[],
-  committed: CommittedWorld | null,
-  profile: CulturalWorldProfile | null,
+  profile: CulturalWorldProfile,
 ): T[] {
-  if (!profile || tracks.length <= 2) return tracks;
+  if (tracks.length <= 2) return tracks;
 
-  const opener = tracks[0]!;
+  const thesis = tracks[0]!;
   const rest = tracks.slice(1);
 
-  const iconic: T[] = [];
-  const statement: T[] = [];
+  const confirmation: T[] = [];
+  const expansion: T[] = [];
   const deepCuts: T[] = [];
-  const development: T[] = [];
-  const experimental: T[] = [];
+  const peakPool: T[] = [];
+  const cruisePool: T[] = [];
+  const landingPool: T[] = [];
 
   for (const track of rest) {
     const score = worldScoreOf(track, profile);
@@ -72,35 +75,62 @@ export function sequenceAfterPurityFilter<T extends SequencedTrack>(
     const anchor = artist && isAnchorArtistForProfile(artist, profile);
     const adjacent = artist && matchesAdjacentArtist(artist, profile);
     const pop = popularityOf(track);
+    const energy = energyOf(track);
 
     if (anchor && score >= 0.9) {
-      iconic.push(track);
-    } else if ((anchor || adjacent) && score >= 0.75) {
-      statement.push(track);
-    } else if (pop < 45 || score < 0.8) {
-      if (score >= 0.7) deepCuts.push(track);
-      else experimental.push(track);
-    } else if (score >= 0.7) {
-      development.push(track);
+      confirmation.push(track);
+    } else if ((anchor || adjacent) && score >= 0.82) {
+      expansion.push(track);
+    } else if (pop < 45 || score < 0.85) {
+      if (score >= 0.78) deepCuts.push(track);
+      else if (energy <= 0.42) landingPool.push(track);
+      else cruisePool.push(track);
+    } else if (energy >= 0.72) {
+      peakPool.push(track);
+    } else if (energy <= 0.45) {
+      landingPool.push(track);
     } else {
-      experimental.push(track);
+      cruisePool.push(track);
     }
   }
 
-  const sortByScore = (a: T, b: T) => worldScoreOf(b, profile) - worldScoreOf(a, profile);
-  iconic.sort(sortByScore);
-  statement.sort(sortByScore);
+  const byScore = (a: T, b: T) => worldScoreOf(b, profile) - worldScoreOf(a, profile);
+  confirmation.sort(byScore);
+  expansion.sort(byScore);
   deepCuts.sort((a, b) => popularityOf(a) - popularityOf(b));
-  development.sort((a, b) => energyOf(b) - energyOf(a));
-  experimental.sort(sortByScore);
+  peakPool.sort((a, b) => energyOf(b) - energyOf(a));
+  cruisePool.sort((a, b) => energyOf(b) - energyOf(a));
+  landingPool.sort((a, b) => energyOf(a) - energyOf(b));
 
-  const body = [...iconic, ...statement, ...deepCuts, ...development, ...experimental];
-  const cooldownTail = body.length > 3
-    ? body.slice(-2).sort((a, b) => energyOf(a) - energyOf(b))
-    : [];
-  const maintain = body.length > 3 ? body.slice(0, body.length - 2) : body;
+  const peak = peakPool.slice(0, Math.max(1, Math.ceil(rest.length * 0.15)));
+  const peakIds = new Set(peak);
+  const cruise = cruisePool.filter((t) => !peakIds.has(t));
+  const landing = landingPool.slice(-Math.min(3, Math.max(2, Math.ceil(rest.length * 0.12))));
 
-  const sequenced = [opener, ...maintain, ...cooldownTail];
+  const used = new Set([thesis, ...confirmation, ...expansion, ...deepCuts, ...peak, ...cruise, ...landing]);
+  const overflow = rest.filter((t) => !used.has(t)).sort(byScore);
+
+  return [
+    thesis,
+    ...confirmation,
+    ...expansion,
+    ...deepCuts,
+    ...overflow,
+    ...peak,
+    ...cruise,
+    ...landing,
+  ];
+}
+
+/** V14 post-purity sequence: believable-world arc with profile-specific tail rules. */
+export function sequenceAfterPurityFilter<T extends SequencedTrack>(
+  tracks: T[],
+  committed: CommittedWorld | null,
+  profile: CulturalWorldProfile | null,
+): T[] {
+  if (!profile || tracks.length <= 2) return tracks;
+
+  const sequenced = sequenceV14BelievableWorld(tracks, profile);
   if (committed?.hardLock) {
     const rule = profile.openerRules.sequencing;
     if (rule === "cinematic_to_reflective") return sequenceCinematicToReflective(sequenced);
@@ -116,10 +146,8 @@ export function applyWorldSequencing<T extends SequencedTrack>(
 ): T[] {
   if (!committed?.hardLock || tracks.length <= 2) return tracks;
   const profile = resolveCulturalProfileForCommitted(committed);
-  const rule = profile?.openerRules.sequencing;
-  if (rule === "cinematic_to_reflective") return sequenceCinematicToReflective(tracks);
-  if (rule === "high_energy_cooldown") return sequenceHighEnergyCooldown(tracks);
-  return tracks;
+  if (!profile) return tracks;
+  return sequenceAfterPurityFilter(tracks, committed, profile);
 }
 
 export function sequencingRuleForProfile(profile: CulturalWorldProfile | null): string | null {

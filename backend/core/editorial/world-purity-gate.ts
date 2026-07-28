@@ -1,6 +1,6 @@
 /**
- * V13 world purity gate — full-playlist immersion after thesis opener.
- * Position-tiered thresholds, no backfill, honest partial with coverage caps.
+ * V14 world purity gate — full-playlist immersion after thesis opener.
+ * Stricter position-tiered thresholds, no backfill, honest partial with coverage caps.
  */
 
 import type { CommittedWorld } from "../committed-world";
@@ -8,16 +8,16 @@ import type { CulturalWorldProfile } from "./cultural-identity-profile";
 import { matchesAvoidArtist } from "./cultural-identity-profile";
 import type { CoverageLevel } from "./world-coverage";
 import { coverageLevelToMaxTracks, coverageUserMessage } from "./world-coverage";
+import { recordRetrievalRejection } from "./retrieval-rejection-trace";
 import {
   resolveCulturalProfileForCommitted,
   scoreTrackWorldIdentity,
-  isAnchorArtistForProfile,
   type WorldIdentityTrack,
 } from "./world-identity-score";
 import { sequenceAfterPurityFilter } from "./world-sequencer";
 
-/** Checkpoint indices (0-based): tracks 1, 5, 10, 15 */
-export const WORLD_PURITY_CHECKPOINT_INDICES = [0, 4, 9, 14] as const;
+/** Checkpoint indices (0-based): tracks 1, 2, 5, 10, 15 */
+export const WORLD_PURITY_CHECKPOINT_INDICES = [0, 1, 4, 9, 14] as const;
 
 export type WorldPurityResult = {
   tracks: WorldIdentityTrack[];
@@ -30,11 +30,12 @@ export type WorldPurityResult = {
   salvageableCount: number;
 };
 
-/** Position-tier purity threshold (0–100). */
+/** V14 position-tier purity threshold (0–100): T1-2 95+, T3-5 90+, T6-10 85+, T11+ 80+. */
 export function worldPurityThresholdForPosition(position: number): number {
+  if (position <= 1) return 95;
   if (position <= 4) return 90;
-  if (position <= 9) return 80;
-  return 70;
+  if (position <= 9) return 85;
+  return 80;
 }
 
 /** World identity score scaled 0–100. */
@@ -102,13 +103,22 @@ export function filterByWorldPurity<T extends WorldIdentityTrack>(
     } else {
       removed += 1;
       const score = scoreTrackPurityPercent(track, profile);
+      const worldId = committed.worldIds?.[0] ?? committed.id;
+      recordRetrievalRejection({
+        worldId,
+        artistName: track.artistName ?? "",
+        trackName: track.trackName ?? "",
+        reason: `purity_pos_${i + 1}:${score}<${worldPurityThresholdForPosition(i)}`,
+        stage: "purity_gate",
+        worldIdentityScore: score / 100,
+      });
       removedReasons.push(
         `pos_${i + 1}:${track.artistName ?? "?"} — ${track.trackName ?? "?"}:${score}<${worldPurityThresholdForPosition(i)}`,
       );
     }
   }
 
-  if (kept.length >= 3 || removed === 0) {
+  if (kept.length > 0 || removed === 0) {
     return { tracks: kept, removed, removedReasons };
   }
   return { tracks, removed: 0, removedReasons: [] };
@@ -145,7 +155,7 @@ export function stripFromCheckpointFailure<T extends WorldIdentityTrack>(
   return { tracks, stripped: 0, failures: belief.failures };
 }
 
-/** V13 final pass — purity filter, checkpoint strip, sequence, honest partial cap. */
+/** V14 final pass — purity filter, checkpoint strip, sequence, honest partial cap. */
 export function applyWorldPurityGate<T extends WorldIdentityTrack>(
   tracks: T[],
   committed: CommittedWorld | null,
@@ -189,12 +199,12 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
   const opener = opts?.preserveOpener && tracks.length > 0 ? tracks[0] : null;
   let working = [...tracks];
   const filtered = filterByWorldPurity(working, committed);
-  if (filtered.removed > 0 && filtered.tracks.length >= 3) {
+  if (filtered.removed > 0 && filtered.tracks.length > 0) {
     working = filtered.tracks;
   }
 
   const stripped = stripFromCheckpointFailure(working, committed, profile);
-  if (stripped.stripped > 0 && stripped.tracks.length >= 3) {
+  if (stripped.stripped > 0 && stripped.tracks.length > 0) {
     working = stripped.tracks;
   }
 

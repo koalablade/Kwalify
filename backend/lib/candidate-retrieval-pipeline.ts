@@ -24,6 +24,7 @@ import {
   compareWorldCoverageTier,
   type WorldCoverageAssessment,
 } from "../core/editorial/world-coverage";
+import { recordRetrievalRejection } from "../core/editorial/retrieval-rejection-trace";
 import {
   committedWorldArtistForbidden,
   resolveCommittedWorld,
@@ -55,10 +56,15 @@ import {
 } from "./compound-prompt-retrieval";
 import { applyRetrievalTrackCooldown } from "./playlist-freshness";
 import { OPENER_FILLER_PATTERN } from "../core/editorial/opener-hygiene";
-import {
-  parsePromptNegationEnforcement,
+import { parsePromptNegationEnforcement,
   trackViolatesPromptNegation,
 } from "./prompt-negation-enforcement";
+
+export {
+  exhaustWorldRetrieval,
+  capArtistDiversityInPool,
+  buildTieredExpansionQueries,
+} from "../core/editorial/world-anchor-retrieval";
 
 export type RetrievalSourceId =
   | "activity_match"
@@ -508,13 +514,31 @@ function blendWorldOverEmotion(
   worldFit: number,
   committedWorldActive: boolean,
   hardLock = false,
+  novelty = 0.5,
+  flow = 0.5,
 ): number {
   if (!committedWorldActive) return baseScore;
   if (hardLock) {
-    // V11: world identity dominates — emotion capped at 5% contribution.
-    return worldFit * 0.9 + baseScore * 0.05;
+    // V14: 80% world / 10% emotion / 5% novelty / 5% flow
+    return worldFit * 0.8 + baseScore * 0.1 + novelty * 0.05 + flow * 0.05;
   }
   return worldFit * 0.78 + baseScore * 0.22;
+}
+
+function retrievalNoveltyFit(
+  track: RetrievalTrackInput,
+  classification: ActivityClassificationInput,
+  retrievalProfile: RetrievalProfile,
+): number {
+  const family = classification?.genreFamily ?? "unknown";
+  const dominantPenalty = retrievalProfile.dominantLibraryFamilies.includes(family) ? 0.35 : 0.75;
+  return dominantPenalty;
+}
+
+function retrievalFlowFit(track: RetrievalTrackInput): number {
+  const energy = typeof track.energy === "number" && Number.isFinite(track.energy) ? track.energy : 0.5;
+  const dance = typeof track.danceability === "number" && Number.isFinite(track.danceability) ? track.danceability : 0.5;
+  return Math.min(1, energy * 0.55 + dance * 0.45);
 }
 
 function favouriteArtistFit(
@@ -761,6 +785,16 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
           trackName: track.trackName,
           reason: "committed_world_forbidden_artist",
           source: "prefilter",
+        });
+      }
+      if (committedWorld) {
+        recordRetrievalRejection({
+          worldId: committedWorld.id,
+          artistName: track.artistName,
+          trackName: track.trackName,
+          reason: "committed_world_forbidden_artist",
+          stage: "retrieval_pipeline",
+          retrievalSource: "prefilter",
         });
       }
       continue;
@@ -1039,7 +1073,9 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
         retrievalWorldIds,
         committedWorld?.id ?? retrievalProfile.committedWorldId,
       );
-      score = blendWorldOverEmotion(score, worldFit, retrievalWorldIds.length > 0, hardLockActive);
+      const novelty = retrievalNoveltyFit(track, classification, retrievalProfile);
+      const flow = retrievalFlowFit(track);
+      score = blendWorldOverEmotion(score, worldFit, retrievalWorldIds.length > 0, hardLockActive, novelty, flow);
       if (
         retrievalProfile.activity === "party_pregame" &&
         !retrievalProfile.ukHipHopScene?.active &&
@@ -1061,7 +1097,9 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
         committedWorld?.id ?? retrievalProfile.committedWorldId,
       );
       const emotion = quickEmotionFit(track, opts.emotionProfile);
-      const score = blendWorldOverEmotion(emotion, worldFit, retrievalWorldIds.length > 0, hardLockActive);
+      const novelty = retrievalNoveltyFit(track, classification, retrievalProfile);
+      const flow = retrievalFlowFit(track);
+      const score = blendWorldOverEmotion(emotion, worldFit, retrievalWorldIds.length > 0, hardLockActive, novelty, flow);
       return { track, score: scoreModifiersFor(track, score) };
     })
     .sort((a, b) => b.score - a.score);
@@ -1076,7 +1114,9 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
         retrievalWorldIds,
         committedWorld?.id ?? retrievalProfile.committedWorldId,
       );
-      const score = blendWorldOverEmotion(genreFit, worldFit, retrievalWorldIds.length > 0, hardLockActive);
+      const novelty = retrievalNoveltyFit(track, classification, retrievalProfile);
+      const flow = retrievalFlowFit(track);
+      const score = blendWorldOverEmotion(genreFit, worldFit, retrievalWorldIds.length > 0, hardLockActive, novelty, flow);
       return { track, score: scoreModifiersFor(track, score) };
     })
     .sort((a, b) => b.score - a.score);
