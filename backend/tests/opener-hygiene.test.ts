@@ -33,7 +33,7 @@ test("sanitizePsychIndieOpenerChain removes all psych openers when max is zero",
     { artist: "Q Lazzarus" },
     { artist: "Sigur Rós" },
     { artist: "Radiohead" },
-    { artist: "Bon Iver" },
+    { artist: "The Killers" },
   ];
   const out = sanitizePsychIndieOpenerChain(tracks, 3, 0);
   assert.equal(countOpenerFillerPatternMatches(out.tracks, 3), 0);

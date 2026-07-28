@@ -62,22 +62,52 @@ export function sanitizePsychIndieOpenerChain<T extends { artistName?: string | 
   const out = tracks.slice();
   const demoted: Array<{ artist: string; fromIndex: number; toIndex: number }> = [];
   const limit = Math.min(openerSlots, out.length);
+
+  const isFiller = (track: T): boolean => {
+    const artist = trackArtistName(track);
+    return !!artist && OPENER_FILLER_PATTERN.test(artist);
+  };
+
+  if (maxOpeners <= 0) {
+    const clean: T[] = [];
+    const fillers: T[] = [];
+    for (let i = 0; i < out.length; i++) {
+      const track = out[i]!;
+      if (isFiller(track)) {
+        if (i < limit) {
+          demoted.push({ artist: trackArtistName(track), fromIndex: i, toIndex: out.length - 1 });
+        }
+        fillers.push(track);
+      } else {
+        clean.push(track);
+      }
+    }
+    const head = clean.slice(0, limit);
+    const tail = clean.slice(limit);
+    const rebuilt = [...head, ...tail, ...fillers];
+    for (const row of demoted) {
+      const artist = row.artist;
+      row.toIndex = rebuilt.findIndex((t) => trackArtistName(t) === artist);
+    }
+    return { tracks: rebuilt, demoted };
+  }
+
   let demoteAttempts = 0;
   const maxDemoteAttempts = out.length * openerSlots;
 
   while (demoteAttempts < maxDemoteAttempts) {
     let fillerCount = 0;
     for (let j = 0; j < limit; j++) {
-      const artist = trackArtistName(out[j]!);
-      if (artist && OPENER_FILLER_PATTERN.test(artist)) fillerCount += 1;
+      if (isFiller(out[j]!)) fillerCount += 1;
     }
     if (fillerCount <= maxOpeners) break;
 
     let demotedThisPass = false;
-    if (maxOpeners <= 0) {
-      for (let i = 0; i < limit; i++) {
-        const artist = trackArtistName(out[i]!);
-        if (!artist || !OPENER_FILLER_PATTERN.test(artist)) continue;
+    let allowed = 0;
+    for (let i = 0; i < limit; i++) {
+      if (!isFiller(out[i]!)) continue;
+      allowed += 1;
+      if (allowed > maxOpeners) {
         const [track] = out.splice(i, 1);
         if (track) {
           out.push(track);
@@ -86,23 +116,6 @@ export function sanitizePsychIndieOpenerChain<T extends { artistName?: string | 
         demoteAttempts += 1;
         demotedThisPass = true;
         break;
-      }
-    } else {
-      let allowed = 0;
-      for (let i = 0; i < limit; i++) {
-        const artist = trackArtistName(out[i]!);
-        if (!artist || !OPENER_FILLER_PATTERN.test(artist)) continue;
-        allowed += 1;
-        if (allowed > maxOpeners) {
-          const [track] = out.splice(i, 1);
-          if (track) {
-            out.push(track);
-            demoted.push({ artist: trackArtistName(track), fromIndex: i, toIndex: out.length - 1 });
-          }
-          demoteAttempts += 1;
-          demotedThisPass = true;
-          break;
-        }
       }
     }
     if (!demotedThisPass) break;

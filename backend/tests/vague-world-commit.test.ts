@@ -194,7 +194,7 @@ test("sanitizePsychIndieOpenerChain removes all psych openers for film-ending wo
     { artist: "Q Lazzarus" },
     { artist: "Sigur Rós" },
     { artist: "Radiohead" },
-    { artist: "Bon Iver" },
+    { artist: "The Killers" },
   ];
   const out = sanitizePsychIndieOpenerChain(tracks, 3, 0);
   assert.equal(countPsychIndieOpenerFillers(out.tracks, 3, ["film_ending_world"]), 0);
