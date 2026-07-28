@@ -9,8 +9,10 @@ Use this checklist before inviting the first external testers and during the bet
 ### Deployment
 
 - [ ] Latest `main` pulled on host (`git pull origin main`)
+- [ ] Node **20.x** installed (see `.nvmrc`; launcher warns on other versions)
 - [ ] API restarted (`stop-kwalify.bat` → `start.bat`)
 - [ ] Cloudflare tunnel running (if self-host)
+- [ ] Windows logon auto-start registered (`Kwalify-SelfHost-Start` task; `ensure-kwalify-ready` registers if missing)
 
 ### Health checks
 
@@ -33,8 +35,19 @@ Use this checklist before inviting the first external testers and during the bet
 
 - [ ] `npm run maintenance:test-restore` passed recently
 - [ ] Backup marker / schedule confirmed on host
-- [ ] `SENTRY_DSN` set (recommended) or daily log review scheduled
-- [ ] `OPS_METRICS_TOKEN` set (recommended for full `/api/ops/metrics`)
+- [ ] `OPS_METRICS_TOKEN` present in `.env` (auto-generated on first `start.bat` if missing)
+- [ ] Full metrics reachable at `/status?ops=<token>` or `GET /api/ops/metrics`
+- [ ] `SENTRY_DSN` uncommented in `.env` (recommended) or daily log review scheduled
+- [ ] `LOG_LEVEL=info` for self-host beta (set automatically when `KWALIFY_HOST_MODE=selfhost`)
+
+### Automated smoke (from dev machine or host)
+
+```powershell
+$env:KWALIFY_LIVE_URL = "https://kwalify.net"
+npm run test:production-health
+```
+
+Skips if `KWALIFY_LIVE_URL` is unset. Does not test authenticated Spotify generate.
 
 ### Spotify app
 
@@ -51,7 +64,8 @@ Use this checklist before inviting the first external testers and during the bet
 |------|--------|
 | Public dashboard | `https://kwalify.net/status` (or `/status` on host) |
 | Ops summary | `GET /api/ops/summary` |
-| Full metrics | `GET /api/ops/metrics` with `x-ops-metrics-token` |
+| Full metrics | `/status?ops=<token>` or `GET /api/ops/metrics` with `x-ops-metrics-token` |
+| Persisted totals | `reports/ops-metrics-totals.json` (survives API restart) |
 | Liveness | `GET /api/livez` |
 | Readiness | `GET /api/readyz` |
 

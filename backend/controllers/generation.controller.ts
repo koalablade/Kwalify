@@ -5300,7 +5300,13 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     const parsed = GeneratePlaylistBody.safeParse(payload);
     if (!parsed.success) {
-      req.log.warn({ errors: parsed.error.message, rawBody }, "Invalid generate request");
+      req.log.warn(
+        {
+          errors: parsed.error.message,
+          vibeLength: typeof vibeRaw === "string" ? vibeRaw.length : 0,
+        },
+        "Invalid generate request",
+      );
       generateFail(res, 400, "INVALID_REQUEST", parsed.error.message);
       return;
     }

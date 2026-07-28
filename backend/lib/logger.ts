@@ -3,7 +3,11 @@ import { hashId } from "./pii";
 
 const defaultLevel =
   process.env.LOG_LEVEL ??
-  (process.env.NODE_ENV === "production" ? "warn" : "info");
+  (process.env.KWALIFY_HOST_MODE === "selfhost"
+    ? "info"
+    : process.env.NODE_ENV === "production"
+      ? "warn"
+      : "info");
 
 // Keys whose string values are personal identifiers: hash instead of dropping so
 // activity can still be correlated across log lines without leaking the raw id.

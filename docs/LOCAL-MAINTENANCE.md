@@ -16,6 +16,10 @@ Read **`START-HERE.txt`** at the project root.
 
 **`start.bat`** — that's it.
 
+On each start, `start.bat` runs light audits (beta readiness, observability env, backups, uptime, host). Before the API starts it also runs **smoke** and **observability** test gates. After the API (and tunnel) are up: route smoke, production health, and production readiness report.
+
+If weekly maintenance has not run in **7 days** (or never), the full weekly suite runs automatically (heavy checks before API; route smoke + marker after API is up).
+
 Health Watch runs minimized in the background. It will:
 - Restart the **API** if it crashes (max once per 10 minutes)
 - Restart the **Cloudflare tunnel** if friends can't reach the site
@@ -40,9 +44,11 @@ You do **not** need `repair-tunnel.bat` or `start-health-watch.bat` unless debug
 
 ## Weekly
 
-**`maintain.bat`** (or `npm run maintenance:weekly`)
+**`maintain.bat`** (or `npm run maintenance:weekly`) — same checks as the automatic gate on `start.bat` when last run was more than 7 days ago.
 
 Automate (Admin once): `scripts\schedule-weekly-maintenance.ps1`
+
+Last-run marker: `reports\.maintenance-last-run` (also `reports\maintenance-last-run.txt` after `maintain.bat`).
 
 ---
 

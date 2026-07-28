@@ -102,8 +102,11 @@ if (-not (Select-String -Path $envPath -Pattern '^\s*GENERATE_CONCURRENCY_LIMIT=
 if (-not (Select-String -Path $envPath -Pattern '^\s*GENERATE_QUEUE_LIMIT=' -Quiet)) {
   Set-EnvLine $envPath "GENERATE_QUEUE_LIMIT" "4"
 }
+if (-not (Select-String -Path $envPath -Pattern '^\s*LOG_LEVEL=' -Quiet)) {
+  Set-EnvLine $envPath "LOG_LEVEL" "info"
+}
 
-# Optional error tracking (uncomment and set DSN from sentry.io)
+& (Join-Path $Root "scripts\ensure-beta-observability.ps1") -Root $Root
 if (-not (Select-String -Path $envPath -Pattern '^\s*SENTRY_DSN=' -Quiet)) {
   Add-Content -LiteralPath $envPath -Value @"
 

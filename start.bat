@@ -45,7 +45,7 @@ exit /b 0
 echo.
 echo  START KWALIFY
 echo.
-echo    start.bat           Start everything (daily)
+echo    start.bat           Start everything (daily; auto weekly if >7 days)
 echo    stop-kwalify.bat    Stop everything
 echo    maintain.bat        Weekly check
 echo    start.bat setup     First-time setup only

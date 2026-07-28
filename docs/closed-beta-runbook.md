@@ -15,6 +15,8 @@ git pull
 .\start.bat
 ```
 
+`start.bat` runs startup audits and, if weekly maintenance is due (>7 days since `reports\.maintenance-last-run`), backup/uptime checks before the API starts.
+
 ### 2. Environment (`.env`)
 
 | Variable | Required for beta | Notes |

@@ -1,7 +1,8 @@
 # Weekly upkeep for local self-hosted Kwalify (readiness, backups, routes).
 param(
   [string]$Root = (Split-Path -Parent $PSScriptRoot),
-  [switch]$SkipRoutes
+  [switch]$SkipRoutes,
+  [switch]$MarkComplete
 )
 
 $ErrorActionPreference = "Continue"
@@ -11,6 +12,8 @@ $reportsDir = Join-Path $Root "reports"
 if (-not (Test-Path -LiteralPath $reportsDir)) {
   New-Item -ItemType Directory -Force -Path $reportsDir | Out-Null
 }
+
+$shouldMarkComplete = $MarkComplete -or (-not $SkipRoutes)
 
 $lines = @("Kwalify weekly maintenance — $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')", "")
 
@@ -71,6 +74,11 @@ Note ""
 
 Set-Content -LiteralPath $reportPath -Value ($lines -join "`r`n") -Encoding UTF8
 Write-Host "  Report saved: reports\maintenance-last-run.txt" -ForegroundColor DarkGray
+if ($shouldMarkComplete) {
+  . (Join-Path $Root "scripts\startup-audit-lib.ps1") -Root $Root
+  Set-MaintenanceLastRun -RootPath $Root
+  Write-Host "  Maintenance marked complete: reports\.maintenance-last-run" -ForegroundColor DarkGray
+}
 Write-Host ""
 
 if ($backupExit -ne 0 -or $uptimeExit -ne 0) {

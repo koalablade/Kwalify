@@ -4,6 +4,11 @@
 
 import { getSessionSnapshotCacheStats } from "../core/cache/session-snapshot-cache";
 import type { SpotifyApiAuditSnapshot } from "./spotify-api-audit";
+import {
+  loadPersistedOpsTotals,
+  schedulePersistOpsTotals,
+  type PersistedOpsTotals,
+} from "./ops-metrics-persistence";
 
 export type PhaseTimingSample = {
   phase: string;
@@ -47,6 +52,54 @@ const response5xxBuckets: Array<{ hourKey: string; count: number }> = [];
 const requestMinuteBuckets: Array<{ minuteKey: string; count: number }> = [];
 let userFeedbackTotal = 0;
 const userFeedbackBuckets: Array<{ hourKey: string; count: number }> = [];
+
+function applyPersistedTotals(persisted: Partial<PersistedOpsTotals>): void {
+  if (typeof persisted.generateSuccessTotal === "number") {
+    generateSuccessTotal = persisted.generateSuccessTotal;
+  }
+  if (typeof persisted.generateFailureTotal === "number") {
+    generateFailureTotal = persisted.generateFailureTotal;
+  }
+  if (typeof persisted.response5xxTotal === "number") {
+    response5xxTotal = persisted.response5xxTotal;
+  }
+  if (typeof persisted.userFeedbackTotal === "number") {
+    userFeedbackTotal = persisted.userFeedbackTotal;
+  }
+  if (persisted.spotifyTotals) {
+    spotifyTotals = {
+      ...spotifyTotals,
+      totalRequests: persisted.spotifyTotals.totalRequests ?? 0,
+      retries: persisted.spotifyTotals.retries ?? 0,
+      rateLimitResponses: persisted.spotifyTotals.rateLimitResponses ?? 0,
+      failures: persisted.spotifyTotals.failures ?? 0,
+      totalDurationMs: persisted.spotifyTotals.totalDurationMs ?? 0,
+    };
+  }
+}
+
+const persistedBootstrap = loadPersistedOpsTotals();
+if (persistedBootstrap) {
+  applyPersistedTotals(persistedBootstrap);
+}
+
+function persistTotalsSnapshot(): void {
+  schedulePersistOpsTotals({
+    version: 1,
+    savedAt: new Date().toISOString(),
+    generateSuccessTotal,
+    generateFailureTotal,
+    response5xxTotal,
+    userFeedbackTotal,
+    spotifyTotals: {
+      totalRequests: spotifyTotals.totalRequests,
+      retries: spotifyTotals.retries,
+      rateLimitResponses: spotifyTotals.rateLimitResponses,
+      failures: spotifyTotals.failures,
+      totalDurationMs: spotifyTotals.totalDurationMs,
+    },
+  });
+}
 
 function hourKey(d = new Date()): string {
   return d.toISOString().slice(0, 13);
@@ -99,6 +152,7 @@ export function recordSpotifyApiMetrics(snapshot: SpotifyApiAuditSnapshot): void
     totalDurationMs: spotifyTotals.totalDurationMs + snapshot.totalDurationMs,
     byEndpoint: snapshot.byEndpoint,
   };
+  persistTotalsSnapshot();
 }
 
 export function recordGenerationPhaseDuration(phase: string, durationMs: number): void {
@@ -117,11 +171,13 @@ export function recordGenerateOutcome(success: boolean, durationMs: number): voi
     bumpHourBucket(generateFailureBuckets);
   }
   recordGenerationPhaseDuration("generate.total", durationMs);
+  persistTotalsSnapshot();
 }
 
 export function record5xxResponse(): void {
   response5xxTotal += 1;
   bumpHourBucket(response5xxBuckets);
+  persistTotalsSnapshot();
 }
 
 export function recordApiRequest(): void {
@@ -131,6 +187,7 @@ export function recordApiRequest(): void {
 export function recordUserFeedbackEvent(): void {
   userFeedbackTotal += 1;
   bumpHourBucket(userFeedbackBuckets);
+  persistTotalsSnapshot();
 }
 
 export function recordIntentSurvivalSample(scores: {

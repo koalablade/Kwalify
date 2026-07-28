@@ -357,7 +357,13 @@ function Warn-NodeVersion {
     $major = [int]($version.Split(".")[0])
     if ($major -ne 20) {
       Write-Host "  Warning: Node $version detected. Kwalify targets Node 20.x (LTS)." -ForegroundColor Yellow
-      Write-Host "  It may still work, but install Node 20 LTS if you hit odd errors."
+      Write-Host "  Install Node 20: https://nodejs.org  or run: nvm install 20 && nvm use 20"
+      if (Test-Path -LiteralPath (Join-Path $Root ".nvmrc")) {
+        Write-Host "  This repo includes .nvmrc (20) for version managers." -ForegroundColor DarkGray
+      }
+      if ($Mode -eq "selfhost" -and $env:KWALIFY_STRICT_NODE -eq "1") {
+        Exit-Launcher 1 "Node 20.x required (set KWALIFY_STRICT_NODE=0 to override)."
+      }
     }
   } catch {}
 }
@@ -481,18 +487,33 @@ function Ensure-DesktopShortcuts {
 
 function Invoke-SmokeChecks {
   if (-not (Test-Path (Join-Path $Root "backend\dist\server.js"))) { return }
-  Step "Quick smoke check"
+  $auditScript = Join-Path $Root "scripts\run-startup-audits.ps1"
+  if (Test-Path -LiteralPath $auditScript) {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $auditScript -Root $Root -Phase tests -Mode $Mode
+    if ($LASTEXITCODE -ne 0) {
+      Exit-Launcher 1 "Startup test audits failed (smoke / observability)."
+    }
+    return
+  }
   $prevErr = $ErrorActionPreference
   $ErrorActionPreference = "Continue"
+  Step "Quick smoke check"
   $output = & npm run test:smoke 2>&1
   $exitCode = $LASTEXITCODE
-  $ErrorActionPreference = $prevErr
   if ($exitCode -ne 0) {
+    $ErrorActionPreference = $prevErr
     Write-Host "  Smoke tests failed - fix before generating playlists." -ForegroundColor Yellow
     $output | Select-Object -Last 20 | ForEach-Object { Write-Host "  $_" }
     Exit-Launcher 1 "Smoke tests failed (npm run test:smoke)."
   }
   Write-Host "  Smoke tests passed"
+  $ErrorActionPreference = $prevErr
+}
+
+function Invoke-PostApiStartupAudits([string]$liveUrl) {
+  $auditScript = Join-Path $Root "scripts\run-startup-audits.ps1"
+  if (-not (Test-Path -LiteralPath $auditScript)) { return }
+  & powershell -NoProfile -ExecutionPolicy Bypass -File $auditScript -Root $Root -Phase post -Mode $Mode -LiveUrl $liveUrl
 }
 
 function Start-HttpsProxy([string]$proxy, [string]$cert, [string]$key, [int]$targetPort) {
@@ -756,6 +777,7 @@ foreach (`$line in Get-Content '.env') {
 `$env:SPOTIFY_REDIRECT_URI = '$localRedirect'
 `$env:NODE_ENV = '$nodeEnv'
 `$env:PORT = '$port'
+if (-not `$env:LOG_LEVEL) { `$env:LOG_LEVEL = 'info' }
 `$env:GIT_COMMIT = (git rev-parse HEAD 2>`$null)
 if (-not `$env:GIT_COMMIT) { `$env:GIT_COMMIT = 'local-dev' }
 Write-Host ''
@@ -871,6 +893,12 @@ if ($Mode -eq "selfhost") {
     }
     Write-Host "  Direct HTTPS: missing certs - use mkcert for your domain or pick Cloudflare tunnel" -ForegroundColor Yellow
   }
+
+  Invoke-PostApiStartupAudits $siteUrl
+}
+
+if ($Mode -ne "selfhost") {
+  Invoke-PostApiStartupAudits $siteUrl
 }
 
 if ($Mode -eq "domain" -and -not (Test-SiteReady "https://kwalify.net")) {
@@ -918,7 +946,7 @@ if ($Mode -eq "selfhost") {
   Write-Host "  KEEP OPEN: Kwalify API + Cloudflare Tunnel windows"
   Write-Host "  Health watch runs in background (auto-repair)"
   Write-Host "  Stop:      stop-kwalify.bat"
-  Write-Host "  Weekly:    maintain.bat"
+  Write-Host "  Weekly:    maintain.bat (also runs automatically if >7 days since last)"
   Write-Host ""
   Start-HealthWatch
   if ($transcriptStarted) { try { Stop-Transcript | Out-Null } catch {} }

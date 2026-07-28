@@ -2,7 +2,7 @@
 
 Beta-essential observability for Kwalify: structured logs, in-process ops metrics, and a public status dashboard. No Grafana, Prometheus, OpenTelemetry, or Datadog.
 
-**Important:** Ops counters are **in-memory only**. They reset on API restart. Use log files for historical traces.
+**Totals vs buckets:** Lifetime counters (generate success/failure, 5xx, Spotify totals, user feedback) persist to `reports/ops-metrics-totals.json` and survive API restarts. Hourly/minute buckets and phase timing samples remain in-memory only. Use `kwalify-api.log` for per-request `generate_complete` history.
 
 ## Log files (self-host)
 
@@ -91,17 +91,19 @@ Before deep-diving a user report:
 - [ ] Are Spotify failures elevated in `/api/ops/summary`?
 - [ ] Is memory RSS unusually high?
 - [ ] Is P95 generation time abnormal vs typical?
-- [ ] Did the API restart recently? (ops counters reset)
+- [ ] Did the API restart recently? (hourly buckets reset; lifetime totals persist in `reports/ops-metrics-totals.json`)
 
 ## `/api/ops/summary` and `/api/ops/metrics`
 
-**In-memory only:** counters reset when the API process restarts. Use `kwalify-api.log` for historical `generate_complete` traces.
+**Persistence:** lifetime totals are written to `reports/ops-metrics-totals.json` (debounced ~2s). Hourly buckets and phase samples reset on restart.
 
 **Public:** `GET /api/ops/summary` — safe aggregates for `/status` (no token).
 
 **Token-gated:** `GET /api/ops/metrics` — full snapshot including recent alerts.
 
-Auth: header `x-ops-metrics-token` or query `?token=`.
+Auth: header `x-ops-metrics-token` or query `?token=`. On the status page, use `/status?ops=<token>` (same value as `OPS_METRICS_TOKEN`).
+
+**Auto-setup (self-host):** `start.bat` runs `scripts/ensure-beta-observability.ps1`, which generates `OPS_METRICS_TOKEN` if missing and sets `LOG_LEVEL=info` when `KWALIFY_HOST_MODE=selfhost`.
 
 Metrics include: active/queued generations, p50/p95 generation time, success/failure counts (total + last hour), Spotify failures, memory, cache hit rate, requests/minute, uptime.
 
@@ -123,8 +125,20 @@ Optional. Set `SENTRY_DSN` in `.env` and restart. `captureError()` forwards to S
 
 | Variable | Purpose |
 |----------|---------|
-| `OPS_METRICS_TOKEN` | Full `/api/ops/metrics` access |
-| `SENTRY_DSN` | Optional error tracking |
-| `LOG_LEVEL` | `warn` default in production (`info` shows more stage logs) |
+| `OPS_METRICS_TOKEN` | Full `/api/ops/metrics` access; auto-generated on first `start.bat` if unset |
+| `SENTRY_DSN` | Optional error tracking (placeholders added to `.env` by setup; uncomment to enable) |
+| `LOG_LEVEL` | `info` default for `KWALIFY_HOST_MODE=selfhost`; `warn` in other production |
+| `KWALIFY_STRICT_NODE` | Set `1` to refuse start when Node is not 20.x (warning only by default) |
 | `OPS_SERVER_BUSY_WARN_PER_HOUR` | Alert threshold (default 12) |
 | `OPS_SYNC_FAILURE_WARN_PER_HOUR` | Alert threshold (default 5) |
+
+## Live deployment smoke test
+
+After the tunnel is up and the API is running:
+
+```powershell
+$env:KWALIFY_LIVE_URL = "https://kwalify.net"
+npm run test:production-health
+```
+
+Checks `/api/livez`, `/api/readyz`, `/api/ops/summary`, and Spotify OAuth redirect. Does not run authenticated generation (requires browser OAuth).
