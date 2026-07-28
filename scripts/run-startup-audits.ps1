@@ -14,6 +14,7 @@ $Root = (Resolve-Path $Root).Path
 Set-Location $Root
 
 . (Join-Path $PSScriptRoot "startup-audit-lib.ps1") -Root $Root
+$ErrorActionPreference = "Continue"
 
 $reports = Join-Path $Root "reports"
 if (-not (Test-Path -LiteralPath $reports)) {
@@ -30,12 +31,13 @@ function Invoke-NpmTest {
   Write-Host "  >> $Label" -ForegroundColor Cyan
   $prevErr = $ErrorActionPreference
   $ErrorActionPreference = "Continue"
-  $output = & npm run $ScriptName 2>&1
+  $output = cmd /c "npm run $ScriptName 2>&1"
   $exitCode = $LASTEXITCODE
+  if ($null -eq $exitCode) { $exitCode = 0 }
   $ErrorActionPreference = $prevErr
   if ($exitCode -ne 0) {
-    Write-Host "  $Label failed" -ForegroundColor Red
-    $output | Select-Object -Last 25 | ForEach-Object { Write-Host "  $_" }
+    Write-Host "  $Label failed (exit $exitCode)" -ForegroundColor Red
+    $output | Select-Object -Last 30 | ForEach-Object { Write-Host "  $_" }
   } else {
     Write-Host "  $Label passed" -ForegroundColor Green
   }
@@ -115,6 +117,13 @@ switch ($Phase) {
       if ($prodExit -ne 0) {
         $warnings += "Production readiness report has open items  - see messages above."
       }
+    }
+
+    $betaExit = Invoke-AuditScript -Label "Beta readiness (post-start)" `
+      -ScriptPath (Join-Path $Root "scripts\check-beta-ready.ps1") `
+      -ExtraArgs @("-Root", $Root)
+    if ($betaExit -ne 0) {
+      $warnings += "Beta readiness has open items  - see messages above."
     }
 
     if (Test-Path -LiteralPath $pendingRoutes) {

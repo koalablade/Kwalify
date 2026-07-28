@@ -3,7 +3,6 @@ param(
   [string]$Root = (Split-Path -Parent $PSScriptRoot)
 )
 
-$ErrorActionPreference = "Stop"
 $Root = (Resolve-Path $Root).Path
 
 $script:MaintenanceMarkerPath = Join-Path $Root "reports\.maintenance-last-run"

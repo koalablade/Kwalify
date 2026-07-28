@@ -30,7 +30,7 @@ Step "Startup audits"
 Invoke-AuditScript -Label "Beta observability defaults" `
   -ScriptPath (Join-Path $Root "scripts\ensure-beta-observability.ps1") -ExtraArgs @("-Root", $Root)
 Invoke-AuditScript -Label "Beta readiness" `
-  -ScriptPath (Join-Path $Root "scripts\check-beta-ready.ps1") -ExtraArgs @("-Root", $Root)
+  -ScriptPath (Join-Path $Root "scripts\check-beta-ready.ps1") -ExtraArgs @("-Root", $Root, "-PreStart")
 
 $due = Test-MaintenanceDue -RootPath $Root -AfterDays $WeeklyDays
 if ($due) {

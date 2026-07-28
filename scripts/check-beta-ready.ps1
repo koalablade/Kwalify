@@ -1,5 +1,8 @@
 # Quick closed-beta readiness check for kwalify.net
-param([string]$Root = (Split-Path -Parent $PSScriptRoot))
+param(
+  [string]$Root = (Split-Path -Parent $PSScriptRoot),
+  [switch]$PreStart
+)
 
 $ErrorActionPreference = "SilentlyContinue"
 $Root = (Resolve-Path $Root).Path
@@ -23,6 +26,11 @@ function WarnRow([string]$label, [string]$detail) {
   Write-Host "  [?]    $label" -ForegroundColor Yellow
   if ($detail) { Write-Host "         $detail" -ForegroundColor DarkGray }
   $script:warn++
+}
+
+function PendingRow([string]$label, [string]$detail) {
+  Write-Host "  [..]   $label" -ForegroundColor DarkCyan
+  if ($detail) { Write-Host "         $detail" -ForegroundColor DarkGray }
 }
 
 Write-Host ""
@@ -65,7 +73,11 @@ if (-not $tunnelRunning) {
   $tunnelRunning = [bool](Get-Process -Name cloudflared -ErrorAction SilentlyContinue | Select-Object -First 1)
 }
 if (Test-Path $tunnelYml) {
-  Row "Cloudflare tunnel running" $tunnelRunning $(if (-not $tunnelRunning) { "Start Kwalify to launch tunnel" } else { "active" })
+  if ($PreStart -and -not $tunnelRunning) {
+    PendingRow "Cloudflare tunnel running" "will start after API is ready"
+  } else {
+    Row "Cloudflare tunnel running" $tunnelRunning $(if (-not $tunnelRunning) { "Start Kwalify to launch tunnel" } else { "active" })
+  }
 }
 
 # API
@@ -74,7 +86,11 @@ try {
   $rz = Invoke-RestMethod "http://127.0.0.1:5000/api/readyz" -TimeoutSec 3
   $apiUp = ($rz.status -eq "ready" -or $rz.readiness -eq "ready")
 } catch {}
-Row "API server running (port 5000)" $apiUp $(if (-not $apiUp) { "Run: Start Kwalify" } else { "ready" })
+if ($PreStart -and -not $apiUp) {
+  PendingRow "API server running (port 5000)" "will start next"
+} else {
+  Row "API server running (port 5000)" $apiUp $(if (-not $apiUp) { "Run: Start Kwalify" } else { "ready" })
+}
 
 # Key frontend routes
 $statusRouteOk = $false
@@ -91,9 +107,15 @@ if ($apiUp) {
     $benchmarkRouteOk = (Invoke-WebRequest "http://127.0.0.1:5000/benchmark" -UseBasicParsing -TimeoutSec 3).StatusCode -eq 200
   } catch {}
 }
-Row "/status page route" $statusRouteOk $(if (-not $statusRouteOk) { "Stop then Start Kwalify to load latest build" } else { "OK" })
-Row "/settings page route" $settingsRouteOk $(if (-not $settingsRouteOk) { "Stop then Start Kwalify to load latest build" } else { "OK" })
-Row "/benchmark page route" $benchmarkRouteOk $(if (-not $benchmarkRouteOk) { "Stop then Start Kwalify to load latest build" } else { "OK" })
+if ($PreStart -and -not $apiUp) {
+  PendingRow "/status page route" "checked after API starts"
+  PendingRow "/settings page route" "checked after API starts"
+  PendingRow "/benchmark page route" "checked after API starts"
+} else {
+  Row "/status page route" $statusRouteOk $(if (-not $statusRouteOk) { "Stop then Start Kwalify to load latest build" } else { "OK" })
+  Row "/settings page route" $settingsRouteOk $(if (-not $settingsRouteOk) { "Stop then Start Kwalify to load latest build" } else { "OK" })
+  Row "/benchmark page route" $benchmarkRouteOk $(if (-not $benchmarkRouteOk) { "Stop then Start Kwalify to load latest build" } else { "OK" })
+}
 
 # Public HTTPS
 $publicOk = $false
@@ -121,7 +143,9 @@ if ($appUrl) {
       } catch {}
     }
   } catch {}
-  if ($tunnelRunning -and $publicOk) {
+  if ($PreStart -and -not $apiUp) {
+    PendingRow "Public site reachable ($appUrl)" "checked after API + tunnel start"
+  } elseif ($tunnelRunning -and $publicOk) {
     Row "Public site reachable ($appUrl)" $true "friends can connect"
   } elseif ($tunnelRunning -and -not $publicOk) {
     Row "Public site reachable ($appUrl)" $false "Tunnel running but site not responding - check reports\cloudflared.log"
@@ -193,7 +217,13 @@ if (Test-Path -LiteralPath $apiLog) {
 }
 
 Write-Host ""
-if ($fail -eq 0 -and $publicOk -and $tunnelRunning) {
+if ($PreStart) {
+  if ($fail -eq 0) {
+    Write-Host "  Config OK - starting API and tunnel next..." -ForegroundColor Green
+  } else {
+    Write-Host "  Fix [!!] config items above before services can start" -ForegroundColor Yellow
+  }
+} elseif ($fail -eq 0 -and $publicOk -and $tunnelRunning) {
   Write-Host "  READY FOR BETA - share $appUrl with your testers" -ForegroundColor Green
 } elseif ($fail -eq 0 -and $apiUp) {
   Write-Host "  Local API ready - start tunnel for public beta at $appUrl" -ForegroundColor Yellow
@@ -205,3 +235,12 @@ if ($fail -eq 0 -and $publicOk -and $tunnelRunning) {
   Write-Host "  Not ready yet - fix [!!] items, then Start Kwalify" -ForegroundColor Yellow
 }
 Write-Host ""
+
+if ($PreStart) {
+  if ($fail -gt 0) { exit 1 }
+  exit 0
+}
+if ($fail -gt 0 -or -not $apiUp -or -not $tunnelRunning -or -not $publicOk) {
+  exit 1
+}
+exit 0

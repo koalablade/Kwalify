@@ -372,6 +372,8 @@ function Stop-ExistingKwalify {
   $healthLib = Join-Path $Root "scripts\kwalify-health-lib.ps1"
   $generationBusy = $false
   if ($Mode -eq "selfhost" -and (Test-Path -LiteralPath $healthLib)) {
+    $prevErr = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
     . $healthLib -Root $Root
     if (Test-KwalifyGenerationBusy) {
       $generationBusy = $true
@@ -383,11 +385,13 @@ function Stop-ExistingKwalify {
         Start-Sleep -Seconds 5
       }
       if (Test-KwalifyGenerationBusy) {
-        Write-Host "  Generation still active — skipping API stop to avoid killing in-flight playlists." -ForegroundColor Yellow
+        Write-Host "  Generation still active - skipping API stop to avoid killing in-flight playlists." -ForegroundColor Yellow
         Write-Host "  Use stop-kwalify.bat to force-stop, or wait for generation to finish." -ForegroundColor Yellow
+        $ErrorActionPreference = $prevErr
         return
       }
     }
+    $ErrorActionPreference = $prevErr
   }
   $stopped = $false
   if (PortOpen 5000) {
@@ -489,8 +493,13 @@ function Invoke-SmokeChecks {
   if (-not (Test-Path (Join-Path $Root "backend\dist\server.js"))) { return }
   $auditScript = Join-Path $Root "scripts\run-startup-audits.ps1"
   if (Test-Path -LiteralPath $auditScript) {
+    Step "Startup test audits"
+    $prevErr = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     & powershell -NoProfile -ExecutionPolicy Bypass -File $auditScript -Root $Root -Phase tests -Mode $Mode
-    if ($LASTEXITCODE -ne 0) {
+    $auditExit = $LASTEXITCODE
+    $ErrorActionPreference = $prevErr
+    if ($auditExit -ne 0) {
       Exit-Launcher 1 "Startup test audits failed (smoke / observability)."
     }
     return
@@ -748,13 +757,16 @@ $reuseRunningApi = $false
 if (PortOpen $port) {
   $healthLib = Join-Path $Root "scripts\kwalify-health-lib.ps1"
   if ($Mode -eq "selfhost" -and (Test-Path -LiteralPath $healthLib)) {
+    $prevErr = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
     . $healthLib -Root $Root
     if (Test-KwalifyGenerationBusy) {
-      Write-Host "  Generation active — reusing running API on port $port" -ForegroundColor Yellow
+      Write-Host "  Generation active - reusing running API on port $port" -ForegroundColor Yellow
       $reuseRunningApi = $true
     } else {
       Stop-PortListeners $port
     }
+    $ErrorActionPreference = $prevErr
   } else {
     Stop-PortListeners $port
   }
