@@ -811,21 +811,6 @@ if (-not $ready) {
 }
 Write-Host "  Server ready."
 
-$routeChecks = @("/status", "/settings")
-$routeFailed = @()
-foreach ($route in $routeChecks) {
-  try {
-    $code = (Invoke-WebRequest "http://localhost:$port$route" -UseBasicParsing -TimeoutSec 4).StatusCode
-    if ($code -ne 200) { $routeFailed += $route }
-  } catch {
-    $routeFailed += $route
-  }
-}
-if ($routeFailed.Count -gt 0) {
-  Write-Host "  Warning: routes missing ($($routeFailed -join ', ')) - rebuild may be stale." -ForegroundColor Yellow
-  Write-Host "  Run: stop-kwalify.bat then Start Kwalify again (or start-kwalify.bat build)" -ForegroundColor Yellow
-}
-
 if ($Mode -eq "selfhost") {
   Load-DotEnvFile $envPath
   $exposure = $env:KWALIFY_EXPOSURE

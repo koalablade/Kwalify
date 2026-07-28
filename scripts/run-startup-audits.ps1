@@ -69,9 +69,14 @@ switch ($Phase) {
     Write-Host ""
     Write-Host "  STARTUP AUDITS (post-start)" -ForegroundColor Magenta
 
+    $warnings = @()
     $pendingRoutes = Join-Path $reports ".maintenance-pending-routes"
-    Invoke-AuditScript -Label "Website routes" `
+
+    $routeExit = Invoke-AuditScript -Label "Website routes" `
       -ScriptPath (Join-Path $Root "scripts\test-website-routes.ps1")
+    if ($routeExit -ne 0) {
+      $warnings += "Website route smoke failed — friends may see missing pages."
+    }
 
     $live = $LiveUrl
     if (-not $live) {
@@ -91,30 +96,49 @@ switch ($Phase) {
       if ($env:KWALIFY_LIVE_URL) { $live = $env:KWALIFY_LIVE_URL }
       elseif ($env:APP_URL -like "https://*") { $live = $env:APP_URL }
     }
-    $live = $live.TrimEnd("/")
+    if ($live) { $live = $live.TrimEnd("/") }
 
     if ($live -like "https://*") {
       $env:KWALIFY_LIVE_URL = $live
-      Invoke-NpmTest -Label "Production health smoke" -ScriptName "test:production-health" | Out-Null
+      $healthExit = Invoke-NpmTest -Label "Production health smoke" -ScriptName "test:production-health"
+      if ($healthExit -ne 0) {
+        $warnings += "Public health check failed for $live — tunnel may still be warming up."
+      }
     } else {
       Write-Host "  Production health smoke skipped (no HTTPS live URL)" -ForegroundColor DarkGray
     }
 
     if ($Mode -eq "selfhost" -or -not $Mode) {
-      Invoke-AuditScript -Label "Production readiness report" `
+      $prodExit = Invoke-AuditScript -Label "Production readiness report" `
         -ScriptPath (Join-Path $Root "scripts\check-production-ready.ps1") `
         -ExtraArgs @("-Root", $Root)
+      if ($prodExit -ne 0) {
+        $warnings += "Production readiness report has open items — see messages above."
+      }
     }
 
     if (Test-Path -LiteralPath $pendingRoutes) {
       Write-Host ""
-      Write-Host "  Completing weekly maintenance (marking done)..." -ForegroundColor Yellow
-      & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\weekly-maintenance.ps1") `
-        -Root $Root -SkipRoutes -MarkComplete | Out-Null
-      Remove-Item -LiteralPath $pendingRoutes -Force -ErrorAction SilentlyContinue
+      if ($routeExit -eq 0) {
+        Write-Host "  Completing weekly maintenance (marking done)..." -ForegroundColor Yellow
+        & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\weekly-maintenance.ps1") `
+          -Root $Root -SkipRoutes -MarkComplete
+        Remove-Item -LiteralPath $pendingRoutes -Force -ErrorAction SilentlyContinue
+      } else {
+        $warnings += "Weekly maintenance NOT marked complete — route smoke must pass first."
+        Write-Host "  Weekly maintenance NOT marked complete — route smoke failed." -ForegroundColor Yellow
+        Write-Host "  Pending marker kept: reports\.maintenance-pending-routes" -ForegroundColor DarkGray
+      }
     }
 
     Write-Host ""
+    if ($warnings.Count -gt 0) {
+      Write-Host "  POST-START WARNINGS ($($warnings.Count))" -ForegroundColor Yellow
+      foreach ($w in $warnings) {
+        Write-Host "    - $w" -ForegroundColor Yellow
+      }
+      Write-Host ""
+    }
     Write-Host "  Startup audits complete" -ForegroundColor Green
     Write-Host ""
     exit 0

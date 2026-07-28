@@ -13,7 +13,8 @@ if (-not (Test-Path -LiteralPath $reportsDir)) {
   New-Item -ItemType Directory -Force -Path $reportsDir | Out-Null
 }
 
-$shouldMarkComplete = $MarkComplete -or (-not $SkipRoutes)
+$routesRan = $false
+$routesExit = 0
 
 $lines = @("Kwalify weekly maintenance — $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')", "")
 
@@ -49,9 +50,15 @@ try {
 if ($apiUp -and -not $SkipRoutes) {
   Note "  Running route smoke..."
   & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\test-website-routes.ps1")
+  $routesExit = $LASTEXITCODE
+  $routesRan = $true
   Note ""
-} elseif (-not $apiUp) {
+} elseif (-not $SkipRoutes) {
   Note "  Skipping route smoke (API not running — start Kwalify first)."
+  Note "  Maintenance will NOT be marked complete until routes pass."
+  Note ""
+} elseif ($SkipRoutes) {
+  Note "  Route smoke deferred until API is up (startup will run routes after launch)."
   Note ""
 }
 
@@ -74,10 +81,22 @@ Note ""
 
 Set-Content -LiteralPath $reportPath -Value ($lines -join "`r`n") -Encoding UTF8
 Write-Host "  Report saved: reports\maintenance-last-run.txt" -ForegroundColor DarkGray
-if ($shouldMarkComplete) {
+
+$canMarkComplete = $false
+if ($MarkComplete) {
+  $canMarkComplete = $true
+} elseif (-not $SkipRoutes -and $routesRan -and $routesExit -eq 0) {
+  $canMarkComplete = $true
+}
+
+if ($canMarkComplete) {
   . (Join-Path $Root "scripts\startup-audit-lib.ps1") -Root $Root
   Set-MaintenanceLastRun -RootPath $Root
   Write-Host "  Maintenance marked complete: reports\.maintenance-last-run" -ForegroundColor DarkGray
+} elseif (-not $SkipRoutes -and -not $routesRan) {
+  Write-Host "  Maintenance NOT marked complete — start Kwalify, then run maintain.bat again." -ForegroundColor Yellow
+} elseif (-not $SkipRoutes -and $routesRan -and $routesExit -ne 0) {
+  Write-Host "  Maintenance NOT marked complete — fix route smoke failures above." -ForegroundColor Yellow
 }
 Write-Host ""
 

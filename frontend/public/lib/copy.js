@@ -19,6 +19,14 @@ export const COPY = {
   },
   generation: {
     eyebrow: "Creating your soundtrack",
+    timingHint: "Usually takes 1–2 minutes — we're searching your library and shaping the arc.",
+    syncFirstVisit: "First step: we sync your Spotify liked songs so playlists come from music you already know.",
+    momentFeedback: {
+      prompt: "Did this capture your moment?",
+      captured: "Yes — captured it",
+      missed: "Not quite",
+      thanks: "Thanks — that helps us learn.",
+    },
     stages: [
       "Searching your memories…",
       "Finding forgotten favourites…",
@@ -42,6 +50,9 @@ export const COPY = {
     viewDiary: "View your diary →",
   },
   result: {
+    partialHonest: (n, requested) =>
+      `${n} tracks from your library that truly fit — we won't pad with filler${requested && n < requested ? ` (you asked for ${requested})` : ""}.`,
+    referenceHint: "Reference (if you need help):",
     eyebrow: "YOUR SOUNDTRACK",
     moment: "THE MOMENT",
     journey: "THE JOURNEY",

@@ -100,6 +100,13 @@ function libraryGateState() {
   };
 }
 
+function syncFirstVisitHint() {
+  if (state.noLibraryMode) return null;
+  const { syncing, total } = libraryGateState();
+  if (syncing || total === 0) return COPY.generation.syncFirstVisit;
+  return null;
+}
+
 function generateGate() {
   if (state.noLibraryMode) return { blocked: false, message: "", showSync: false, discoveryMode: true };
   const { syncing, total } = libraryGateState();
@@ -266,6 +273,31 @@ async function sendImplicitFeedback(track, playDuration, skipped, eventType = nu
       sessionId: feedbackSessionId,
     }),
   });
+}
+
+async function sendPlaylistMomentFeedback(playlistId, reaction, vibe, sceneId = null) {
+  if (!playlistId || !vibe) return;
+  const r = await api(`/playlists/${playlistId}/feedback`, {
+    method: "POST",
+    body: JSON.stringify({
+      reaction,
+      vibe,
+      ...(sceneId ? { sceneId } : {}),
+    }),
+  });
+  if (!r.ok) throw new Error(r.data?.message || "playlist_feedback_failed");
+}
+
+async function sendUserFeedback(type, requestId = null, playlistId = null) {
+  const r = await api("/feedback", {
+    method: "POST",
+    body: JSON.stringify({
+      type,
+      ...(requestId ? { requestId: String(requestId) } : {}),
+      ...(playlistId != null && playlistId !== "" ? { playlistId } : {}),
+    }),
+  });
+  if (!r.ok) throw new Error(r.data?.message || "user_feedback_failed");
 }
 
 async function replacePlaylistTrack(playlistId, track, context = {}) {
@@ -943,6 +975,7 @@ function renderApp() {
         <div id="intentPreviewStrip" class="intent-preview-strip" hidden aria-live="polite"></div>
         ${recentPromptsHtml()}
 
+        ${syncFirstVisitHint() ? `<p class="sync-first-visit-hint">${esc(syncFirstVisitHint())}</p>` : ""}
         ${gate.blocked ? `<p class="generate-gate-msg">${esc(gate.message)}</p>` : ""}
         ${!gate.blocked && state.noLibraryMode && !isDiscoveryGenreReady(state.draftVibe || document.getElementById("vibeInput")?.value, state.preview)
           ? `<p class="generate-gate-msg">${esc(discoveryGateMessage(state.draftVibe || document.getElementById("vibeInput")?.value, state.preview))}</p>`
@@ -1103,7 +1136,7 @@ function generationTimingMessage(progressState, elapsedMs) {
   if (progressState?.fallbackEligibleAt && Date.now() >= progressState.fallbackEligibleAt) {
     return "Quality checks are taking longer than usual.";
   }
-  return "Working normally.";
+  return elapsedMs < 30000 ? COPY.generation.timingHint : "Working normally.";
 }
 
 function generationPreviewDetail(progressState, elapsedMs) {
@@ -1232,6 +1265,7 @@ function generatingHtml() {
   <div class="generation-cinematic">
     <div class="generation-cinematic-inner">
       <p class="generation-story-eyebrow">${COPY.generation.eyebrow}</p>
+      <p class="generation-timing-hint" id="generationTimingHint">${esc(COPY.generation.timingHint)}</p>
       <h2 class="generation-story-line" id="generationTitle">${esc(progress.title)}</h2>
       <p class="generation-story-detail" id="generationSub">${esc(progress.sub)}</p>
       ${progressState?.sceneLabel ? `<p class="generation-story-scene">${esc(progressState.sceneLabel)}</p>` : ""}
@@ -1272,6 +1306,7 @@ function refreshGenerationProgressDom() {
   setText("generationDetailPhase", `${progress.title} · ${Math.min(progress.index + 1, progress.count)}/${progress.count}`);
   setText("generationDetailTiming", `${elapsedText} · ${timingText}`);
   setText("generationDetailPreview", previewText);
+  setText("generationTimingHint", elapsedMs < 30000 ? COPY.generation.timingHint : timingText);
   const fill = document.getElementById("generationProgressFill");
   if (fill) fill.style.width = `${progress.pct}%`;
   const progressBar = fill?.closest('[role="progressbar"]');
@@ -2037,10 +2072,10 @@ function resultHtml(result) {
       ? result.supplyMessage.trim()
       : null)
     || (result.humanQualityGate?.action === "honest_partial" && count > 0
-      ? (result.humanQualityGate.userMessage || `Honest partial — ${count} tracks that belong together without filler padding.`)
+      ? (result.humanQualityGate.userMessage || COPY.result.partialHonest(count, state.length))
       : null)
     || (result.honestPartialPublished && count > 0 && count < Math.max(8, Math.floor(state.length * 0.45))
-      ? `Short on purpose — only ${count} tracks in your library truly fit this musical world. Sync more likes in this lane, or try Discovery Mode.`
+      ? COPY.result.partialHonest(count, state.length)
       : null)
     || (result.degraded || (Array.isArray(result.degradationReasons) && result.degradationReasons.length > 0)
       ? "Built in degraded mode — some quality checks were relaxed to finish in time."
@@ -2132,6 +2167,19 @@ function resultHtml(result) {
   const momentHtml = buildMomentSection(result, originalPrompt);
   const whyItFitsHtml = buildWhyItFitsHtml(result, trustChips, playlistExplanation);
   const otherMomentsHtml = buildOtherMomentsHtml(result);
+  const referenceId = result.requestId || state.generationProgress?.requestId || null;
+  const referenceHtml = referenceId
+    ? `<p class="result-reference-id"><span>${COPY.result.referenceHint}</span> <code>${esc(referenceId)}</code></p>`
+    : "";
+  const momentFeedbackHtml = playlistId ? `
+    <section class="playlist-moment-feedback" aria-label="Playlist feedback">
+      <p class="playlist-moment-feedback-prompt">${COPY.generation.momentFeedback.prompt}</p>
+      <div class="playlist-moment-feedback-actions">
+        <button type="button" class="btn btn-sm btn-green playlist-moment-btn" data-reaction="up">${COPY.generation.momentFeedback.captured}</button>
+        <button type="button" class="btn btn-sm btn-ghost playlist-moment-btn" data-reaction="down">${COPY.generation.momentFeedback.missed}</button>
+      </div>
+      <p class="playlist-moment-feedback-thanks" hidden>${COPY.generation.momentFeedback.thanks}</p>
+    </section>` : "";
 
   const noticesHtml = [
     cacheNotice,
@@ -2211,6 +2259,8 @@ function resultHtml(result) {
 
     ${whyItFitsHtml}
 
+    ${momentFeedbackHtml}
+
     ${tracksHtml}
 
     ${shapeHtml || seeHowBuiltHtml ? `
@@ -2225,6 +2275,8 @@ function resultHtml(result) {
     </footer>` : technicalMetaHtml}
 
     ${otherMomentsHtml}
+
+    ${referenceHtml}
   </div>
   ${debugHtml}${explainSectionHtml}`;
 }
@@ -2232,6 +2284,52 @@ function resultHtml(result) {
 function wireResultReveal(result) {
   if (result?.tracks) wireResultPosterArt(result.tracks);
   wireResultStorySections();
+  wirePlaylistMomentFeedback(result);
+  wireResultSaveFeedback(result);
+}
+
+function wireResultSaveFeedback(result) {
+  const playlistId = result?.savedPlaylistId || result?.playlistId || null;
+  const requestId = result?.requestId || null;
+  if (!playlistId) return;
+  document.querySelectorAll(".result-poster-play").forEach((link) => {
+    link.addEventListener("click", () => {
+      void sendUserFeedback("save", requestId, playlistId).catch(() => null);
+    }, { once: true });
+  });
+}
+
+function wirePlaylistMomentFeedback(result) {
+  const panel = document.querySelector(".playlist-moment-feedback");
+  if (!panel) return;
+  const playlistId = result?.savedPlaylistId || result?.playlistId;
+  if (!playlistId) return;
+  const vibe = String(result?.vibe || result?.prompt || "").trim();
+  if (!vibe) return;
+  const sceneId = result?.scoringDiagnostics?.semanticResolution?.sceneId
+    || result?.sceneId
+    || null;
+  const requestId = result?.requestId || null;
+  const thanks = panel.querySelector(".playlist-moment-feedback-thanks");
+  panel.querySelectorAll(".playlist-moment-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const reaction = btn.dataset.reaction;
+      if (!reaction || btn.disabled) return;
+      panel.querySelectorAll(".playlist-moment-btn").forEach((b) => { b.disabled = true; });
+      try {
+        await sendPlaylistMomentFeedback(playlistId, reaction, vibe, sceneId);
+        const feedbackType = reaction === "up" ? "captured" : "missed";
+        await sendUserFeedback(feedbackType, requestId, playlistId).catch(() => null);
+        if (thanks) {
+          thanks.hidden = false;
+          panel.querySelector(".playlist-moment-feedback-actions")?.setAttribute("hidden", "");
+        }
+      } catch (_) {
+        panel.querySelectorAll(".playlist-moment-btn").forEach((b) => { b.disabled = false; });
+        showToast("Feedback could not be saved. Try again.", "error");
+      }
+    });
+  });
 }
 
 // ── Why this playlist ─────────────────────────────────────────────────────────
@@ -3961,6 +4059,14 @@ async function generate(opts = {}) {
     String(previousResult.vibe || previousResult.prompt || "").trim().toLowerCase() === vibe.toLowerCase();
   const varietyBoost = opts.forceNewMix === true || samePromptRegenerate;
 
+  if (opts.forceNewMix === true && previousResult) {
+    void sendUserFeedback(
+      "regenerate",
+      previousResult.requestId || null,
+      previousResult.savedPlaylistId || previousResult.playlistId || null,
+    ).catch(() => null);
+  }
+
   state.generating = true;
   state.generationCancelRequested = false;
   state.generationLivePreview = null;
@@ -4065,6 +4171,7 @@ async function generate(opts = {}) {
         vibe: savedVibe,
         requestedNewMix: state.requestedNewMix && !r.data.cached,
         cached: !!r.data.cached,
+        requestId: r.data.requestId || state.generationProgress?.requestId || null,
       };
       await loadPlaylists();
     }

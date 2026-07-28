@@ -46,6 +46,7 @@ Please report:
 - **Be specific** in prompts (place + energy + era)  
 - **Discovery** mode surfaces less familiar tracks from your likes  
 - If generation fails, wait a minute and try a slightly broader prompt  
+- If you see an error, copy the **Reference ID** shown on screen and send it with your report  
 - Hard refresh (Ctrl+F5) if buttons seem dead after an update  
 
 ---

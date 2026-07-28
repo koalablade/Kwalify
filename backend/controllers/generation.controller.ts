@@ -5461,6 +5461,18 @@ router.post("/generate", async (req, res): Promise<void> => {
     markTimeline(productionTimeline, startMs, "worker_acquired");
     requestId = acquired;
     sessionUserId = generateSessionUserId;
+    req.log.info(
+      {
+        event: "generation_started",
+        requestId,
+        userId: hashedIdTag(sessionUserId),
+        mode,
+        requestedLength: length,
+        vibeLength: vibe.length,
+        noLibraryMode: !!noLibraryMode,
+      },
+      "generation_started",
+    );
     const failureSessionIdFromClient =
       parsedFailureSessionId?.trim() ||
       (typeof rawBody.failureSessionId === "string" ? rawBody.failureSessionId.trim() : "");
@@ -13397,6 +13409,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     setGenerateStageDetail(generateSessionUserId, requestId, "Loading playlist in app");
     res.json({
       success: true,
+      requestId,
       playlistId: savedPlaylistId,
       savedPlaylistId,
       shareSlug: savedShareSlug || undefined,

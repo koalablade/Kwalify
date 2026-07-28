@@ -44,7 +44,7 @@ You do **not** need `repair-tunnel.bat` or `start-health-watch.bat` unless debug
 
 ## Weekly
 
-**`maintain.bat`** (or `npm run maintenance:weekly`) — same checks as the automatic gate on `start.bat` when last run was more than 7 days ago.
+**`maintain.bat`** (or `npm run maintenance:weekly`) — same checks as the automatic gate on `start.bat` when last run was more than 7 days ago. **Start Kwalify first** so route smoke runs and the maintenance marker is updated.
 
 Automate (Admin once): `scripts\schedule-weekly-maintenance.ps1`
 

@@ -445,7 +445,7 @@ router.post("/playlists/:id/feedback", async (req, res): Promise<void> => {
 });
 
 const UserFeedbackBodySchema = z.object({
-  type: z.enum(["save", "skip", "regenerate"]),
+  type: z.enum(["save", "skip", "regenerate", "captured", "missed"]),
   requestId: z.string().min(1).max(120).optional(),
   playlistId: z.union([z.number(), z.string()]).optional(),
 });
