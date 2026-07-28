@@ -45,7 +45,7 @@ if ($due) {
     -ScriptPath (Join-Path $Root "scripts\weekly-maintenance.ps1") `
     -ExtraArgs @("-Root", $Root, "-SkipRoutes")
   if ($wmExit -ne 0) {
-    Note-Warning "Weekly maintenance reported issues — review above. Continuing start."
+    Note-Warning "Weekly maintenance reported issues  - review above. Continuing start."
   }
   Set-Content -LiteralPath $pendingRoutesPath -Value (Get-Date -Format o) -Encoding ASCII
 } else {
@@ -56,11 +56,11 @@ if ($due) {
   }
   $backupExit = Invoke-AuditScript -Label "Backup verification" `
     -ScriptPath (Join-Path $Root "scripts\verify-backup.ps1") -ExtraArgs @("-Root", $Root)
-  if ($backupExit -ne 0) { Note-Warning "Backup verification failed — run npm run backup:db and npm run maintenance:verify-backup" }
+  if ($backupExit -ne 0) { Note-Warning "Backup verification failed  - run npm run backup:db and npm run maintenance:verify-backup" }
 
   $uptimeExit = Invoke-AuditScript -Label "Uptime checks" `
     -ScriptPath (Join-Path $Root "scripts\check-uptime.ps1") -ExtraArgs @("-Root", $Root)
-  if ($uptimeExit -ne 0) { Note-Warning "Uptime checks reported issues — see docs\UPTIME-MONITORING.md" }
+  if ($uptimeExit -ne 0) { Note-Warning "Uptime checks reported issues  - see docs\UPTIME-MONITORING.md" }
 
   Invoke-AuditScript -Label "Windows host" `
     -ScriptPath (Join-Path $Root "scripts\check-windows-host.ps1") -ExtraArgs @("-Root", $Root)
@@ -80,7 +80,7 @@ if ($warnings.Count -gt 0) {
   foreach ($w in $warnings) {
     Write-Host "    - $w" -ForegroundColor Yellow
   }
-  Write-Host "  API will still start — fix warnings before inviting testers." -ForegroundColor Yellow
+  Write-Host "  API will still start  - fix warnings before inviting testers." -ForegroundColor Yellow
   Write-Host ""
 }
 

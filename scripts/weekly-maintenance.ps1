@@ -16,7 +16,7 @@ if (-not (Test-Path -LiteralPath $reportsDir)) {
 $routesRan = $false
 $routesExit = 0
 
-$lines = @("Kwalify weekly maintenance — $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')", "")
+$lines = @("Kwalify weekly maintenance  - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')", "")
 
 function Note([string]$text) {
   Write-Host $text
@@ -54,7 +54,7 @@ if ($apiUp -and -not $SkipRoutes) {
   $routesRan = $true
   Note ""
 } elseif (-not $SkipRoutes) {
-  Note "  Skipping route smoke (API not running — start Kwalify first)."
+  Note "  Skipping route smoke (API not running  - start Kwalify first)."
   Note "  Maintenance will NOT be marked complete until routes pass."
   Note ""
 } elseif ($SkipRoutes) {
@@ -67,7 +67,7 @@ foreach ($logName in @("kwalify-api.log", "kwalify-start.log", "kwalify-benchmar
   if (Test-Path -LiteralPath $logPath) {
     $mb = [math]::Round((Get-Item $logPath).Length / 1MB, 2)
     if ($mb -gt 8) {
-      Note "  [?] $logName is ${mb} MB — launcher rotates at 10 MB; safe to delete .old copies"
+      Note "  [?] $logName is ${mb} MB  - launcher rotates at 10 MB; safe to delete .old copies"
     }
   }
 }
@@ -94,9 +94,9 @@ if ($canMarkComplete) {
   Set-MaintenanceLastRun -RootPath $Root
   Write-Host "  Maintenance marked complete: reports\.maintenance-last-run" -ForegroundColor DarkGray
 } elseif (-not $SkipRoutes -and -not $routesRan) {
-  Write-Host "  Maintenance NOT marked complete — start Kwalify, then run maintain.bat again." -ForegroundColor Yellow
+  Write-Host "  Maintenance NOT marked complete  - start Kwalify, then run maintain.bat again." -ForegroundColor Yellow
 } elseif (-not $SkipRoutes -and $routesRan -and $routesExit -ne 0) {
-  Write-Host "  Maintenance NOT marked complete — fix route smoke failures above." -ForegroundColor Yellow
+  Write-Host "  Maintenance NOT marked complete  - fix route smoke failures above." -ForegroundColor Yellow
 }
 Write-Host ""
 

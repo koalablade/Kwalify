@@ -83,7 +83,7 @@ function Invoke-AuditScript {
   )
 
   if (-not (Test-Path -LiteralPath $ScriptPath)) {
-    Write-Host "  [skip] $Label — script missing" -ForegroundColor DarkGray
+    Write-Host "  [skip] $Label - script missing" -ForegroundColor DarkGray
     return 0
   }
 

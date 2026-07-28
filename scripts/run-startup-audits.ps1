@@ -75,7 +75,7 @@ switch ($Phase) {
     $routeExit = Invoke-AuditScript -Label "Website routes" `
       -ScriptPath (Join-Path $Root "scripts\test-website-routes.ps1")
     if ($routeExit -ne 0) {
-      $warnings += "Website route smoke failed — friends may see missing pages."
+      $warnings += "Website route smoke failed  - friends may see missing pages."
     }
 
     $live = $LiveUrl
@@ -102,7 +102,7 @@ switch ($Phase) {
       $env:KWALIFY_LIVE_URL = $live
       $healthExit = Invoke-NpmTest -Label "Production health smoke" -ScriptName "test:production-health"
       if ($healthExit -ne 0) {
-        $warnings += "Public health check failed for $live — tunnel may still be warming up."
+        $warnings += "Public health check failed for $live  - tunnel may still be warming up."
       }
     } else {
       Write-Host "  Production health smoke skipped (no HTTPS live URL)" -ForegroundColor DarkGray
@@ -113,7 +113,7 @@ switch ($Phase) {
         -ScriptPath (Join-Path $Root "scripts\check-production-ready.ps1") `
         -ExtraArgs @("-Root", $Root)
       if ($prodExit -ne 0) {
-        $warnings += "Production readiness report has open items — see messages above."
+        $warnings += "Production readiness report has open items  - see messages above."
       }
     }
 
@@ -125,8 +125,8 @@ switch ($Phase) {
           -Root $Root -SkipRoutes -MarkComplete
         Remove-Item -LiteralPath $pendingRoutes -Force -ErrorAction SilentlyContinue
       } else {
-        $warnings += "Weekly maintenance NOT marked complete — route smoke must pass first."
-        Write-Host "  Weekly maintenance NOT marked complete — route smoke failed." -ForegroundColor Yellow
+        $warnings += "Weekly maintenance NOT marked complete  - route smoke must pass first."
+        Write-Host "  Weekly maintenance NOT marked complete  - route smoke failed." -ForegroundColor Yellow
         Write-Host "  Pending marker kept: reports\.maintenance-pending-routes" -ForegroundColor DarkGray
       }
     }
