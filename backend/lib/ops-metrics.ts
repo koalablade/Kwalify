@@ -7,7 +7,15 @@ import { moduleLogger } from "./logger";
 import { captureError } from "./error-tracking";
 import { getExtendedOpsMetrics } from "./ops-metrics-extended";
 
-export { recordSpotifyApiMetrics, recordGenerationPhaseDuration, recordIntentSurvivalSample } from "./ops-metrics-extended";
+export {
+  recordSpotifyApiMetrics,
+  recordGenerationPhaseDuration,
+  recordIntentSurvivalSample,
+  recordGenerateOutcome,
+  record5xxResponse,
+  recordApiRequest,
+  recordUserFeedbackEvent,
+} from "./ops-metrics-extended";
 
 const log = moduleLogger("ops-metrics");
 

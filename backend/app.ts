@@ -16,7 +16,12 @@ import { logger } from "./lib/logger";
 import { type AppEnv } from "./lib/env";
 import { getRuntimeReadiness, isRuntimeReady } from "./lib/runtime-readiness";
 import { acquireGenerateSlot, getGenerateOverloadState, recordGenerateLatency } from "./lib/runtime-overload";
-import { recordServerBusy } from "./lib/ops-metrics";
+import { recordServerBusy, record5xxResponse, recordApiRequest } from "./lib/ops-metrics";
+import {
+  emitGenerateComplete,
+  initGenerateObs,
+  noteGenerateFailure,
+} from "./lib/generate-complete-log";
 import { globalRateLimit } from "./lib/global-rate-limit";
 import { requireReportsAccess } from "./middleware/benchmark-auth";
 import { sendApiError } from "./lib/api-error-envelope";
@@ -108,6 +113,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
         return "request_completed";
       },
       customSuccessObject(req, res, val) {
+        recordApiRequest();
         const responseTime = (val as Record<string, unknown>)["responseTime"];
         return {
           ...val,
@@ -118,6 +124,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
         };
       },
       customErrorObject(req, res, err, val) {
+        recordApiRequest();
         const responseTime = (val as Record<string, unknown>)["responseTime"];
         return {
           ...val,
@@ -198,15 +205,28 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
 
   app.use(async (req, res, next) => {
     if (req.method !== "POST" || req.path !== "/api/generate") return next();
+    const queueObsStartMs = Date.now();
+    initGenerateObs(req, queueObsStartMs);
+    const rejectGenerate = (status: number, code: string, error: string, extra?: Record<string, unknown>): void => {
+      noteGenerateFailure(req, { code, reason: error });
+      res.status(status).json({
+        success: false,
+        code,
+        error,
+        requestId: req.id,
+        tracks: [],
+        ...extra,
+      });
+      emitGenerateComplete(req, req.log);
+    };
     if (isShuttingDown()) {
       res.setHeader("Retry-After", "30");
-      res.status(503).json({
-        success: false,
-        code: "SERVER_RESTARTING",
-        error: "Kwalify is restarting. Please try again in a moment.",
-        requestId: req.id,
-        retryAfterSeconds: 30,
-      });
+      rejectGenerate(
+        503,
+        "SERVER_RESTARTING",
+        "Kwalify is restarting. Please try again in a moment.",
+        { retryAfterSeconds: 30 },
+      );
       return;
     }
     const startedAt = Date.now();
@@ -225,19 +245,20 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
       });
       const retryAfter = queueCode === "QUEUE_TIMEOUT" ? 15 : 10;
       res.setHeader("Retry-After", String(retryAfter));
-      res.status(503).json({
-        success: false,
-        code: queueCode === "QUEUE_TIMEOUT" ? "QUEUE_TIMEOUT" : "SERVER_BUSY",
-        error: queueCode === "QUEUE_TIMEOUT"
+      rejectGenerate(
+        503,
+        queueCode === "QUEUE_TIMEOUT" ? "QUEUE_TIMEOUT" : "SERVER_BUSY",
+        queueCode === "QUEUE_TIMEOUT"
           ? "Playlist generation queue was busy. Please retry in a moment."
           : "Playlist generation is currently busy. Please retry shortly.",
-        requestId: req.id,
-        activeGenerateRequests: overload.active,
-        queuedGenerateRequests: overload.queued,
-        generateConcurrencyLimit: overload.limit,
-        generateQueueLimit: overload.queueLimit,
-        retryAfterSeconds: retryAfter,
-      });
+        {
+          activeGenerateRequests: overload.active,
+          queuedGenerateRequests: overload.queued,
+          generateConcurrencyLimit: overload.limit,
+          generateQueueLimit: overload.queueLimit,
+          retryAfterSeconds: retryAfter,
+        },
+      );
       return;
     }
 
@@ -351,6 +372,7 @@ export function createApp(env: AppEnv, rawPool: pg.Pool): Express {
       payloadTooLarge ? "API payload too large" : "Unhandled API route error",
     );
     if (status >= 500) {
+      record5xxResponse();
       captureError(err, {
         path: req.path,
         method: req.method,

@@ -97,7 +97,9 @@ export function analyzeMomentPipeline(
   const semantic = interpretSemantics(vibe);
 
   // 0b. World understanding — human meaning layer (moments, not keywords)
+  const interpretWorldStartMs = Date.now();
   const worldUnderstanding = interpretWorld(vibe);
+  const interpretWorldMs = Date.now() - interpretWorldStartMs;
 
   // 1. Intent (before everything else)
   const intent = decodeIntent(vibe);
@@ -190,6 +192,7 @@ export function analyzeMomentPipeline(
   }
 
   const pipelineSummary = {
+    interpretWorldMs,
     intent: intent.intent,
     intentConfidence: intent.confidence,
     canonicalScene: canonical?.sceneId ?? null,

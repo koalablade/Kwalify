@@ -123,7 +123,7 @@
     "guard:pipeline-authority": "node backend/scripts/validate-pipeline-authority-ast.mjs && node backend/scripts/validate-pipeline-authority-build.mjs",
     "guard:pipeline-authority:ast": "node backend/scripts/validate-pipeline-authority-ast.mjs",
     "guard:pipeline-authority:build": "node backend/scripts/validate-pipeline-authority-build.mjs",
-    "test:observability-completeness": "npm run build && node --test backend/dist/tests/observability-completeness.test.js",
+    "test:observability-completeness": "npm run build && node --test backend/dist/tests/observability-completeness.test.js backend/dist/tests/generate-complete-observability.test.js",
     "test:editorial-polish-layer": "npm run build && node --test backend/dist/tests/editorial-polish-layer.test.js",
     "test:editorial-stabiliser": "npm run build && node --test backend/dist/tests/editorial-stabiliser.test.js",
     "test:intent-collapse-layer": "npm run build && node --test backend/dist/tests/intent-collapse-layer.test.js",

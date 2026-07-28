@@ -311,6 +311,14 @@ import {
   recordSpotifyApiMetrics,
 } from "../lib/ops-metrics";
 import {
+  emitGenerateComplete,
+  initGenerateObs,
+  noteGenerateFailure,
+  noteGenerateSuccess,
+  updateGenerateObs,
+} from "../lib/generate-complete-log";
+import { hashedIdTag } from "../lib/pii";
+import {
   effectiveRecoveryArtistLimit,
   evaluateRecoveryGuards,
   recoveryStageAllowed,
@@ -607,6 +615,13 @@ function generateFail(
     ...(spotifyFlag === true || /^SPOTIFY_/i.test(code) ? { spotifyUnavailable: true } : {}),
     playlistExecutionTrace: resolvedTrace,
   };
+  noteGenerateFailure(res.req, {
+    code,
+    reason: error,
+    executionPath: resolvedTrace.executionPath,
+    playlistExecutionTrace: resolvedTrace,
+    playlistSize: resolvedTrace.trackCounts?.final ?? 0,
+  });
   res.status(status).json(payload);
 }
 
@@ -617,9 +632,17 @@ function jsonWithExecutionTrace(
   traceDraft: PlaylistExecutionTraceDraft,
 ): void {
   if (res.headersSent || res.writableEnded || res.destroyed) return;
+  const trace = finalizePlaylistExecutionTrace(traceDraft);
+  noteGenerateFailure(res.req, {
+    code: typeof body.code === "string" ? body.code : "REQUEST_FAILED",
+    reason: typeof body.error === "string" ? body.error : typeof body.code === "string" ? body.code : "request_failed",
+    executionPath: trace.executionPath,
+    playlistExecutionTrace: trace,
+    playlistSize: trace.trackCounts?.final ?? 0,
+  });
   res.status(status).json({
     ...body,
-    playlistExecutionTrace: finalizePlaylistExecutionTrace(traceDraft),
+    playlistExecutionTrace: trace,
   });
 }
 
@@ -1218,6 +1241,23 @@ function timeoutFallbackResponse(
     "Generate timeout fallback response emitted"
   );
   const resolvedFallbackLevel = opts.fallbackLevel ?? "timeout_fallback";
+  noteGenerateSuccess(req, {
+    requestId: opts.requestId,
+    executionPath: "timeout_fallback",
+    humanSaveable: false,
+    playlistSize: tracks.length,
+    productionTimeline,
+    requestStageTiming: opts.requestStageTiming ?? undefined,
+    playlistExecutionTrace: finalizeExecutionTrace(buildFallbackExecutionTraceDraft({
+      requestId: opts.requestId,
+      prompt: vibe,
+      seed: (ctx?.seed ?? null) as number | string | null,
+      executionPath: "timeout_fallback",
+      failureDetail: opts.failureReason,
+      finalTrackCount: tracks.length,
+      timeoutOccurred: true,
+    })),
+  });
   res.status(200).json(withIntentSurvivalAuditPayload(req, attachExecutionTrace({
     success: true,
     code: "TIMEOUT_FALLBACK",
@@ -5080,6 +5120,7 @@ router.get("/generate/preview", (req, res): void => {
 // Long-term learning is driven by implicit + explicit feedback loops.
 router.post("/generate", async (req, res): Promise<void> => {
   const startMs = Date.now();
+  initGenerateObs(req, startMs);
   const productionTimeline = createProductionTimeline();
   let requestId = "";
   let generationSeed: number | string | null = null;
@@ -5108,7 +5149,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     requestHardTimeoutMs = auditMode
       ? resolveAuditHardTimeoutMs(rawBody as Record<string, unknown>)
       : REQUEST_HARD_TIMEOUT_MS;
-    if (auditMode) beginSpotifyApiAudit();
+    beginSpotifyApiAudit();
     const auditUserIdRaw = typeof rawBody.spotifyUserId === "string"
       ? rawBody.spotifyUserId.trim()
       : typeof rawBody.auditSpotifyUserId === "string"
@@ -5182,6 +5223,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const generateSessionUserId = auditMode
       ? `${userId}:audit:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}`
       : userId;
+    updateGenerateObs(req, { userId, productionTimeline });
 
     if (!sideEffectPolicy.bypassRateLimit) {
     const clientIp = req.ip || req.socket.remoteAddress || "unknown";
@@ -5377,6 +5419,13 @@ router.post("/generate", async (req, res): Promise<void> => {
           },
           "Generation cache fast-path",
         );
+        noteGenerateSuccess(req, {
+          requestId: String(req.id),
+          playlistSize: cachedFast.finalTracks.length,
+          executionPath: "full_pipeline",
+          cacheHit: true,
+          humanSaveable: true,
+        });
         res.json(buildCachedGenerateResponse(cachedFast));
         return;
       }
@@ -5621,7 +5670,16 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     const promptNormalizationMs = Date.now() - tStage;
     recordPreV3Timing(preV3Timing, "moodIntentTimeMs", promptNormalizationMs);
+    if (momentPipeline?.pipelineSummary && typeof momentPipeline.pipelineSummary.interpretWorldMs === "number") {
+      updateGenerateObs(req, {
+        interpretWorldMs: momentPipeline.pipelineSummary.interpretWorldMs,
+      });
+    }
     endTimelineStage(productionTimeline, startMs, "prompt_understanding");
+    recordGenerationPhaseDuration(
+      "interpretation",
+      productionTimeline.stageDurations.prompt_understanding ?? promptNormalizationMs,
+    );
     if (debugPerformance) {
       logPreV3Stage(req.log, recordPreV3Stage(preV3Timing, "promptNormalization", {
         durationMs: promptNormalizationMs,
@@ -6037,6 +6095,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
     endTimelineStage(productionTimeline, startMs, "candidate_fetch");
+    recordGenerationPhaseDuration(
+      "retrieval",
+      productionTimeline.stageDurations.candidate_fetch ?? 0,
+    );
     markTimeline(productionTimeline, startMs, "candidate_fetch_end");
 
     resultCacheKey = `${resultCacheBaseKey}:${libraryFingerprint(likedSongs)}`;
@@ -6217,6 +6279,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       requestStageTiming,
       latencyBudget,
       refinementTelemetry,
+      momentPipeline,
+      worldUnderstanding: momentPipeline?.worldUnderstanding ?? null,
     };
 
     if (responseFinished(res) || staleGenerate(generateSessionUserId, requestId)) return;
@@ -7099,6 +7163,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       curatorScoreByTrack.set(track.trackId, scoreTrackForIdentity(track, curatorIdentity));
     }
     endTimelineStage(productionTimeline, startMs, "curator_scoring");
+    recordGenerationPhaseDuration(
+      "scoring",
+      productionTimeline.stageDurations.curator_scoring ?? 0,
+    );
     setGeneratePhase(generateSessionUserId, requestId, "scoring");
     setGenerateStageDetail(generateSessionUserId, requestId, `Ranking matches from ${scoringInputSongs.length.toLocaleString()} shaped candidates`);
     markTimeline(productionTimeline, startMs, "scoring_start");
@@ -7418,6 +7486,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
     }
     recordGenerationPhaseDuration("v3_pipeline", playlistPipelineTimeMs);
+    recordGenerationPhaseDuration("sequencing", playlistPipelineTimeMs);
     recordSpotifyApiMetrics(getSpotifyApiAuditSnapshot());
 
     type PlaylistTrack = V3MetadataTrack<(typeof likedSongs)[number]> & {
@@ -13140,6 +13209,75 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
 
+    requestStageTiming.setTotal(generationMs);
+    const retrievalOrchestratorForObs = (req as { _genCtx?: Record<string, unknown> })._genCtx
+      ?.retrievalOrchestrator as Record<string, unknown> | undefined;
+    const successExecutionTrace = resolveSuccessExecutionTrace({
+      requestId,
+      prompt: vibe,
+      seed: generationSeed,
+      humanSaveable: (() => {
+        const gate = (fallbackBypassGate ?? v3DiagnosticsWithIntentSurvival?.humanSaveabilityGate) as Record<string, unknown> | undefined;
+        return gate?.humanSaveable === true || gate?.passed === true;
+      })(),
+      finalTrackCount: deliveredTracks.length,
+      v3Diagnostics: v3DiagnosticsWithIntentSurvival as Record<string, unknown>,
+      fastFallback: !!pipeline.scoringDiagnostics?.fastFallback,
+      fallbackDetail: fallbackReason
+        ? `${fallbackReason.stage}:${fallbackReason.elapsedMs}ms`
+        : null,
+    });
+    noteGenerateSuccess(req, {
+      requestId,
+      userId,
+      executionPath: successExecutionTrace.executionPath,
+      humanSaveable: successExecutionTrace.humanSaveable,
+      playlistSize: finalApiTracks.length,
+      requestedLength: length,
+      degraded: pipeline.pipelineTrace?.degraded ?? false,
+      honestPartial:
+        thinLibraryPolicy.action === "honest_partial"
+        || finalization.diagnostics["honestPartialPublished"] === true
+        || (typeof finalization.diagnostics["humanQualityGate"] === "object"
+          && (finalization.diagnostics["humanQualityGate"] as { action?: string }).action === "honest_partial"),
+      firstCollapseReason: generationDiagnostics.promptSurvivability?.firstCollapseReason ?? null,
+      interpretWorldMs:
+        typeof momentPipeline?.pipelineSummary?.interpretWorldMs === "number"
+          ? momentPipeline.pipelineSummary.interpretWorldMs
+          : null,
+      productionTimeline,
+      requestStageTiming: requestStageTiming.report(),
+      playlistExecutionTrace: successExecutionTrace,
+      interpretation: {
+        sceneId: momentPipeline?.canonicalScene?.sceneId ?? null,
+        confidence: momentPipeline?.canonicalScene?.confidence ?? null,
+        playlistIntent: momentPipeline?.intent?.intent ?? null,
+        emotionalArc: typeof worldUnderstanding?.emotionalArc === "string"
+          ? worldUnderstanding.emotionalArc
+          : typeof emotionalArc === "string"
+            ? emotionalArc
+            : null,
+        humanNarrativeSummary: worldUnderstanding?.humanNarrative ?? null,
+      },
+      retrieval: {
+        strategy: typeof retrievalOrchestratorForObs?.strategy === "string"
+          ? retrievalOrchestratorForObs.strategy
+          : typeof retrievalOrchestratorForObs?.mode === "string"
+            ? retrievalOrchestratorForObs.mode
+            : null,
+        candidatePoolSize: scoringPool.hybridPoolSize ?? null,
+        hybridPoolSize: scoringPool.hybridPoolSize ?? null,
+        librarySize: scoringPool.librarySize ?? null,
+      },
+      candidateCounts: {
+        shaped: scoringInputSongs.length,
+        retrieved: successExecutionTrace.trackCounts.retrieved,
+        afterWorld: successExecutionTrace.trackCounts.after_world,
+        afterSampler: successExecutionTrace.trackCounts.after_sampler,
+        final: finalApiTracks.length,
+      },
+    });
+
     if (sideEffectPolicy.mode === "audit" && !debugMode) {
       const endAuditResponseProfile = liveStageProfiler.start("controller.responseAssembly.auditSlim", `${finalApiTracks.length} tracks`);
       const auditGenerationDiagnostics = {
@@ -13211,21 +13349,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               ...(fallbackBypassGate ? { humanSaveabilityGate: fallbackBypassGate } : {}),
             }
           : {}),
-        playlistExecutionTrace: resolveSuccessExecutionTrace({
-          requestId,
-          prompt: vibe,
-          seed: generationSeed,
-          humanSaveable: (() => {
-            const gate = (fallbackBypassGate ?? v3DiagnosticsWithIntentSurvival?.humanSaveabilityGate) as Record<string, unknown> | undefined;
-            return gate?.humanSaveable === true || gate?.passed === true;
-          })(),
-          finalTrackCount: deliveredTracks.length,
-          v3Diagnostics: v3DiagnosticsWithIntentSurvival as Record<string, unknown>,
-          fastFallback: !!pipeline.scoringDiagnostics?.fastFallback,
-          fallbackDetail: fallbackReason
-            ? `${fallbackReason.stage}:${fallbackReason.elapsedMs}ms`
-            : null,
-        }),
+        playlistExecutionTrace: successExecutionTrace,
       };
       endAuditResponseProfile();
       const endAuditJsonProfile = liveStageProfiler.start("controller.responseJson.auditSlim", `${finalApiTracks.length} tracks`);
@@ -13473,21 +13597,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           }
         : null,
       v3Diagnostics: v3DiagnosticsWithIntentSurvival,
-      playlistExecutionTrace: resolveSuccessExecutionTrace({
-        requestId,
-        prompt: vibe,
-        seed: generationSeed,
-        humanSaveable: (() => {
-          const gate = (fallbackBypassGate ?? v3DiagnosticsWithIntentSurvival?.humanSaveabilityGate) as Record<string, unknown> | undefined;
-          return gate?.humanSaveable === true || gate?.passed === true;
-        })(),
-        finalTrackCount: deliveredTracks.length,
-        v3Diagnostics: v3DiagnosticsWithIntentSurvival as Record<string, unknown>,
-        fastFallback: !!pipeline.scoringDiagnostics?.fastFallback,
-        fallbackDetail: fallbackReason
-          ? `${fallbackReason.stage}:${fallbackReason.elapsedMs}ms`
-          : null,
-      }),
+      playlistExecutionTrace: successExecutionTrace,
       ...(pipeline.scoringDiagnostics?.fastFallback
         ? {
             fastFallback: true,
@@ -13602,7 +13712,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       requestId: requestId || undefined,
     });
     req.log.error(
-      { err: fatalErr?.message, code: "INTERNAL_ERROR", userId: sessionUserId },
+      { err: fatalErr?.message, code: "INTERNAL_ERROR", userId: sessionUserId ? hashedIdTag(sessionUserId) : undefined },
       "Unhandled error in /generate"
     );
     const sessionWasCancelled = sessionUserId && requestId
@@ -13832,6 +13942,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         timeoutOccurred: timedOut,
       }));
     }
+  } finally {
+    emitGenerateComplete(req, req.log);
   }
 });
 

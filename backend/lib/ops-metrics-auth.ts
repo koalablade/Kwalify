@@ -9,7 +9,10 @@ function requestHeader(req: Request, name: string): string | undefined {
 export function opsMetricsTokenAuthorized(req: Request): boolean {
   const expected = process.env["OPS_METRICS_TOKEN"]?.trim();
   if (!expected) return false;
-  const token = requestHeader(req, "x-ops-metrics-token");
-  if (!token?.trim()) return false;
-  return safeTokenEqual(token.trim(), expected);
+  const headerToken = requestHeader(req, "x-ops-metrics-token");
+  const queryOps = typeof req.query.ops === "string" ? req.query.ops : undefined;
+  const queryToken = typeof req.query.token === "string" ? req.query.token : undefined;
+  const token = headerToken?.trim() || queryOps?.trim() || queryToken?.trim();
+  if (!token) return false;
+  return safeTokenEqual(token, expected);
 }

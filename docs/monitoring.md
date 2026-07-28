@@ -11,7 +11,9 @@ Kwalify emits structured ops metrics without requiring a specific vendor. Wire y
 - `generateQueue` — active, queued, limits, average latency
 - `alerts` — recent alert events (max 50)
 
-In production this endpoint requires `x-kwalify-evaluation-token` (same as eval/audit mode).
+In production this endpoint requires `OPS_METRICS_TOKEN` via header `x-ops-metrics-token` or query `?token=`.
+
+For a public aggregate snapshot (no token), use `GET /api/ops/summary` — used by `/status`.
 
 ## Structured log alerts
 
@@ -42,4 +44,4 @@ Env thresholds:
 
 ## Self-host spot checks
 
-After `start.bat`, confirm `/api/readyz` on https://kwalify.net and spot-check `/api/ops/metrics` with eval token after a busy period.
+After `start.bat`, confirm `/api/readyz` on https://kwalify.net and spot-check `/api/ops/summary` (or `/api/ops/metrics` with `OPS_METRICS_TOKEN`) after a busy period.

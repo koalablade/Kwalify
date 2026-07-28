@@ -4,6 +4,7 @@ initTheme();
 const root = document.getElementById("statusRoot");
 let statusRefreshTimer = null;
 const isLocalHost = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+const opsToken = new URLSearchParams(location.search).get("ops")?.trim() || "";
 
 function clearStatusRefresh() {
   if (statusRefreshTimer) {
@@ -12,10 +13,11 @@ function clearStatusRefresh() {
   }
 }
 
-function scheduleStatusRefresh(ready) {
+function scheduleStatusRefresh(ready, opsMode) {
   clearStatusRefresh();
-  if (!ready) {
-    statusRefreshTimer = setTimeout(() => boot(true), 10_000);
+  const interval = opsMode ? 30_000 : ready ? 0 : 10_000;
+  if (interval > 0) {
+    statusRefreshTimer = setTimeout(() => boot(true), interval);
   }
 }
 
@@ -45,7 +47,86 @@ async function fetchReady() {
   }
 }
 
-function render({ httpOk, data }) {
+async function fetchOpsMetrics() {
+  if (!opsToken) return { ok: false, data: null };
+  try {
+    const result = await apiJson(`/ops/metrics?ops=${encodeURIComponent(opsToken)}`, {
+      timeoutMs: 8000,
+      headers: { "x-ops-metrics-token": opsToken },
+    });
+    return { ok: result.ok, data: result.data };
+  } catch (err) {
+    return { ok: false, data: { error: err?.message || "Network error" } };
+  }
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return "—";
+  const mb = bytes / (1024 * 1024);
+  return `${mb.toFixed(1)} MB`;
+}
+
+function opsMetricsHtml(opsPayload) {
+  if (!opsToken) return "";
+  if (!opsPayload?.ok) {
+    return `
+    <div class="status-card">
+      <div class="status-card-head">Ops metrics ${statusLabel(false, "Enabled", "Unavailable")}</div>
+      <p>Could not load ops metrics. Check <code>OPS_METRICS_TOKEN</code> matches the <code>?ops=</code> query param.</p>
+    </div>`;
+  }
+
+  const data = opsPayload.data ?? {};
+  const queue = data.generateQueue;
+  const extended = data.extended ?? {};
+  const cache = extended.sessionSnapshotCache ?? {};
+  const cacheTotal = (cache.hits ?? 0) + (cache.misses ?? 0);
+  const cacheHitRate = cacheTotal > 0 ? Math.round((cache.hits / cacheTotal) * 100) : null;
+  const spotify = extended.spotifyApi ?? {};
+  const phases = extended.generationPhases ?? {};
+  const totalPhase = extended.generationPhases?.byPhase?.["generate.total"] ?? phases;
+  const outcomes = extended.generateOutcomes ?? {};
+  const memory = extended.memory ?? {};
+  const errors5xx = extended.response5xx ?? {};
+
+  return `
+  <h2 class="vibe-heading" style="margin-top:2rem;font-size:1.25rem;">Ops metrics</h2>
+  <p class="vibe-sub">Token-gated snapshot. Refreshes every 30s.</p>
+  <div class="status-grid">
+    <div class="status-card">
+      <div class="status-card-head">Generation queue</div>
+      <p>Active: <strong>${esc(String(queue?.active ?? "—"))}</strong> · Queued: <strong>${esc(String(queue?.queued ?? "—"))}</strong></p>
+      <p>Avg latency: <strong>${esc(String(queue?.averageLatencyMs ?? "—"))} ms</strong></p>
+    </div>
+    <div class="status-card">
+      <div class="status-card-head">Generation timing</div>
+      <p>p50: <strong>${esc(String(totalPhase?.p50Ms ?? phases.p50Ms ?? "—"))} ms</strong></p>
+      <p>p95: <strong>${esc(String(totalPhase?.p95Ms ?? phases.p95Ms ?? "—"))} ms</strong></p>
+    </div>
+    <div class="status-card">
+      <div class="status-card-head">Outcomes (1h)</div>
+      <p>Success: <strong>${esc(String(outcomes.successLastHour ?? 0))}</strong> · Failure: <strong>${esc(String(outcomes.failureLastHour ?? 0))}</strong></p>
+      <p>5xx: <strong>${esc(String(errors5xx.lastHour ?? 0))}</strong> (total ${esc(String(errors5xx.total ?? 0))})</p>
+    </div>
+    <div class="status-card">
+      <div class="status-card-head">Memory</div>
+      <p>Heap: <strong>${formatBytes(memory.heapUsed)}</strong> / ${formatBytes(memory.heapTotal)}</p>
+      <p>RSS: <strong>${formatBytes(memory.rss)}</strong></p>
+    </div>
+    <div class="status-card">
+      <div class="status-card-head">Spotify API</div>
+      <p>Requests: <strong>${esc(String(spotify.totalRequests ?? 0))}</strong></p>
+      <p>Failures: <strong>${esc(String(spotify.failures ?? 0))}</strong> · Rate limits: <strong>${esc(String(spotify.rateLimitResponses ?? 0))}</strong></p>
+    </div>
+    <div class="status-card">
+      <div class="status-card-head">Cache & traffic</div>
+      <p>Session cache hit rate: <strong>${esc(String(cacheHitRate != null ? `${cacheHitRate}%` : "—"))}</strong></p>
+      <p>Requests/min: <strong>${esc(String(extended.requestsPerMinute ?? "—"))}</strong></p>
+    </div>
+  </div>`;
+}
+
+function render({ httpOk, data, opsPayload }) {
   const ready = data?.status === "ready" || data?.readiness === "ready";
   const checks = data?.checks || {};
   const db = checks.databaseAvailable === true;
@@ -91,6 +172,8 @@ function render({ httpOk, data }) {
       </div>
     </div>
 
+    ${opsMetricsHtml(opsPayload)}
+
     <div class="status-meta">
       <div>Uptime: <strong>${esc(uptime)}</strong></div>
       <div>Build: <strong>${esc(commit)}</strong></div>
@@ -113,9 +196,10 @@ async function boot(silent = false) {
     root.innerHTML = `${navHtml()}<div class="loading-shell"><div class="spinner"></div><span>Checking status…</span></div>`;
   }
   const payload = await fetchReady();
+  const opsPayload = opsToken ? await fetchOpsMetrics() : null;
   const ready = payload.data?.status === "ready" || payload.data?.readiness === "ready";
-  render(payload);
-  scheduleStatusRefresh(ready);
+  render({ ...payload, opsPayload });
+  scheduleStatusRefresh(ready, !!opsToken);
 }
 
 boot();

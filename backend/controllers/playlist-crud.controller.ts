@@ -21,6 +21,8 @@ import { markGenerateResultCacheStale } from "../lib/generate-result-cache";
 import { recordSceneFeedbackDown } from "../lib/scene-feedback-memory";
 import { checkRateLimit } from "../lib/rate-limit";
 import { sendApiError } from "../lib/api-error-envelope";
+import { recordUserFeedbackEvent } from "../lib/ops-metrics";
+import { hashedIdTag } from "../lib/pii";
 import type { Request, Response } from "express";
 
 const router: IRouter = Router();
@@ -442,6 +444,40 @@ router.post("/playlists/:id/feedback", async (req, res): Promise<void> => {
   }
 });
 
+const UserFeedbackBodySchema = z.object({
+  type: z.enum(["save", "skip", "regenerate"]),
+  requestId: z.string().min(1).max(120).optional(),
+  playlistId: z.union([z.number(), z.string()]).optional(),
+});
+
+router.post("/feedback", async (req, res): Promise<void> => {
+  if (!req.session.spotifyUserId) {
+    apiErr(res, req, 401, "NOT_AUTHENTICATED", "Not authenticated");
+    return;
+  }
+
+  const parsed = UserFeedbackBodySchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    apiErr(res, req, 400, "INVALID_FEEDBACK", `Invalid feedback payload. ${parsed.error.message}`);
+    return;
+  }
+
+  const userId = req.session.spotifyUserId;
+  const playlistId = parsed.data.playlistId != null ? String(parsed.data.playlistId) : undefined;
+  recordUserFeedbackEvent();
+  req.log.info(
+    {
+      event: "user_feedback",
+      type: parsed.data.type,
+      requestId: parsed.data.requestId ?? String(req.id),
+      playlistId: playlistId ?? null,
+      userId: hashedIdTag(userId),
+    },
+    "user_feedback",
+  );
+  res.json({ success: true });
+});
+
 router.post("/feedback/track", async (req, res): Promise<void> => {
   if (!req.session.spotifyUserId) {
     apiErr(res, req, 401, "NOT_AUTHENTICATED", "Not authenticated");
@@ -484,6 +520,25 @@ router.post("/feedback/track", async (req, res): Promise<void> => {
         bridgeGenre: parsed.data.bridgeGenre ?? null,
       });
     }
+    const feedbackType =
+      action === "save" || action === "like" ? "save"
+      : action === "skip" ? "skip"
+      : action;
+    recordUserFeedbackEvent();
+    req.log.info(
+      {
+        event: "user_feedback",
+        type: feedbackType,
+        requestId:
+          typeof parsed.data.context?.requestId === "string"
+            ? parsed.data.context.requestId
+            : String(req.id),
+        playlistId: parsed.data.playlistId ?? null,
+        trackId: track.trackId,
+        userId: hashedIdTag(userId),
+      },
+      "user_feedback",
+    );
     markGenerateResultCacheStale(userId, parsed.data.playlistId);
     res.json({ success: true, feedbackMemory: memory });
   } catch (err: any) {
