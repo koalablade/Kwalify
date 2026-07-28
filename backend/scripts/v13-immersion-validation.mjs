@@ -13,7 +13,6 @@ import {
 import { artistForbiddenInWorld } from "../dist/core/editorial/artist-identity-map.js";
 import { enforceThesisOpener } from "../dist/core/editorial/thesis-opener-gate.js";
 import { applyWorldPurityGate } from "../dist/core/editorial/world-purity-gate.js";
-import { applyWorldPurityGate } from "../dist/core/editorial/world-purity-gate.js";
 
 const PROMPTS = [
   { id: "motorway_rain", prompt: "empty motorway at midnight rain on the windscreen" },
