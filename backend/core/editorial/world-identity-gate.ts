@@ -196,6 +196,16 @@ export const SAFETY_BLANKET_ARTISTS: SafetyBlanketArtist[] = [
       "film_ending_world",
     ],
   },
+  {
+    id: "jake_bugg",
+    pattern: /\bjake\s+bugg\b/i,
+    naturalWorlds: ["indie_dream_world", "nostalgia_warm_world", "britpop_world"],
+  },
+  {
+    id: "the_killers",
+    pattern: /\bthe\s+killers\b/i,
+    naturalWorlds: ["nostalgia_warm_world", "older_sibling_world", "britpop_world"],
+  },
 ];
 
 /** Worlds that must never use classic safety blankets as filler. */
@@ -335,7 +345,7 @@ const ANGRY_ROCK_IDENTITY: WorldIdentityProfile = {
     /\b(?:rage\s+against|system\s+of\s+a\s+down|slipknot|metallica|tool\b|nine\s+inch|foo\s+fighters|queens?\s+of\s+the\s+stone|disturbed|godsmack|offspring|green\s+day|ac\/?dc|paramore|guns\s+n'?\s*roses)\b/i,
   ],
   rejectAny: [
-    /\b(?:disco|dance\s*pop|house\b|edm\b|uk\s*garage|soft\s*rock|yacht\s*rock|folk\b|country|latin|glam\s*rock|ballad|acoustic|interlude|the\s+only\s+exception|not\s+angry\s+anymore)\b/i,
+    /\b(?:disco|dance\s*pop|house\b|edm\b|uk\s*garage|soft\s*rock|yacht\s*rock|folk\b|country|latin|glam\s*rock|ballad|acoustic|interlude|the\s+only\s+exception|not\s+angry\s+anymore|hard\s+times)\b/i,
     /\b(?:blondie|fleetwood\s+mac|led\s+zeppelin|storm\s+queen|bee\s+gees|abba|men\s+at\s+work|journey|craig\s+david|hannah\s+laing|scooter)\b|(?<!\bstorm\s)\bqueen\b(?!\s+of\s+the\s+stone)/i,
   ],
   energy: { min: 0.58 },
@@ -431,7 +441,7 @@ const RAINY_DRIVE_IDENTITY: WorldIdentityProfile = {
   ],
   rejectAny: [
     /\b(?:hip[-\s]?hop|rap\b|trap\b|drill\b|metal|hard\s+rock|classic\s+rock|arena\s+rock|country|bluegrass|party\s+anthem|edm\b|trance|hardstyle|big\s+room|festival\s+edm|brostep|dubstep|uk\s*garage)\b/i,
-    /\b(?:queen\b(?!\s+of\s+the\s+stone)|blondie|fleetwood\s+mac|led\s+zeppelin|ac\/?dc|dmx\b|highwaymen|johnny\s+cash|storm\s+queen|joel\s+corry|tiesto|tiësto|meat\s+loaf|joyner\s+lucas|drake\b|travis\s+scott|french\s+montana|suzi\s+quatro)\b/i,
+    /\b(?:queen\b(?!\s+of\s+the\s+stone)|blondie|fleetwood\s+mac|led\s+zeppelin|ac\/?dc|dmx\b|highwaymen|johnny\s+cash|storm\s+queen|joel\s+corry|tiesto|tiësto|meat\s+loaf|joyner\s+lucas|drake\b|travis\s+scott|french\s+montana|suzi\s+quatro|jake\s+bugg|the\s+killers)\b/i,
   ],
   energy: { max: 0.72 },
   valence: { max: 0.62 },
@@ -752,6 +762,7 @@ const YACHT_ROCK_IDENTITY: WorldIdentityProfile = {
   rejectAny: [
     /\b(?:trap\b|drill\b|metal|hardcore|hyperpop|phonk|emo|screamo)\b/i,
     /\b(?:bon\s+iver|clairo|noah\s+kahan|dayglow|gregory\s+alan\s+isakov|badbadnotgood|sufjan\s+stevens|phoebe\s+bridgers)\b/i,
+    /\b(?:arctic\s+monkeys|kasabian|the\s+killers|franz\s+ferdinand|vampire\s+weekend|mgmt|the\s+strokes|oasis|blur)\b/i,
   ],
   energy: { min: 0.35, max: 0.78 },
   valence: { min: 0.35 },
@@ -1267,8 +1278,11 @@ export function demoteOpenerFillerTracks<T extends { artistName?: string | null;
     if (maxOpeners <= 0) {
       for (let i = 0; i < limit; i++) {
         const artist = String(out[i]!.artistName ?? out[i]!.artist ?? "").trim();
-        if (!artist || !OPENER_FILLER_PATTERN.test(artist)) continue;
-        if (!isSafetyBlanketOutsideWorld(artist, activeWorldIds)) continue;
+        if (!artist) continue;
+        const outsideBlanket = isSafetyBlanketOutsideWorld(artist, activeWorldIds);
+        const psychFiller =
+          OPENER_FILLER_PATTERN.test(artist) && outsideBlanket;
+        if (!outsideBlanket && !psychFiller) continue;
         const [track] = out.splice(i, 1);
         if (track) {
           out.push(track);

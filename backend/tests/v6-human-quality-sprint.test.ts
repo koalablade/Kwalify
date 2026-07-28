@@ -210,4 +210,111 @@ describe("V6 human quality sprint", () => {
     assert.equal(result.action, "honest_partial");
     assert.ok(result.salvageableCount <= 12);
   });
+
+  it("intent fidelity rejects Jake Bugg commentary opener on rainy motorway", () => {
+    const committed = resolveCommittedWorld({
+      prompt: "empty motorway at midnight, rain on the windscreen",
+    })!;
+    const result = evaluateIntentFidelity({
+      committed,
+      prompt: "empty motorway at midnight, rain on the windscreen",
+      requestedLength: 25,
+      tracks: [
+        {
+          trackId: "1",
+          trackName: "Two Fingers - Commentary",
+          artistName: "Jake Bugg",
+          genreFamily: "indie",
+          energy: 0.52,
+        },
+        { trackId: "2", trackName: "Intro", artistName: "The xx", genreFamily: "electronic", energy: 0.4 },
+        { trackId: "3", trackName: "Nightcall", artistName: "Kavinsky", genreFamily: "electronic", energy: 0.55 },
+      ],
+    });
+    assert.equal(result.openerPassed, false);
+    assert.ok(result.openerFailures.some((f) => /jake bugg/i.test(f)));
+  });
+
+  it("intent fidelity rejects Killers opener on rainy motorway hard lock", () => {
+    const committed = resolveCommittedWorld({
+      prompt: "empty motorway at midnight, rain on the windscreen",
+    })!;
+    assert.equal(isSafetyBlanketOutsideWorld("The Killers", committed.worldIds), true);
+    const result = evaluateIntentFidelity({
+      committed,
+      prompt: "empty motorway at midnight, rain on the windscreen",
+      requestedLength: 25,
+      tracks: [
+        { trackId: "1", trackName: "Mr. Brightside", artistName: "The Killers", genreFamily: "rock", energy: 0.88 },
+        { trackId: "2", trackName: "Intro", artistName: "Massive Attack", genreFamily: "electronic", energy: 0.42 },
+        { trackId: "3", trackName: "Nightcall", artistName: "Kavinsky", genreFamily: "electronic", energy: 0.55 },
+      ],
+    });
+    assert.equal(result.openerPassed, false);
+  });
+
+  it("intent fidelity rejects Paramore Hard Times on aggressive gym lock", () => {
+    const committed = resolveCommittedWorld({ prompt: "heavy gym workout, aggressive" })!;
+    const result = evaluateIntentFidelity({
+      committed,
+      prompt: "heavy gym workout, aggressive",
+      requestedLength: 25,
+      tracks: [
+        { trackId: "1", trackName: "Back In Black", artistName: "AC/DC", genreFamily: "rock", energy: 0.92 },
+        { trackId: "2", trackName: "Hard Times", artistName: "Paramore", genreFamily: "rock", energy: 0.74 },
+        { trackId: "3", trackName: "Killing In The Name", artistName: "Rage Against The Machine", genreFamily: "rock", energy: 0.88 },
+      ],
+    });
+    assert.equal(result.openerPassed, false);
+    assert.ok(result.sampleFailures.some((f) => /hard times/i.test(f)) || result.openerFailures.some((f) => /hard times/i.test(f)));
+  });
+
+  it("intent fidelity tail check caps yacht rock when later tracks drift off-world", () => {
+    const committed = resolveCommittedWorld({ prompt: "yacht rock sunset by the pool" })!;
+    const yachtTrack = (id: string, artist: string, title: string) => ({
+      trackId: id,
+      trackName: title,
+      artistName: artist,
+      genreFamily: "rock",
+      spotifyArtistGenres: ["yacht rock", "soft rock"],
+      energy: 0.58,
+      valence: 0.62,
+    });
+    const indieDrift = (id: string) => ({
+      trackId: id,
+      trackName: "Do I Wanna Know?",
+      artistName: "Arctic Monkeys",
+      genreFamily: "indie",
+      spotifyArtistGenres: ["indie rock"],
+      energy: 0.62,
+      valence: 0.45,
+    });
+    const tracks = [
+      yachtTrack("1", "Toto", "Africa"),
+      yachtTrack("2", "Hall & Oates", "You Make My Dreams"),
+      yachtTrack("3", "Christopher Cross", "Sailing"),
+      yachtTrack("4", "Steely Dan", "Reelin' In the Years"),
+      yachtTrack("5", "Michael McDonald", "I Keep Forgettin'"),
+      yachtTrack("6", "Player", "Baby Come Back"),
+      yachtTrack("7", "Toto", "Rosanna"),
+      indieDrift("8"),
+      indieDrift("9"),
+      indieDrift("10"),
+      indieDrift("11"),
+      indieDrift("12"),
+      yachtTrack("13", "Ambrosia", "Biggest Part of Me"),
+      indieDrift("14"),
+      indieDrift("15"),
+      indieDrift("16"),
+      indieDrift("17"),
+    ];
+    const result = evaluateIntentFidelity({
+      committed,
+      prompt: "yacht rock sunset by the pool",
+      requestedLength: 25,
+      tracks,
+    });
+    assert.ok(result.tailFailures.length >= 1);
+    assert.equal(result.passed, false);
+  });
 });

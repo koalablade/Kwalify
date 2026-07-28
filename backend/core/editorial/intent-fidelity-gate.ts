@@ -35,6 +35,7 @@ export type IntentFidelityResult = {
   fidelityScore: number;
   openerFailures: string[];
   sampleFailures: string[];
+  tailFailures: string[];
   worldVerifiedCount: number;
   salvageableTracks: IntentFidelityTrack[];
   honestPartialCap: number;
@@ -49,6 +50,13 @@ const GYM_WORLD_IDS = new Set([
 
 const OPENER_SLOTS = 3;
 const SAMPLE_INDICES = [0, 1, 2, 4, 9];
+/** Worlds where mid/late playlist drift must trigger honest partial. */
+const TAIL_COHERENCE_WORLDS = new Set([
+  "yacht_rock_world",
+  "dad_secret_world",
+  "classic_rock_world",
+]);
+const TAIL_SAMPLE_INDICES = [6, 11, 16];
 
 function trackLabel(track: IntentFidelityTrack): string {
   const artist = track.artistName?.trim() || "?";
@@ -105,13 +113,28 @@ function gymEnergyOk(track: IntentFidelityTrack, worldIds: string[]): boolean {
   return energy >= minEnergy;
 }
 
-function openerTitleRejected(track: IntentFidelityTrack, worldIds: string[]): boolean {
+const ALTERNATE_VERSION_TITLE =
+  /\b(?:commentary|commentaries|rehearsal|soundcheck|karaoke|instrumental\s+version|live\s+(?:at|from|version|recording)|acoustic\s+version|demo\s+version|unplugged|making\s+of|track\s+by\s+track|interview)\b/i;
+
+function alternateVersionTitleRejected(track: IntentFidelityTrack): boolean {
   const title = String(track.trackName ?? "").trim();
-  if (!title) return false;
-  const driveWorld = worldIds.some((id) => id === "rainy_drive_world" || id === "night_drive_world");
-  const gymWorld = worldIds.some((id) => GYM_WORLD_IDS.has(id));
-  if (!driveWorld && !gymWorld) return false;
-  return /\b(?:commentary|commentaries|rehearsal|soundcheck|karaoke|instrumental\s+version)\b/i.test(title);
+  return !!title && ALTERNATE_VERSION_TITLE.test(title);
+}
+
+function gymSoftTrackRejected(track: IntentFidelityTrack, worldIds: string[]): boolean {
+  if (!worldIds.some((id) => id === "angry_rock_world" || id === "gym_rock_world")) return false;
+  const title = String(track.trackName ?? "").toLowerCase();
+  const artist = String(track.artistName ?? "").toLowerCase();
+  if (!artist || !title) return false;
+  if (/\bparamore\b/.test(artist) && /\b(?:hard\s+times|the\s+only\s+exception)\b/.test(title)) return true;
+  return false;
+}
+
+function trackRejectedForWorld(
+  track: IntentFidelityTrack,
+  worldIds: string[],
+): boolean {
+  return alternateVersionTitleRejected(track) || gymSoftTrackRejected(track, worldIds);
 }
 
 export function evaluateIntentFidelity(opts: {
@@ -130,6 +153,7 @@ export function evaluateIntentFidelity(opts: {
       fidelityScore: tracks.length > 0 ? 0.5 : 0,
       openerFailures: [],
       sampleFailures: [],
+      tailFailures: [],
       worldVerifiedCount: tracks.length,
       salvageableTracks: tracks,
       honestPartialCap,
@@ -142,10 +166,17 @@ export function evaluateIntentFidelity(opts: {
 
   const openerFailures: string[] = [];
   const sampleFailures: string[] = [];
+  const tailFailures: string[] = [];
+  const needsTailCoherence = worldIds.some((id) => TAIL_COHERENCE_WORLDS.has(id));
+
+  const trackFailsFidelity = (track: IntentFidelityTrack): boolean =>
+    !trackPasses(track, profiles, hardLock, worldIds) ||
+    !gymEnergyOk(track, worldIds) ||
+    trackRejectedForWorld(track, worldIds);
 
   for (let i = 0; i < Math.min(OPENER_SLOTS, tracks.length); i++) {
     const track = tracks[i]!;
-    if (!trackPasses(track, profiles, hardLock, worldIds) || !gymEnergyOk(track, worldIds) || openerTitleRejected(track, worldIds)) {
+    if (trackFailsFidelity(track)) {
       openerFailures.push(trackLabel(track));
     }
   }
@@ -153,19 +184,37 @@ export function evaluateIntentFidelity(opts: {
   for (const idx of SAMPLE_INDICES) {
     if (idx >= tracks.length) continue;
     const track = tracks[idx]!;
-    if (!trackPasses(track, profiles, hardLock, worldIds) || !gymEnergyOk(track, worldIds) || openerTitleRejected(track, worldIds)) {
+    if (trackFailsFidelity(track)) {
       sampleFailures.push(trackLabel(track));
     }
   }
 
+  if (needsTailCoherence) {
+    for (const idx of TAIL_SAMPLE_INDICES) {
+      if (idx >= tracks.length) continue;
+      const track = tracks[idx]!;
+      if (trackFailsFidelity(track)) {
+        tailFailures.push(trackLabel(track));
+      }
+    }
+  }
+
   const verified = tracks.filter(
-    (t) => trackPasses(t, profiles, hardLock, worldIds) && gymEnergyOk(t, worldIds),
+    (t) =>
+      trackPasses(t, profiles, hardLock, worldIds) &&
+      gymEnergyOk(t, worldIds) &&
+      !trackRejectedForWorld(t, worldIds),
   );
   const openerPassed = openerFailures.length === 0;
   const samplePassRate =
     SAMPLE_INDICES.filter((i) => i < tracks.length).length > 0
       ? 1 - sampleFailures.length / SAMPLE_INDICES.filter((i) => i < tracks.length).length
       : 1;
+  const tailSampleCount = needsTailCoherence
+    ? TAIL_SAMPLE_INDICES.filter((i) => i < tracks.length).length
+    : 0;
+  const tailPassRate =
+    tailSampleCount > 0 ? 1 - tailFailures.length / tailSampleCount : 1;
   const verifiedShare = tracks.length > 0 ? verified.length / tracks.length : 0;
   const fidelityScore = openerPassed
     ? verifiedShare * 0.6 + samplePassRate * 0.4
@@ -173,7 +222,10 @@ export function evaluateIntentFidelity(opts: {
 
   const passed =
     !hardLock ||
-    (openerPassed && verifiedShare >= 0.55 && samplePassRate >= 0.6);
+    (openerPassed &&
+      verifiedShare >= 0.55 &&
+      samplePassRate >= 0.6 &&
+      tailPassRate >= 0.67);
 
   const salvageableTracks =
     verified.length >= 3
@@ -186,6 +238,7 @@ export function evaluateIntentFidelity(opts: {
     fidelityScore,
     openerFailures,
     sampleFailures,
+    tailFailures,
     worldVerifiedCount: verified.length,
     salvageableTracks,
     honestPartialCap,
