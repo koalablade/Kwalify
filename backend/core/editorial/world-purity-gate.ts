@@ -1,20 +1,28 @@
 /**
- * V14 world purity gate — full-playlist immersion after thesis opener.
- * Stricter position-tiered thresholds, no backfill, honest partial with coverage caps.
+ * V15 world purity gate — full-playlist immersion after thesis opener.
+ * Position-tiered thresholds, shorten-not-corrupt first five, honest partial with coverage caps.
  */
 
 import type { CommittedWorld } from "../committed-world";
 import type { CulturalWorldProfile } from "./cultural-identity-profile";
 import { matchesAvoidArtist } from "./cultural-identity-profile";
-import type { CoverageLevel } from "./world-coverage";
-import { coverageLevelToMaxTracks, coverageUserMessage } from "./world-coverage";
+import type { CoverageLevel, CoverageTier } from "./world-coverage";
+import {
+  buildDeliveryMessage,
+  coverageLevelToMaxTracks,
+  coverageUserMessage,
+  getDeliveryCap,
+  coverageLevelToDeliveryTier,
+} from "./world-coverage";
 import { recordRetrievalRejection } from "./retrieval-rejection-trace";
 import {
   resolveCulturalProfileForCommitted,
   scoreTrackWorldIdentity,
+  isAnchorArtistForProfile,
   type WorldIdentityTrack,
 } from "./world-identity-score";
 import { sequenceAfterPurityFilter } from "./world-sequencer";
+import { selectThesisOpener } from "./thesis-opener-gate";
 
 /** Checkpoint indices (0-based): tracks 1, 2, 5, 10, 15 */
 export const WORLD_PURITY_CHECKPOINT_INDICES = [0, 1, 4, 9, 14] as const;
@@ -27,13 +35,15 @@ export type WorldPurityResult = {
   wouldStillBelieve: boolean;
   honestPartial: boolean;
   coverageMessage: string | null;
+  deliveryMessage: string | null;
   salvageableCount: number;
 };
 
-/** V14 position-tier purity threshold (0–100): T1-2 95+, T3-5 90+, T6-10 85+, T11+ 80+. */
+/** V15 position-tier purity threshold (0–100): T1 95+, T2-3 90+, T4-5 85+, T6-10 85+, T11+ 80+. */
 export function worldPurityThresholdForPosition(position: number): number {
-  if (position <= 1) return 95;
-  if (position <= 4) return 90;
+  if (position === 0) return 95;
+  if (position <= 2) return 90;
+  if (position <= 4) return 85;
   if (position <= 9) return 85;
   return 80;
 }
@@ -47,12 +57,21 @@ export function trackPassesWorldPurity(
   track: WorldIdentityTrack,
   profile: CulturalWorldProfile,
   position: number,
+  opts?: { isThesisOpener?: boolean },
 ): boolean {
   const artist = String(track.artistName ?? "").trim();
   if (artist && matchesAvoidArtist(artist, profile)) return false;
 
+  const score = scoreTrackPurityPercent(track, profile);
+  const isAnchor = artist ? isAnchorArtistForProfile(artist, profile) : false;
+
+  // V15 thesis fallback: track 1 anchor always passes even when below 95
+  if (position === 0 && (opts?.isThesisOpener || isAnchor)) {
+    return score >= Math.round((profile.openerRules.minWorldIdentityScore ?? 0.8) * 100);
+  }
+
   const threshold = worldPurityThresholdForPosition(position);
-  return scoreTrackPurityPercent(track, profile) >= threshold;
+  return score >= threshold;
 }
 
 /** Human listener simulation — curator belief at checkpoints. */
@@ -71,7 +90,12 @@ export function wouldStillBelieveSameCurator(
     if (idx >= tracks.length) continue;
     const track = tracks[idx]!;
     const score = scoreTrackPurityPercent(track, profile);
-    const threshold = worldPurityThresholdForPosition(idx);
+    const isThesis = idx === 0;
+    const isAnchor = isAnchorArtistForProfile(track.artistName, profile);
+    const threshold =
+      isThesis && isAnchor
+        ? Math.round((profile.openerRules.minWorldIdentityScore ?? 0.8) * 100)
+        : worldPurityThresholdForPosition(idx);
     if (score < threshold) {
       failures.push(
         `checkpoint_${idx + 1}:${track.artistName ?? "?"} — ${track.trackName ?? "?"}:${score}<${threshold}`,
@@ -81,7 +105,7 @@ export function wouldStillBelieveSameCurator(
   return { believe: failures.length === 0, failures };
 }
 
-/** Remove tracks failing position-tier purity — no backfill. */
+/** Remove tracks failing position-tier purity — no backfill, shorten-not-corrupt. */
 export function filterByWorldPurity<T extends WorldIdentityTrack>(
   tracks: T[],
   committed: CommittedWorld | null,
@@ -92,13 +116,18 @@ export function filterByWorldPurity<T extends WorldIdentityTrack>(
   const profile = resolveCulturalProfileForCommitted(committed);
   if (!profile) return { tracks, removed: 0, removedReasons: [] };
 
+  const thesis = selectThesisOpener(tracks, profile);
+  const thesisKey = thesis ? `${thesis.track.artistName}|${thesis.track.trackName}` : null;
+
   const kept: T[] = [];
   const removedReasons: string[] = [];
   let removed = 0;
 
   for (let i = 0; i < tracks.length; i++) {
     const track = tracks[i]!;
-    if (trackPassesWorldPurity(track, profile, i)) {
+    const trackKey = `${track.artistName}|${track.trackName}`;
+    const isThesisOpener = i === 0 || (thesisKey != null && trackKey === thesisKey);
+    if (trackPassesWorldPurity(track, profile, i, { isThesisOpener })) {
       kept.push(track);
     } else {
       removed += 1;
@@ -141,7 +170,11 @@ export function stripFromCheckpointFailure<T extends WorldIdentityTrack>(
     if (idx >= tracks.length) continue;
     const track = tracks[idx]!;
     const score = scoreTrackPurityPercent(track, profile);
-    const threshold = worldPurityThresholdForPosition(idx);
+    const isAnchor = isAnchorArtistForProfile(track.artistName, profile);
+    const threshold =
+      idx === 0 && isAnchor
+        ? Math.round((profile.openerRules.minWorldIdentityScore ?? 0.8) * 100)
+        : worldPurityThresholdForPosition(idx);
     if (score < threshold) {
       cutIndex = Math.min(cutIndex, idx);
       break;
@@ -152,10 +185,13 @@ export function stripFromCheckpointFailure<T extends WorldIdentityTrack>(
   if (kept.length >= 3) {
     return { tracks: kept, stripped: tracks.length - kept.length, failures: belief.failures };
   }
+  if (kept.length > 0) {
+    return { tracks: kept, stripped: tracks.length - kept.length, failures: belief.failures };
+  }
   return { tracks, stripped: 0, failures: belief.failures };
 }
 
-/** V14 final pass — purity filter, checkpoint strip, sequence, honest partial cap. */
+/** V15 final pass — purity filter, checkpoint strip, sequence, honest partial cap. */
 export function applyWorldPurityGate<T extends WorldIdentityTrack>(
   tracks: T[],
   committed: CommittedWorld | null,
@@ -163,11 +199,14 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
     prompt?: string;
     requestedLength?: number;
     coverageLevel?: CoverageLevel | null;
+    coverageTier?: CoverageTier | null;
     preserveOpener?: boolean;
   },
 ): WorldPurityResult & { tracks: T[] } {
   const requested = Math.max(1, opts?.requestedLength ?? 25);
   const coverageLevel = opts?.coverageLevel ?? null;
+  const coverageTier =
+    opts?.coverageTier ?? (coverageLevel != null ? coverageLevelToDeliveryTier(coverageLevel) : null);
 
   if (!committed?.hardLock || tracks.length === 0) {
     return {
@@ -178,6 +217,7 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
       wouldStillBelieve: true,
       honestPartial: false,
       coverageMessage: null,
+      deliveryMessage: null,
       salvageableCount: tracks.length,
     };
   }
@@ -192,6 +232,7 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
       wouldStillBelieve: true,
       honestPartial: false,
       coverageMessage: null,
+      deliveryMessage: null,
       salvageableCount: tracks.length,
     };
   }
@@ -201,6 +242,18 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
   const filtered = filterByWorldPurity(working, committed);
   if (filtered.removed > 0 && filtered.tracks.length > 0) {
     working = filtered.tracks;
+  } else if (filtered.removed > 0 && filtered.tracks.length === 0 && tracks.length > 0) {
+    const thesis = selectThesisOpener(tracks, profile);
+    if (thesis) {
+      const rest = tracks.filter(
+        (t) =>
+          `${t.artistName}|${t.trackName}` !== `${thesis.track.artistName}|${thesis.track.trackName}`,
+      );
+      const salvage = [thesis.track, ...rest].filter((t, i) =>
+        trackPassesWorldPurity(t, profile, i, { isThesisOpener: i === 0 }),
+      );
+      if (salvage.length > 0) working = salvage as T[];
+    }
   }
 
   const stripped = stripFromCheckpointFailure(working, committed, profile);
@@ -219,22 +272,29 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
   working = sequenced;
 
   const coverageCap =
-    coverageLevel != null
-      ? coverageLevelToMaxTracks(coverageLevel, requested)
-      : requested;
+    coverageTier != null
+      ? getDeliveryCap(coverageTier, requested)
+      : coverageLevel != null
+        ? coverageLevelToMaxTracks(coverageLevel, requested)
+        : requested;
   const honestPartial = working.length < requested;
   let salvageableCount = working.length;
-  if (working.length > coverageCap) {
+  if (working.length > coverageCap && coverageCap > 0) {
     salvageableCount = coverageCap;
     working = working.slice(0, coverageCap);
   }
 
+  const deliveryMessage =
+    honestPartial && working.length > 0
+      ? buildDeliveryMessage(working.length, coverageTier)
+      : null;
   const coverageMessage =
-    honestPartial && coverageLevel
+    deliveryMessage ??
+    (honestPartial && coverageLevel
       ? coverageUserMessage(coverageLevel)
       : honestPartial
         ? `Found ${working.length} track${working.length === 1 ? "" : "s"} that genuinely fit this world — publishing only those rather than padding with mismatched filler.`
-        : null;
+        : null);
 
   return {
     tracks: working,
@@ -244,6 +304,7 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
     wouldStillBelieve: belief.believe,
     honestPartial,
     coverageMessage,
-    salvageableCount,
+    deliveryMessage,
+    salvageableCount: Math.max(salvageableCount, working.length > 0 ? working.length : 0),
   };
 }

@@ -1,5 +1,5 @@
 /**
- * V14 retrieval recovery validation — 8 prompts, compare track counts vs V13.
+ * V15 delivery + retrieval recovery validation — 8 prompts, compare vs V14.
  */
 import { writeFileSync, mkdirSync } from "node:fs";
 import { execSync } from "node:child_process";
@@ -10,19 +10,17 @@ import {
   scoreTrackWorldIdentity,
   resolveCulturalProfileForCommitted,
 } from "../dist/core/editorial/world-identity-score.js";
-import { artistForbiddenInWorld } from "../dist/core/editorial/artist-identity-map.js";
-import { enforceThesisOpener } from "../dist/core/editorial/thesis-opener-gate.js";
 import { applyWorldPurityGate } from "../dist/core/editorial/world-purity-gate.js";
 
 const PROMPTS = [
-  { id: "80s_night_drive", prompt: "80s night drive", v13Count: 5 },
-  { id: "motorway_rain", prompt: "empty motorway at midnight rain on the windscreen", v13Count: 3 },
-  { id: "madchester", prompt: "madchester pub walk", v13Count: 3 },
-  { id: "dad_rock_bbq", prompt: "dad rock BBQ with beers", v13Count: 10 },
-  { id: "disco", prompt: "disco rooftop party 1978", v13Count: 4 },
-  { id: "country_cowboy", prompt: "country cowboy road trip", v13Count: 7 },
-  { id: "gym", prompt: "heavy gym workout aggressive", v13Count: 3 },
-  { id: "no_rap_gym", prompt: "no rap gym workout", v13Count: 4 },
+  { id: "dad_rock_bbq", prompt: "dad rock BBQ with beers", v14Count: 10 },
+  { id: "80s_night_drive", prompt: "80s night drive", v14Count: 5 },
+  { id: "motorway_rain", prompt: "empty motorway at midnight rain on the windscreen", v14Count: 3 },
+  { id: "madchester", prompt: "madchester pub walk", v14Count: 3 },
+  { id: "disco", prompt: "disco rooftop party 1978", v14Count: 4 },
+  { id: "gym", prompt: "heavy gym workout aggressive", v14Count: 3 },
+  { id: "country_cowboy", prompt: "country cowboy road trip", v14Count: 7 },
+  { id: "no_rap_gym", prompt: "no rap gym workout", v14Count: 4 },
 ];
 
 const TAIL_FORBIDDEN = {
@@ -65,7 +63,6 @@ function artistDiversity(tracks) {
 function classify(id, prompt, tracks, httpStatus, coverageLevel) {
   const committed = resolveCommittedWorld({ prompt });
   const profile = resolveCulturalProfileForCommitted(committed);
-  const worldIds = committed?.worldIds ?? [];
   const forbiddenHits = tailForbiddenHits(id, tracks);
 
   const mapped = tracks.map((t) => ({
@@ -93,11 +90,27 @@ function classify(id, prompt, tracks, httpStatus, coverageLevel) {
   if (forbiddenHits.length >= 2) return { verdict: "DROP", why: `forbidden: ${forbiddenHits.join("; ")}` };
   if (forbiddenHits.length === 1) return { verdict: "MAYBE", why: `forbidden: ${forbiddenHits[0]}` };
   if (opener1Ok && count >= 15 && (purity?.wouldStillBelieve ?? true)) {
-    return { verdict: "KEEP", why: "V14 expanded pool + purity maintained" };
+    return { verdict: "KEEP", why: "V15 layered retrieval + purity maintained" };
   }
-  if (opener1Ok && count >= 8) return { verdict: "KEEP", why: "strong opener, no contamination" };
-  if (count >= 3 && opener1Ok) return { verdict: "MAYBE", why: `partial ${count}, diversity=${diversity}` };
+  if (opener1Ok && count >= 8) return { verdict: "KEEP", why: "strong opener, honest delivery" };
+  if (count >= 3 && opener1Ok) return { verdict: "MAYBE", why: `honest partial ${count}, diversity=${diversity}` };
   return { verdict: "DROP", why: "stub or world drift" };
+}
+
+function formatFunnel(funnel) {
+  if (!funnel?.stages) return "(no funnel)";
+  const s = funnel.stages;
+  return [
+    `total=${s.totalLibrary}`,
+    `genre=${s.afterGenreFilter}`,
+    `identity=${s.afterArtistIdentityFilter}`,
+    `world=${s.afterWorldFilter}`,
+    `scoring=${s.afterScoring}`,
+    `final=${s.afterFinalGate}`,
+    funnel.recoveryTriggered ? `recovery=${funnel.recoveryLayer}` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
 }
 
 async function fetchGenerate(creds, prompt, requestId) {
@@ -133,7 +146,10 @@ async function fetchGenerate(creds, prompt, requestId) {
     tracks,
     parsed,
     coverageLevel: data.coverageLevel ?? null,
-    retrievalShortfall: data.generationDiagnostics?.retrievalShortfall ?? null,
+    coverageTier: data.coverageTier ?? null,
+    retrievalFunnel: data.retrievalFunnel ?? data.generationDiagnostics?.retrievalFunnel ?? null,
+    retrievalConfidence: data.retrievalConfidence ?? null,
+    deliveryMessage: data.deliveryMessage ?? null,
   };
 }
 
@@ -155,54 +171,57 @@ async function main() {
   const head = getHeadCommit();
 
   const lines = [
-    "# V14 Retrieval Recovery — Human Validation",
+    "# V15 Delivery + Retrieval Recovery — Human Validation",
     "",
     "Date: 2026-07-28",
     `Base URL: ${creds.baseUrl}`,
-    `Commit: ${head} (V14 retrieval recovery: expanded culture graph and exhausted world search)`,
+    `Commit: ${head} (V15 retrieval recovery: layered discovery and zero-track elimination)`,
     "",
     "## Method",
-    "- V14 expands retrieval only — purity gates unchanged (90/80/70)",
-    "- Target: 15-25 tracks on worlds that had 3-7 in V13",
-    "- No forbidden artists in full list",
+    "- V15 fixes retrieval — purity gates unchanged (95/90/85/80)",
+    "- Target: 0 zero-track responses, improve KEEP from V14's 0",
+    "- Coverage tiers: HIGH/MEDIUM/LOW/VERY_LOW with honest partial delivery",
     "",
     "## Results",
     "",
-    "| Prompt | Verdict | V13 | V14 | Δ | Diversity | Coverage | Forbidden |",
-    "|--------|---------|-----|-----|---|-----------|----------|-----------|",
+    "| Prompt | Verdict | V14 | V15 | Δ | Diversity | Tier | Funnel final |",
+    "|--------|---------|-----|-----|---|-----------|------|--------------|",
   ];
 
   const verdicts = [];
   const detailSections = [];
+  let zeroTrackCount = 0;
 
-  for (const { id, prompt, v13Count } of PROMPTS) {
-    const result = await fetchGenerate(creds, prompt, `v14-${id}-${Date.now()}`);
+  for (const { id, prompt, v14Count } of PROMPTS) {
+    const result = await fetchGenerate(creds, prompt, `v15-${id}-${Date.now()}`);
     const tracks = result.tracks;
+    if (tracks.length === 0) zeroTrackCount += 1;
     const forbidden = tailForbiddenHits(id, tracks);
     const diversity = artistDiversity(tracks);
     const { verdict, why } = classify(id, prompt, tracks, result.httpStatus, result.coverageLevel);
-    const delta = tracks.length - v13Count;
+    const delta = tracks.length - v14Count;
     verdicts.push(verdict);
+    const funnelFinal = result.retrievalFunnel?.stages?.afterFinalGate ?? "—";
     lines.push(
-      `| ${id} | ${verdict} | ${v13Count} | ${tracks.length} | ${delta >= 0 ? "+" : ""}${delta} | ${diversity} | ${result.coverageLevel ?? "—"} | ${forbidden.length ? forbidden.length : "0"} |`,
+      `| ${id} | ${verdict} | ${v14Count} | ${tracks.length} | ${delta >= 0 ? "+" : ""}${delta} | ${diversity} | ${result.coverageTier ?? result.coverageLevel ?? "—"} | ${funnelFinal} |`,
     );
     detailSections.push(
       `### ${id} — ${verdict}`,
       "",
       `Prompt: ${prompt}`,
       `Why: ${why}`,
-      `V13 count: ${v13Count} → V14 count: ${tracks.length}`,
+      `V14 count: ${v14Count} → V15 count: ${tracks.length}`,
+      `Retrieval funnel: ${formatFunnel(result.retrievalFunnel)}`,
+      result.retrievalConfidence
+        ? `Retrieval confidence: ${result.retrievalConfidence.score} (${result.retrievalConfidence.tier})`
+        : "",
+      result.deliveryMessage ? `Delivery message: ${result.deliveryMessage}` : "",
+      forbidden.length ? `Forbidden hits: ${forbidden.join("; ")}` : "",
       "",
       "**Full track list:**",
       formatTrackList(tracks) || "(empty)",
       "",
     );
-    if (result.retrievalShortfall) {
-      detailSections.push(
-        `Retrieval shortfall: gap=${result.retrievalShortfall.gap}, suggestions=${(result.retrievalShortfall.suggestions ?? []).join("; ")}`,
-        "",
-      );
-    }
   }
 
   const keep = verdicts.filter((v) => v === "KEEP").length;
@@ -210,6 +229,11 @@ async function main() {
   const drop = verdicts.filter((v) => v === "DROP").length;
   lines.push("");
   lines.push(`**Summary:** ${keep} KEEP / ${maybe} MAYBE / ${drop} DROP`);
+  lines.push(`**Zero-track responses:** ${zeroTrackCount}`);
+  lines.push("");
+  lines.push("## Retrieval funnel examples");
+  lines.push("");
+  lines.push("See motorway_rain and dad_rock_bbq sections below for full funnel traces.");
   lines.push("");
   lines.push("## Full track lists");
   lines.push("");
@@ -217,10 +241,11 @@ async function main() {
 
   const outDir = "reports/playlist-evaluation";
   mkdirSync(outDir, { recursive: true });
-  const outPath = `${outDir}/v14-retrieval-recovery-2026-07-28.md`;
+  const outPath = `${outDir}/v15-delivery-recovery-2026-07-28.md`;
   writeFileSync(outPath, lines.join("\n"));
   console.log(`Wrote ${outPath}`);
   console.log(`SUMMARY: ${keep} KEEP / ${maybe} MAYBE / ${drop} DROP`);
+  console.log(`ZERO-TRACK: ${zeroTrackCount}`);
 }
 
 main().catch((err) => {

@@ -5,7 +5,7 @@
 
 import type { CommittedWorld } from "../committed-world";
 import type { CulturalWorldProfile } from "./cultural-identity-profile";
-import { matchesAdjacentArtist } from "./cultural-identity-profile";
+import { matchesAdjacentArtist, getPriorityAnchorOrder } from "./cultural-identity-profile";
 import {
   resolveCulturalProfileForCommitted,
   scoreTrackWorldIdentity,
@@ -64,6 +64,19 @@ function buildSearchPool<T extends WorldIdentityTrack>(
   return merged;
 }
 
+function anchorPriorityBoost(artist: string, profile: CulturalWorldProfile): number {
+  const order = getPriorityAnchorOrder(profile);
+  const normalized = String(artist ?? "").trim().toLowerCase();
+  if (!normalized) return 0;
+  for (let i = 0; i < order.length; i++) {
+    const anchor = order[i]!.toLowerCase();
+    if (normalized.includes(anchor) || anchor.includes(normalized)) {
+      return (order.length - i) * 200;
+    }
+  }
+  return 0;
+}
+
 function rankOpenerForProfile<T extends WorldIdentityTrack>(
   track: T,
   profile: CulturalWorldProfile,
@@ -71,18 +84,52 @@ function rankOpenerForProfile<T extends WorldIdentityTrack>(
   const title = String(track.trackName ?? "").trim();
   const anchor = isAnchorArtistForProfile(track.artistName, profile);
   if (isRemixBaitTrackTitle(title) && !anchor) return -1;
-  return rankThesisOpenerCandidate(
+  const base = rankThesisOpenerCandidate(
     track,
     profile,
     (t) => scoreTrackWorldIdentity(t, profile),
     (artist) => isAnchorArtistForProfile(artist, profile),
     (artist) => matchesAdjacentArtist(artist, profile),
   );
+  if (base < 0) return base;
+  return base + anchorPriorityBoost(String(track.artistName ?? ""), profile);
+}
+
+/**
+ * V15 thesis opener selection — always return the best anchor in the pool.
+ * Prefers 95+ world score; when none exist, promotes highest worldIdentityScore anchor.
+ */
+export function selectThesisOpener<T extends WorldIdentityTrack>(
+  candidates: T[],
+  profile: CulturalWorldProfile,
+  searchDepth = 20,
+): { track: T; score: number; isAnchor: boolean; index: number } | null {
+  if (candidates.length === 0) return null;
+
+  const depth = Math.min(searchDepth, candidates.length);
+  let bestIdx = 0;
+  let bestRank = -1;
+  for (let i = 0; i < depth; i++) {
+    const rank = rankOpenerForProfile(candidates[i]!, profile);
+    if (rank > bestRank) {
+      bestRank = rank;
+      bestIdx = i;
+    }
+  }
+  if (bestRank < 0) return null;
+
+  const track = candidates[bestIdx]!;
+  return {
+    track,
+    score: scoreTrackWorldIdentity(track, profile),
+    isAnchor: isAnchorArtistForProfile(track.artistName, profile),
+    index: bestIdx,
+  };
 }
 
 /**
  * Final thesis opener enforcement — ALWAYS reorder highest world-identity anchor to slot 0.
- * Runs after expansion merge + ranking. Refuses when no candidate scores >= min threshold.
+ * Runs after expansion merge + ranking. V15: never refuse when any anchor exists in pool.
  */
 export function enforceThesisOpener<T extends WorldIdentityTrack>(
   tracks: T[],
@@ -100,28 +147,14 @@ export function enforceThesisOpener<T extends WorldIdentityTrack>(
 
   const minScore = profile.openerRules.minWorldIdentityScore ?? THESIS_OPENER_MIN_SCORE;
   const searchPool = buildSearchPool(tracks, expansionCandidates);
-
-  let bestIdx = 0;
-  let bestRank = -1;
-  const depth = Math.min(searchDepth, searchPool.length);
-  for (let i = 0; i < depth; i++) {
-    const rank = rankOpenerForProfile(searchPool[i]!, profile);
-    if (rank > bestRank) {
-      bestRank = rank;
-      bestIdx = i;
-    }
-  }
-
-  const bestTrack = searchPool[bestIdx]!;
-  const bestIdentity = scoreTrackWorldIdentity(bestTrack, profile);
-  const bestAnchor = isAnchorArtistForProfile(bestTrack.artistName, profile);
-  const openerQualifies = bestAnchor || bestIdentity >= minScore;
+  const selected = selectThesisOpener(searchPool, profile, searchDepth);
 
   let out = tracks.slice();
   let promoted = false;
   let fromIndex = 0;
 
-  if (openerQualifies) {
+  if (selected) {
+    const bestTrack = selected.track;
     const existingIdx = out.findIndex((t) => dedupeKey(t) === dedupeKey(bestTrack));
     if (existingIdx > 0) {
       const [moved] = out.splice(existingIdx, 1);
@@ -132,45 +165,37 @@ export function enforceThesisOpener<T extends WorldIdentityTrack>(
       out = [bestTrack, ...out.filter((t) => dedupeKey(t) !== dedupeKey(bestTrack))];
       promoted = true;
       fromIndex = -1;
-    } else if (bestIdx > 0) {
+    } else if (selected.index > 0) {
       const thesis = promoteWorldThesisOpener(
         out,
         (_, idx) => scoreTrackWorldIdentity(out[idx]!, profile),
-        depth,
+        searchDepth,
         (track) => rankOpenerForProfile(track, profile),
       );
       out = thesis.tracks;
       promoted = thesis.promoted;
       fromIndex = thesis.fromIndex;
     }
-  } else {
-    const thesis = promoteWorldThesisOpener(
-      searchPool,
-      (_, idx) => scoreTrackWorldIdentity(searchPool[idx]!, profile),
-      depth,
-      (track) => rankOpenerForProfile(track, profile),
-    );
-    const candidate = thesis.tracks[0];
-    const candidateScore = candidate ? scoreTrackWorldIdentity(candidate, profile) : 0;
-    const candidateAnchor = candidate ? isAnchorArtistForProfile(candidate.artistName, profile) : false;
-    if (candidate && (candidateAnchor || candidateScore >= minScore)) {
-      const existingIdx = out.findIndex((t) => dedupeKey(t) === dedupeKey(candidate));
-      if (existingIdx > 0) {
-        const [moved] = out.splice(existingIdx, 1);
-        if (moved) out.unshift(moved);
-        promoted = true;
-        fromIndex = existingIdx;
-      } else if (existingIdx < 0) {
-        out = [candidate, ...out.filter((t) => dedupeKey(t) !== dedupeKey(candidate))];
-        promoted = true;
-        fromIndex = -1;
-      }
-    }
   }
 
   const opener = out[0]!;
   const openerCheck = trackMeetsThesisOpener(opener, committed);
+  const openerScore = selected?.score ?? openerCheck.score;
+  const openerAnchor = selected?.isAnchor ?? isAnchorArtistForProfile(opener.artistName, profile);
   const label = `${opener.artistName ?? "?"} — ${opener.trackName ?? "?"}`;
+
+  // V15: never refuse because track 1 is 92 instead of 95 — best anchor always ships
+  if (selected && (openerAnchor || openerScore >= minScore || openerScore >= THESIS_OPENER_MIN_SCORE)) {
+    return {
+      tracks: out,
+      passed: true,
+      promoted,
+      fromIndex,
+      openerScore,
+      failures: [],
+      refuseMessage: null,
+    };
+  }
 
   if (!openerCheck.passed) {
     return {

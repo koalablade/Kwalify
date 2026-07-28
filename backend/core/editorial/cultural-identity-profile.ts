@@ -57,14 +57,96 @@ const CULTURAL_PROFILE_ALIASES: Record<string, string> = {
   disco_world: "disco_1970s_world",
 };
 
-/** Extract literal anchor artist names from profile (explicit list or regex sources). */
-export function extractAnchorArtistNames(profile: CulturalWorldProfile): string[] {
+/** V15 priority anchor order — thesis selection and expansion search order. */
+const PRIORITY_ANCHOR_ORDER: Record<string, string[]> = {
+  "80s_night_drive_world": [
+    "The Cure",
+    "New Order",
+    "Depeche Mode",
+    "Tears for Fears",
+    "Simple Minds",
+    "Pet Shop Boys",
+    "M83",
+  ],
+  rainy_motorway_world: [
+    "M83",
+    "Chromatics",
+    "The War on Drugs",
+    "Depeche Mode",
+    "New Order",
+  ],
+  rainy_drive_world: ["M83", "Chromatics", "The War on Drugs", "Depeche Mode"],
+  madchester_world: [
+    "The Stone Roses",
+    "Happy Mondays",
+    "Oasis",
+    "New Order",
+    "Inspiral Carpets",
+  ],
+  disco_1970s_world: [
+    "Bee Gees",
+    "Michael Jackson",
+    "Chic",
+    "Donna Summer",
+    "Earth, Wind & Fire",
+    "Sister Sledge",
+    "KC and the Sunshine Band",
+    "Gloria Gaynor",
+  ],
+  disco_world: [
+    "Bee Gees",
+    "Michael Jackson",
+    "Chic",
+    "Donna Summer",
+    "Earth, Wind & Fire",
+    "Sister Sledge",
+    "KC and the Sunshine Band",
+  ],
+  gym_rock_world: [
+    "Metallica",
+    "AC/DC",
+    "Guns N' Roses",
+    "Foo Fighters",
+    "Black Sabbath",
+    "Iron Maiden",
+  ],
+  gym_world: ["Metallica", "AC/DC", "Guns N' Roses", "Slayer", "Rage Against the Machine"],
+  heavy_gym_world: ["Metallica", "Slayer", "Megadeth", "AC/DC", "Foo Fighters"],
+  classic_rock_world: [
+    "Queen",
+    "AC/DC",
+    "Eagles",
+    "Fleetwood Mac",
+    "Tom Petty",
+    "Led Zeppelin",
+    "Guns N' Roses",
+  ],
+  country_world: [
+    "Johnny Cash",
+    "Dolly Parton",
+    "Willie Nelson",
+    "Luke Combs",
+    "Chris Stapleton",
+    "Zach Bryan",
+    "Alan Jackson",
+  ],
+};
+
+/** Priority-ordered anchor names for thesis selection and retrieval expansion. */
+export function getPriorityAnchorOrder(profile: CulturalWorldProfile): string[] {
+  const priority = PRIORITY_ANCHOR_ORDER[profile.worldId];
+  if (priority && priority.length > 0) return priority;
   if (profile.anchorArtistNames && profile.anchorArtistNames.length > 0) {
     return profile.anchorArtistNames;
   }
   return profile.anchorArtists
     .map((re) => re.source.replace(/\\b/g, "").replace(/\\/g, "").trim())
     .filter((s) => s.length > 1);
+}
+
+/** Extract literal anchor artist names from profile (explicit list or regex sources). */
+export function extractAnchorArtistNames(profile: CulturalWorldProfile): string[] {
+  return getPriorityAnchorOrder(profile);
 }
 
 export function extractAdjacentArtistNames(profile: CulturalWorldProfile): string[] {

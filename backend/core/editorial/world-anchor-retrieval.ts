@@ -12,6 +12,7 @@ import {
   extractForgottenArtistNames,
   extractCultArtistNames,
   extractEraExtensionNames,
+  getPriorityAnchorOrder,
   matchesAvoidArtist,
   getCulturalProfile,
 } from "./cultural-identity-profile";
@@ -36,8 +37,11 @@ export type WorldAnchorRetrievalInput = {
   committedWorld: CommittedWorld;
   maxCandidates?: number;
   targetCount?: number;
+  targetValidCount?: number;
   userDislikedArtists?: Set<string>;
   maxPerArtist?: number;
+  /** V15: run every retrieval tier before delivery decision. */
+  exhaustAllTiers?: boolean;
 };
 
 export type WorldAnchorRetrievalResult = {
@@ -186,7 +190,7 @@ function recordFilterRejections(
 
 /** Build Spotify search queries from cultural profile anchor + adjacent artists. */
 export function buildAnchorSearchQueries(profile: CulturalWorldProfile): string[] {
-  const anchors = extractAnchorArtistNames(profile);
+  const anchors = getPriorityAnchorOrder(profile);
   const adjacent = extractAdjacentArtistNames(profile);
   const queries: string[] = [];
 
@@ -212,7 +216,7 @@ function artistNamesForTier(profile: CulturalWorldProfile, tier: RetrievalTier, 
   }
   switch (tier) {
     case "anchors":
-      return extractAnchorArtistNames(profile);
+      return getPriorityAnchorOrder(profile);
     case "major":
       return extractMajorArtistNames(profile);
     case "deep_cuts":
@@ -368,12 +372,13 @@ export async function exhaustWorldRetrieval(
 ): Promise<WorldAnchorRetrievalResult> {
   const target = input.targetValidCount ?? input.targetCount ?? 25;
   const maxRounds = Math.max(1, input.maxRounds ?? 4);
-  let result = await retrieveWorldAnchorCandidates({ ...input, targetCount: target });
+  let result = await retrieveWorldAnchorCandidates({ ...input, targetCount: target, exhaustAllTiers: true });
 
   for (let round = 1; round < maxRounds && result.tracks.length < target; round += 1) {
     const extra = await retrieveWorldAnchorCandidates({
       ...input,
       targetCount: target,
+      exhaustAllTiers: true,
       maxCandidates: (input.maxCandidates ?? 64) + round * 16,
     });
     const seen = new Set(result.tracks.map(trackIdOf));
@@ -410,6 +415,7 @@ export async function retrieveWorldAnchorCandidates(
     targetCount = 25,
     userDislikedArtists,
     maxPerArtist = DEFAULT_MAX_PER_ARTIST,
+    exhaustAllTiers = false,
   } = input;
   const worldIds = committedWorld.worldIds ?? [committedWorld.id];
   const worldId = committedWorld.id;
@@ -470,9 +476,9 @@ export async function retrieveWorldAnchorCandidates(
   ).filter((t) => !seen.has(trackIdOf(t)));
   addTracks(libraryAdjacent, "liked", PURITY_RETRIEVAL_MIN, "library_adjacent");
 
-  // Exhaust tier loop until target or all tiers dry
+  // Exhaust tier loop — V15 exhaustAllTiers completes every tier before delivery decision
   for (const tier of TIER_ORDER) {
-    if (merged.length >= targetCount) break;
+    if (!exhaustAllTiers && merged.length >= targetCount) break;
     if (tier === "liked") continue;
 
     if (tier === "neighbours") {

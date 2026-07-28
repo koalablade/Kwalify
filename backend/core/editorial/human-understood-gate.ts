@@ -4,8 +4,8 @@
  */
 
 import type { CommittedWorld } from "../committed-world";
-import type { CoverageLevel } from "./world-coverage";
-import { coverageLevelToMaxTracks } from "./world-coverage";
+import type { CoverageLevel, CoverageTier } from "./world-coverage";
+import { coverageLevelToMaxTracks, getDeliveryCap, coverageLevelToDeliveryTier } from "./world-coverage";
 import type { WorldProofResult } from "./world-proof-gate";
 import type { ThesisOpenerResult } from "./thesis-opener-gate";
 import type { WorldIdentityTrack } from "./world-identity-score";
@@ -14,7 +14,7 @@ import {
   scoreTrackWorldIdentity,
   isAnchorArtistForProfile,
 } from "./world-identity-score";
-import { THESIS_OPENER_UNDENIABLE_SCORE } from "./thesis-opener-gate";
+import { THESIS_OPENER_MIN_SCORE } from "./thesis-opener-gate";
 import type { HumanQualityGateAction } from "./human-quality-gate";
 
 export type HumanUnderstoodInput = {
@@ -26,7 +26,9 @@ export type HumanUnderstoodInput = {
   negationViolations: number;
   openerNegationViolations: number;
   coverageLevel?: CoverageLevel | null;
+  coverageTier?: CoverageTier | null;
   tracks?: WorldIdentityTrack[];
+  anchorHitsInPool?: number;
 };
 
 const STRICT_SCENE_WORLD_IDS = new Set([
@@ -56,7 +58,8 @@ function strictSceneWorldFailures(
   const opener = tracks[0]!;
   const openerScore = scoreTrackWorldIdentity(opener, profile);
   const openerAnchor = isAnchorArtistForProfile(opener.artistName, profile);
-  if (!openerAnchor && openerScore < THESIS_OPENER_UNDENIABLE_SCORE) {
+  // V15: anchor thesis passes — never refuse because opener is 92 instead of 95
+  if (!openerAnchor && openerScore < THESIS_OPENER_MIN_SCORE) {
     failures.push("thesis_opener_not_undeniable");
   }
   for (let i = 5; i < tracks.length; i++) {
@@ -85,10 +88,31 @@ export type HumanUnderstoodResult = {
 };
 
 export function wouldPersonFeelUnderstood(input: HumanUnderstoodInput): boolean {
-  if (input.trackCount < 3) return false;
   if (input.negationViolations >= 2 || input.openerNegationViolations >= 1) return false;
   if (input.thesis && !input.thesis.passed) return false;
   if (input.worldProof && !input.worldProof.trackOnePassed) return false;
+
+  // V15: 3+ pure world tracks passes the "would I send to a friend?" bar
+  if (input.trackCount >= 3 && input.committed?.hardLock && input.tracks) {
+    const profile = resolveCulturalProfileForCommitted(input.committed);
+    if (profile) {
+      const pureCount = input.tracks.filter(
+        (t) => scoreTrackWorldIdentity(t, profile) >= 0.5,
+      ).length;
+      if (pureCount >= 3) {
+        if (input.committed.hardLock && isStrictSceneWorld(input.committed)) {
+          const strictFailures = strictSceneWorldFailures(input.tracks, input.committed);
+          if (strictFailures.length > 0) return false;
+        }
+        if (input.committed.hardLock && input.worldProof && !input.worldProof.fullPlaylistPassed) {
+          return input.worldProof.verifiedTracks.length >= 3;
+        }
+        return true;
+      }
+    }
+  }
+
+  if (input.trackCount < 3) return false;
   if (input.committed?.hardLock && input.tracks && isStrictSceneWorld(input.committed)) {
     const strictFailures = strictSceneWorldFailures(input.tracks, input.committed);
     if (strictFailures.length > 0) return false;
@@ -107,11 +131,16 @@ export function evaluateHumanUnderstoodGate(input: HumanUnderstoodInput): HumanU
   const count = Math.max(0, input.trackCount);
   const reasons: string[] = [];
   const hardLock = input.committed?.hardLock === true;
+  const deliveryTier =
+    input.coverageTier ??
+    (input.coverageLevel != null ? coverageLevelToDeliveryTier(input.coverageLevel) : null);
   const coverageCap =
-    hardLock && input.coverageLevel
-      ? coverageLevelToMaxTracks(input.coverageLevel, requested)
-      : Math.min(12, Math.ceil(requested * 0.4));
-  const salvageableCount = count >= 3 ? Math.min(count, coverageCap) : 0;
+    hardLock && deliveryTier
+      ? getDeliveryCap(deliveryTier, requested)
+      : hardLock && input.coverageLevel
+        ? coverageLevelToMaxTracks(input.coverageLevel, requested)
+        : Math.min(12, Math.ceil(requested * 0.4));
+  const salvageableCount = count >= 3 ? Math.min(count, coverageCap) : count >= 1 && (input.anchorHitsInPool ?? 0) >= 1 ? Math.min(count, 5) : 0;
 
   if (count === 0) reasons.push("empty_playlist");
   if (count > 0 && count < 3) reasons.push("stub_underfill");
@@ -131,6 +160,16 @@ export function evaluateHumanUnderstoodGate(input: HumanUnderstoodInput): HumanU
   const understood = wouldPersonFeelUnderstood(input);
 
   if (!understood && count < 3) {
+    // V15: minimum 3-track delivery attempt when anchors exist in retrieval pool
+    if ((input.anchorHitsInPool ?? 0) >= 1 && count >= 1 && salvageableCount >= 1) {
+      return {
+        action: "honest_partial",
+        understood: false,
+        reasons: [...reasons, "anchor_minimum_delivery"],
+        userMessage: `Built a focused ${Math.max(count, Math.min(3, salvageableCount))}-track version because your library had limited matches for this world.`,
+        salvageableCount: Math.max(count, Math.min(3, salvageableCount)),
+      };
+    }
     return {
       action: "refuse",
       understood: false,

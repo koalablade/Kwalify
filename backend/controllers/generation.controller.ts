@@ -464,9 +464,13 @@ import { applyWorldSequencing } from "../core/editorial/world-sequencer";
 import { applyWorldPurityGate } from "../core/editorial/world-purity-gate";
 import {
   assessWorldCoverage,
+  assessCandidateCoverageTier,
+  computeRetrievalConfidence,
   coverageUserMessage,
+  buildDeliveryMessage,
   shouldExpandWorldCoverage,
   type WorldCoverageAssessment,
+  type CoverageTier,
 } from "../core/editorial/world-coverage";
 import { retrieveWorldAnchorCandidates, exhaustWorldRetrieval } from "../core/editorial/world-anchor-retrieval";
 import {
@@ -7002,6 +7006,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const sonicTasteProfile = buildSonicTasteProfile(likedSongs);
 
     let worldCoverageAssessment: WorldCoverageAssessment | null = null;
+    let candidateCoverageTier: CoverageTier | null = null;
     let worldExpansionCandidates: typeof likedSongs = [];
     const committedWorldPreRetrieval = resolveCommittedWorld({
       prompt: vibe,
@@ -7033,13 +7038,15 @@ router.post("/generate", async (req, res): Promise<void> => {
           (t): t is (typeof likedSongs)[number] =>
             typeof (t as { trackId?: string }).trackId === "string",
         ) as typeof likedSongs;
+        const expansionPool = worldExpansionCandidates.length > 0 ? worldExpansionCandidates : likedSongs;
+        candidateCoverageTier = assessCandidateCoverageTier(expansionPool, culturalProfilePre);
         if (auditMode) {
           req.log.info(
             {
               expansionDiagnostics: expansion.diagnostics,
               rejectionStats: summarizeRejectionTrace(culturalProfilePre.worldId),
             },
-            "V14 world retrieval exhaustion",
+            "V15 world retrieval exhaustion",
           );
         }
       } catch (expansionErr) {
@@ -7121,6 +7128,12 @@ router.post("/generate", async (req, res): Promise<void> => {
         },
       },
     };
+    const retrievalFunnelTrace =
+      (preScoringCandidateShape.diagnostics as { retrievalFunnel?: unknown }).retrievalFunnel ?? null;
+    const retrievalConfidenceResult =
+      culturalProfilePre && preScoringOrchestration.tracks.length > 0
+        ? computeRetrievalConfidence(preScoringOrchestration.tracks, culturalProfilePre)
+        : null;
     const lockedOpenerTrackId = preScoringOrchestration.diagnostics.humanOpener.trackId;
     let curatedOpenerTrackId: string | null = lockedOpenerTrackId ?? null;
     let openingLock: OpeningLock | null = null;
@@ -12214,10 +12227,11 @@ router.post("/generate", async (req, res): Promise<void> => {
           prompt: vibe,
           requestedLength,
           coverageLevel: worldCoverageAssessment?.score ?? null,
+          coverageTier: candidateCoverageTier,
           preserveOpener: true,
         });
-        if (purityEarly.removed > 0 && purityEarly.tracks.length >= 3) {
-          assignFT("world_purity_gate", "V13 full-playlist world purity", purityEarly.tracks as PlaylistTrack[]);
+        if (purityEarly.tracks.length > 0 && (purityEarly.removed > 0 || purityEarly.honestPartial)) {
+          assignFT("world_purity_gate", "V15 delivery recovery purity", purityEarly.tracks as PlaylistTrack[]);
         }
       }
       const worldProof = evaluateWorldProof({
@@ -12318,6 +12332,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         negationViolations: terminalNegationViolations,
         openerNegationViolations: terminalOpenerNegationViolations,
         coverageLevel: worldCoverageAssessment?.score ?? null,
+        coverageTier: candidateCoverageTier,
+        tracks: delivery.tracks,
+        anchorHitsInPool: worldCoverageAssessment?.anchorHits ?? 0,
       });
       const terminalHqg = evaluateHumanQualityGate({
         trackCount: delivery.tracks.length,
@@ -12386,7 +12403,34 @@ router.post("/generate", async (req, res): Promise<void> => {
           ...(v3Hqg ? { humanQualityGateFromV3: v3Hqg } : {}),
         },
       };
-      if (terminalHqg.action === "refuse" || terminalUnderstood.action === "refuse") {
+      if (terminalHqg.action === "refuse" && terminalUnderstood.action === "refuse") {
+        // V15: ship honest partial when salvageable tracks exist — never 0 when anchors were found
+        if (
+          terminalUnderstood.salvageableCount >= 3 ||
+          (terminalUnderstood.salvageableCount > 0 && (worldCoverageAssessment?.anchorHits ?? 0) >= 1)
+        ) {
+          finalization = {
+            tracks: delivery.tracks as PlaylistTrack[],
+            diagnostics: {
+              ...finalization.diagnostics,
+              humanUnderstoodGate: { ...terminalUnderstood, action: "honest_partial" },
+              honestPartialPublished: true,
+              humanQualityUserMessage: terminalUnderstood.userMessage,
+            },
+          };
+        } else {
+          throw new HumanQualityGateError(terminalHqg.action === "refuse" ? terminalHqg : {
+            action: "refuse",
+            reasons: terminalUnderstood.reasons,
+            userMessage: terminalUnderstood.userMessage,
+            salvageableCount: 0,
+            wouldSaveConfidence: 0,
+            replayConfidence: 0,
+            worldCoherenceOk: false,
+            stubUnderfill: false,
+          });
+        }
+      } else if (terminalHqg.action === "refuse" || terminalUnderstood.action === "refuse") {
         throw new HumanQualityGateError(terminalHqg.action === "refuse" ? terminalHqg : {
           action: "refuse",
           reasons: terminalUnderstood.reasons,
@@ -13334,11 +13378,12 @@ router.post("/generate", async (req, res): Promise<void> => {
         momentPipeline?.canonicalScene?.sceneId ?? null,
       );
     }
-    if (lateCommittedWorld?.hardLock && deliveredTracks.length >= 3) {
+    if (lateCommittedWorld?.hardLock && deliveredTracks.length > 0) {
       const purityLate = applyWorldPurityGate(deliveredTracks as PlaylistTrack[], lateCommittedWorld, {
         prompt: vibe,
         requestedLength,
         coverageLevel: worldCoverageAssessment?.score ?? null,
+        coverageTier: candidateCoverageTier,
         preserveOpener: true,
       });
       if (
@@ -13367,7 +13412,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               ? {
                   honestPartialPublished: true,
                   degradedDelivery: true,
-                  humanQualityUserMessage: purityLate.coverageMessage,
+                  humanQualityUserMessage: purityLate.deliveryMessage ?? purityLate.coverageMessage,
                 }
               : {}),
           },
@@ -13903,6 +13948,8 @@ router.post("/generate", async (req, res): Promise<void> => {
             }
           : {}),
         playlistExecutionTrace: successExecutionTrace,
+        ...(retrievalFunnelTrace ? { retrievalFunnel: retrievalFunnelTrace } : {}),
+        ...(retrievalConfidenceResult ? { retrievalConfidence: retrievalConfidenceResult } : {}),
       };
       endAuditResponseProfile();
       const endAuditJsonProfile = liveStageProfiler.start("controller.responseJson.auditSlim", `${finalApiTracks.length} tracks`);
@@ -13974,6 +14021,14 @@ router.post("/generate", async (req, res): Promise<void> => {
         ? {
             coverageLevel: worldCoverageAssessment.score,
             coverageMessage: coverageUserMessage(worldCoverageAssessment.score),
+            coverageTier: candidateCoverageTier,
+            ...(finalApiTracks.length > 0 && finalApiTracks.length < requestedLength
+              ? {
+                  deliveryMessage:
+                    buildDeliveryMessage(finalApiTracks.length, candidateCoverageTier) ??
+                    coverageUserMessage(worldCoverageAssessment.score),
+                }
+              : {}),
           }
         : {}),
       ...(humanExpectationDiagnostics ? { humanExpectation: humanExpectationDiagnostics } : {}),

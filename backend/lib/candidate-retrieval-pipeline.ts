@@ -26,6 +26,13 @@ import {
 } from "../core/editorial/world-coverage";
 import { recordRetrievalRejection } from "../core/editorial/retrieval-rejection-trace";
 import {
+  beginRetrievalFunnelTrace,
+  recordFunnelStage,
+  finalizeRetrievalFunnel,
+} from "../core/editorial/retrieval-funnel-trace";
+import { retrieveWithRecovery } from "../core/editorial/layered-world-retrieval";
+import { isUnknownGenreMetadata } from "../core/editorial/world-search-keywords";
+import {
   committedWorldArtistForbidden,
   resolveCommittedWorld,
 } from "../core/committed-world";
@@ -194,6 +201,8 @@ export type RetrieveScoringCandidatesOpts<T extends RetrievalTrackInput> = {
   expansionCandidates?: RetrievalTrackInput[];
   /** V10: pre-computed world coverage assessment. */
   worldCoverage?: WorldCoverageAssessment | null;
+  /** V15: enable retrieval funnel trace (auditMode). */
+  traceRetrievalFunnel?: boolean;
 };
 
 const SCENE_PATTERNS: Array<{ tag: string; pattern: RegExp; weight: number }> = [
@@ -457,12 +466,16 @@ function genreRetrievalFit(
   retrievalProfile: RetrievalProfile,
 ): number {
   if (retrievalProfile.genreExpectations.length === 0) return 0.5;
-  const family = classification?.genreFamily ?? "unknown";
-  const primary = classification?.genrePrimary ?? "";
+  const family = classification?.genreFamily ?? null;
+  const primary = classification?.genrePrimary ?? null;
+  // V15: unknown metadata is unknown — neutral score, not indie penalty
+  if (isUnknownGenreMetadata(family, primary)) return 0.5;
+  const familyNorm = family ?? "unknown";
+  const primaryNorm = primary ?? "";
   const sub = classification?.primarySubgenre ?? "";
   let score = 0;
   for (const expected of retrievalProfile.genreExpectations) {
-    if (family === expected || primary === expected || sub === expected) score += 0.34;
+    if (familyNorm === expected || primaryNorm === expected || sub === expected) score += 0.34;
   }
   return Math.min(1, score);
 }
@@ -820,97 +833,79 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
     eligible.push(track);
   }
 
+  const traceFunnel = opts.traceRetrievalFunnel ?? opts.debugRetrieval ?? false;
+  if (traceFunnel) beginRetrievalFunnelTrace(opts.tracks.length);
+  if (traceFunnel) {
+    recordFunnelStage("afterGenreFilter", eligible.length);
+    recordFunnelStage("afterArtistIdentityFilter", eligible.length);
+  }
+
   if (committedWorld?.hardLock && retrievalWorldIds.length > 0) {
-    const profiles = worldIdentityProfilesForLock({
-      anchors: retrievalWorldIds,
-      prompt: opts.vibe,
-      reason: committedWorld.reason,
-    });
     const culturalProfile = culturalProfileForCommittedWorld(
       retrievalWorldIds,
       committedWorld.id,
     );
-    const worldEligible = eligible.filter((track) => {
-      const classification = classifyFor(track, opts.classMap);
-      if (committedWorldArtistForbidden(committedWorld, track.artistName, track.trackName)) return false;
-      if (artistForbiddenInWorld(track.artistName, retrievalWorldIds)) return false;
-      if (culturalProfile) {
-        const culturalScore = scoreTrackWorldIdentity(
-          {
-            trackName: track.trackName,
-            artistName: track.artistName,
-            albumName: track.albumName,
-            genreFamily: classification?.genreFamily ?? null,
-            genrePrimary: classification?.genrePrimary ?? null,
-            genres: classification?.subGenres ?? null,
-            energy: track.energy ?? null,
-            valence: track.valence ?? null,
-            danceability: track.danceability ?? null,
-            releaseYear: track.releaseYear ?? null,
-          },
-          culturalProfile,
+
+    // V15: layered retrieval boosts pool — never narrow eligible below cultural-boundary tracks
+    if (culturalProfile) {
+      const layered = retrieveWithRecovery({
+        prompt: opts.vibe,
+        userLibrary: eligible,
+        culturalProfile,
+        committedWorld,
+        expansionCandidates: opts.expansionCandidates ?? [],
+      });
+      const eligibleIds = new Set(eligible.map((t) => t.trackId));
+      if (layered.tracks.length > 0) {
+        const layeredIds = new Set(
+          layered.tracks.map((t) =>
+            String((t as { trackId?: string }).trackId ?? `${t.artistName}:${t.trackName}`),
+          ),
         );
-        if (culturalScore < 0.45) return false;
+        for (const track of opts.tracks) {
+          if (layeredIds.has(track.trackId) && !eligibleIds.has(track.trackId)) {
+            eligible.push(track);
+            eligibleIds.add(track.trackId);
+          }
+        }
       }
-      return passesWorldIdentity(
-        {
-          trackName: track.trackName,
-          artistName: track.artistName,
-          albumName: track.albumName,
-          genreFamily: classification?.genreFamily ?? null,
-          genrePrimary: classification?.genrePrimary ?? null,
-          genres: classification?.subGenres ?? null,
-          energy: track.energy ?? null,
-          valence: track.valence ?? null,
-          danceability: track.danceability ?? null,
-        },
-        profiles,
-        { hardLock: true },
-      );
-    });
-    const minWorldKeep = Math.max(3, Math.min(12, Math.ceil(opts.requestedLength * 0.4)));
-    if (worldEligible.length >= minWorldKeep) {
-      eligible = worldEligible;
-    } else if (worldEligible.length > 0) {
-      eligible = worldEligible;
+      const expansionPool = (opts.expansionCandidates ?? []) as T[];
+      for (const track of expansionPool) {
+        if (!eligibleIds.has(track.trackId)) {
+          const classification = classifyFor(track, opts.classMap);
+          const culturalScore = scoreTrackWorldIdentity(
+            {
+              trackName: track.trackName,
+              artistName: track.artistName,
+              albumName: track.albumName,
+              genreFamily: classification?.genreFamily ?? null,
+              genrePrimary: classification?.genrePrimary ?? null,
+              genres: classification?.subGenres ?? null,
+              energy: track.energy ?? null,
+              valence: track.valence ?? null,
+              danceability: track.danceability ?? null,
+              releaseYear: track.releaseYear ?? null,
+            },
+            culturalProfile,
+          );
+          if (culturalScore >= 0.45) {
+            eligible.push(track);
+            eligibleIds.add(track.trackId);
+          }
+        }
+      }
+      (opts as { _layeredLayerCounts?: Record<string, number> })._layeredLayerCounts = layered.layerCounts;
     }
+
+    if (traceFunnel) recordFunnelStage("afterWorldFilter", eligible.length);
 
     const coverageAssessment =
       opts.worldCoverage ??
-      assessWorldCoverage(
-        committedWorld,
-        worldEligible.length > 0 ? worldEligible : eligible,
-        culturalProfile,
-      );
-
-    if (opts.expansionCandidates && opts.expansionCandidates.length > 0 && culturalProfile) {
-      const libraryIds = new Set(eligible.map((t) => t.trackId));
-      const expansionToMerge = (opts.expansionCandidates as T[]).filter((t) => {
-        if (libraryIds.has(t.trackId)) return false;
-        const classification = classifyFor(t, opts.classMap);
-        const culturalScore = scoreTrackWorldIdentity(
-          {
-            trackName: t.trackName,
-            artistName: t.artistName,
-            albumName: t.albumName,
-            genreFamily: classification?.genreFamily ?? null,
-            genrePrimary: classification?.genrePrimary ?? null,
-            genres: classification?.subGenres ?? null,
-            energy: t.energy ?? null,
-            valence: t.valence ?? null,
-            danceability: t.danceability ?? null,
-            releaseYear: t.releaseYear ?? null,
-          },
-          culturalProfile,
-        );
-        return culturalScore >= 0.45;
-      });
-      if (expansionToMerge.length > 0) {
-        eligible = [...eligible, ...expansionToMerge];
-      }
-    }
+      assessWorldCoverage(committedWorld, eligible, culturalProfile);
 
     (opts as { _worldCoverage?: WorldCoverageAssessment })._worldCoverage = coverageAssessment;
+  } else if (traceFunnel) {
+    recordFunnelStage("afterWorldFilter", eligible.length);
   }
 
   if (retrievalProfile.activityProfile) {
@@ -945,6 +940,53 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
       prompt: opts.vibe,
       lockedIntent: opts.intent,
     });
+
+    // V15: none-playlist recovery before returning empty
+    if (committed?.hardLock) {
+      const recoveryProfile = culturalProfileForCommittedWorld(
+        retrievalWorldIds,
+        committed.id,
+      );
+      if (recoveryProfile) {
+        const recovery = retrieveWithRecovery({
+          prompt: opts.vibe,
+          userLibrary: opts.tracks,
+          culturalProfile: recoveryProfile,
+          committedWorld: committed,
+          expansionCandidates: opts.expansionCandidates ?? [],
+        });
+        if (recovery.tracks.length > 0) {
+          const recoveryIds = new Set(
+            recovery.tracks.map((t) =>
+              String((t as { trackId?: string }).trackId ?? `${t.artistName}:${t.trackName}`),
+            ),
+          );
+          const recovered = opts.tracks.filter((t) => recoveryIds.has(t.trackId)) as T[];
+          const expansionPool = (opts.expansionCandidates ?? []) as T[];
+          const recoveredExpansion = expansionPool.filter(
+            (t) => recoveryIds.has(t.trackId) && !recovered.some((r) => r.trackId === t.trackId),
+          );
+          const pool = [...recovered, ...recoveredExpansion];
+          if (pool.length > 0) {
+            const funnel = traceFunnel ? finalizeRetrievalFunnel(pool.length) : null;
+            return {
+              tracks: pool,
+              diagnostics: {
+                applied: true,
+                pipeline: "multi_source_retrieval",
+                inputCount: opts.tracks.length,
+                outputCount: pool.length,
+                cap: pool.length,
+                fallback: "v15_none_recovery",
+                recoveryLayer: recovery.recoveryLayer,
+                ...(funnel ? { retrievalFunnel: funnel } : {}),
+              },
+            };
+          }
+        }
+      }
+    }
+
     const worldCommitted =
       committed?.hardLock === true ||
       retrievalProfile.committedWorldId != null ||
@@ -1235,6 +1277,8 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
   const remainder = merged.filter((track) => !openingIds.has(track.trackId));
   let ordered = [...openingFront, ...remainder].slice(0, broadCap);
 
+  if (traceFunnel) recordFunnelStage("afterScoring", ordered.length);
+
   const worldCoverageResult =
     (opts as { _worldCoverage?: WorldCoverageAssessment })._worldCoverage ?? null;
   const coverageProfile =
@@ -1260,6 +1304,9 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
       return compareWorldCoverageTier(tierB, tierA);
     });
   }
+
+  if (traceFunnel) recordFunnelStage("afterFinalGate", ordered.length);
+  const retrievalFunnel = traceFunnel ? finalizeRetrievalFunnel(ordered.length) : null;
 
   const diagnostics: RetrievalDiagnostics = {
     applied: true,
@@ -1302,7 +1349,7 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
   return {
     tracks: ordered.length > 0 ? ordered : opts.tracks.slice(0, broadCap),
     diagnostics: opts.debugRetrieval
-      ? diagnostics
+      ? { ...diagnostics, ...(retrievalFunnel ? { retrievalFunnel } : {}) }
       : {
         applied: diagnostics.applied,
         pipeline: diagnostics.pipeline,
@@ -1322,6 +1369,7 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
               expansionCandidateCount: (diagnostics as { expansionCandidateCount?: number }).expansionCandidateCount,
             }
           : {}),
+        ...(retrievalFunnel ? { retrievalFunnel } : {}),
       },
   };
 }

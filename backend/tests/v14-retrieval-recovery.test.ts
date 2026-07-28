@@ -122,11 +122,11 @@ describe("V14 retrieval recovery", () => {
     assert.ok(suggestions.some((s) => s.includes("deep_cuts") || s.includes("neighbour")));
   });
 
-  it("V14 purity gate thresholds: 95/90/85/80", () => {
+  it("V14 purity gate thresholds: 95/90/85/80 (V15 first-five)", () => {
     assert.equal(worldPurityThresholdForPosition(0), 95);
-    assert.equal(worldPurityThresholdForPosition(1), 95);
+    assert.equal(worldPurityThresholdForPosition(1), 90);
     assert.equal(worldPurityThresholdForPosition(2), 90);
-    assert.equal(worldPurityThresholdForPosition(4), 90);
+    assert.equal(worldPurityThresholdForPosition(4), 85);
     assert.equal(worldPurityThresholdForPosition(5), 85);
     assert.equal(worldPurityThresholdForPosition(9), 85);
     assert.equal(worldPurityThresholdForPosition(10), 80);

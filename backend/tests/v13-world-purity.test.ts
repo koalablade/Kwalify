@@ -13,11 +13,11 @@ import {
 import { matchesAvoidArtist } from "../core/editorial/cultural-identity-profile";
 
 describe("V13 world purity (V14 thresholds)", () => {
-  it("position thresholds: 95/90/85/80 (V14)", () => {
+  it("position thresholds: 95/90/85/80 (V15 first-five)", () => {
     assert.equal(worldPurityThresholdForPosition(0), 95);
-    assert.equal(worldPurityThresholdForPosition(1), 95);
+    assert.equal(worldPurityThresholdForPosition(1), 90);
     assert.equal(worldPurityThresholdForPosition(2), 90);
-    assert.equal(worldPurityThresholdForPosition(4), 90);
+    assert.equal(worldPurityThresholdForPosition(4), 85);
     assert.equal(worldPurityThresholdForPosition(5), 85);
     assert.equal(worldPurityThresholdForPosition(9), 85);
     assert.equal(worldPurityThresholdForPosition(10), 80);
@@ -115,7 +115,7 @@ describe("V13 world purity (V14 thresholds)", () => {
     ];
     const madThesis = enforceThesisOpener(madTracks, madProfile, madchester, undefined, 20);
     const madPurity = applyWorldPurityGate(madThesis.tracks, madchester, { requestedLength: 25 });
-    assert.equal(madThesis.tracks[0]!.artistName, "Oasis");
+    assert.equal(madThesis.tracks[0]!.artistName, "The Stone Roses");
     assert.ok(scoreTrackPurityPercent(madPurity.tracks[0]!, madProfile) >= 95);
 
     const dadRock = resolveCommittedWorld({ prompt: "dad rock BBQ with beers" })!;
@@ -132,7 +132,7 @@ describe("V13 world purity (V14 thresholds)", () => {
       20,
     );
     const dadPurity = applyWorldPurityGate(dadThesis.tracks, dadRock, { requestedLength: 25 });
-    assert.equal(dadThesis.tracks[0]!.artistName, "AC/DC");
+    assert.equal(dadThesis.tracks[0]!.artistName, "Queen");
     assert.ok(dadPurity.tracks.length >= 1);
 
     const disco = resolveCommittedWorld({ prompt: "disco rooftop party 1978" })!;

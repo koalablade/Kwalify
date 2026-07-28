@@ -188,7 +188,7 @@ describe("V10 world coverage", () => {
     assert.equal(highCap, 25);
     assert.ok(mediumCap >= 15 && mediumCap <= 20);
     assert.ok(lowCap >= 8 && lowCap <= 12);
-    assert.ok(veryLowCap <= 8);
+    assert.ok(veryLowCap <= 5);
 
     const lowHqg = evaluateHumanQualityGate({
       trackCount: 20,
