@@ -452,6 +452,11 @@ import {
   type OpenerHygieneDiagnostics,
 } from "../core/editorial/world-identity-gate";
 import { openingLockTrackIdsFromTracks } from "../core/editorial/opener-hygiene";
+import {
+  countOpenerNegationViolations,
+  parsePromptNegationEnforcement,
+  trackViolatesPromptNegation,
+} from "../lib/prompt-negation-enforcement";
 import { shouldPublishPlaylist, type CoherenceGateResult } from "../core/coherence-gate";
 import { buildPlaylistSegments, orderTracksByPlaylistSegments } from "../core/emotional-arc-planner";
 import { buildIntentPipelineContext } from "../lib/intent-pipeline-orchestrator";
@@ -12150,6 +12155,20 @@ router.post("/generate", async (req, res): Promise<void> => {
         genrePrimary: t.genrePrimary,
       }));
       const terminalWorldSignals = committedWorldQualitySignals(terminalActiveWorldId, terminalTrackSignals, { prompt: vibe });
+      const terminalNegationProfile = parsePromptNegationEnforcement(vibe);
+      const terminalPsychIndieOpenerFillers = countPsychIndieOpenerFillers(
+        delivery.tracks.map((track) => ({ artistName: track.artistName })),
+        3,
+        terminalWorldIds,
+      );
+      const terminalOpenerNegationViolations = countOpenerNegationViolations(
+        delivery.tracks,
+        terminalNegationProfile,
+        3,
+      );
+      const terminalNegationViolations = delivery.tracks.filter((track) =>
+        trackViolatesPromptNegation(track, terminalNegationProfile),
+      ).length;
       const terminalHqg = evaluateHumanQualityGate({
         trackCount: delivery.tracks.length,
         requestedLength: requestedLength,
@@ -12186,6 +12205,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         uniqueArtistCount: artistCounts.size,
         dominantArtistShare,
         promptLabel: vibe,
+        psychIndieOpenerFillers: terminalPsychIndieOpenerFillers,
+        openerNegationViolations: terminalOpenerNegationViolations,
+        negationViolations: terminalNegationViolations,
         intentFidelityFailed:
           committedWorld?.hardLock === true &&
           (!intentFidelity.passed || !intentFidelity.openerPassed),
@@ -13193,6 +13215,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     {
       const holidayNegated = promptSuppressesChristmas(vibe);
       const holidayRequested = allowHolidaySeason && !holidayNegated;
+      const lateNegationProfile = parsePromptNegationEnforcement(vibe);
       const psychIndieOpenerFillers = countPsychIndieOpenerFillers(
         finalApiTracks.map((track) => ({
           artistName: track.artist ?? (track as { artistName?: string }).artistName,
@@ -13200,6 +13223,29 @@ router.post("/generate", async (req, res): Promise<void> => {
         3,
         inferredWorldIds,
       );
+      const lateOpenerNegationViolations = countOpenerNegationViolations(
+        finalApiTracks.map((track) => ({
+          trackName: track.name,
+          artistName: track.artist ?? (track as { artistName?: string }).artistName,
+          albumName: (track as { album?: string }).album,
+          genreFamily: (track as { genreFamily?: string }).genreFamily,
+          genrePrimary: (track as { genrePrimary?: string }).genrePrimary,
+        })),
+        lateNegationProfile,
+        3,
+      );
+      const lateNegationViolations = finalApiTracks.filter((track) =>
+        trackViolatesPromptNegation(
+          {
+            trackName: track.name,
+            artistName: track.artist ?? (track as { artistName?: string }).artistName,
+            albumName: (track as { album?: string }).album,
+            genreFamily: (track as { genreFamily?: string }).genreFamily,
+            genrePrimary: (track as { genrePrimary?: string }).genrePrimary,
+          },
+          lateNegationProfile,
+        ),
+      ).length;
       const lateActiveWorldId = lateCommittedWorld?.id ?? inferredWorldIds[0] ?? null;
       const lateTrackSignals = finalApiTracks.map((track) => ({
         artistName: track.artist ?? (track as { artistName?: string }).artistName,
@@ -13213,6 +13259,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         holidayRequested,
         holidayNegated,
         psychIndieOpenerFillers,
+        openerNegationViolations: lateOpenerNegationViolations,
+        negationViolations: lateNegationViolations,
         seasonalLeakage:
           !allowHolidaySeason &&
           finalApiTracks.some((track) => {

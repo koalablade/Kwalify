@@ -179,8 +179,8 @@ test("sanitizePsychIndieOpenerChain caps opener psych-indie fillers even in nost
     { artist: "Tame Impala" },
     { artist: "Kasabian" },
     { artist: "Q Lazzarus" },
-    { artist: "The Killers" },
     { artist: "Franz Ferdinand" },
+    { artist: "Interpol" },
   ];
   const out = sanitizePsychIndieOpenerChain(tracks, 3, 1);
   assert.equal(countPsychIndieOpenerFillers(out.tracks, 3), 1);
@@ -194,7 +194,7 @@ test("sanitizePsychIndieOpenerChain removes all psych openers for film-ending wo
     { artist: "Q Lazzarus" },
     { artist: "Sigur Rós" },
     { artist: "Radiohead" },
-    { artist: "The Killers" },
+    { artist: "Interpol" },
   ];
   const out = sanitizePsychIndieOpenerChain(tracks, 3, 0);
   assert.equal(countPsychIndieOpenerFillers(out.tracks, 3, ["film_ending_world"]), 0);

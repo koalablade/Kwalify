@@ -14,7 +14,7 @@ import {
   type ActivityProfile,
   type ActivityTrackInput,
 } from "./activity-profiles";
-import { inferWorldIdentityIdsFromPrompt } from "../core/editorial/world-identity-gate";
+import { inferWorldIdentityIdsFromPrompt, isSafetyBlanketOutsideWorld } from "../core/editorial/world-identity-gate";
 import { resolveCommittedWorld } from "../core/committed-world";
 import {
   detectUkHipHopScene,
@@ -43,7 +43,10 @@ import {
 } from "./compound-prompt-retrieval";
 import { applyRetrievalTrackCooldown } from "./playlist-freshness";
 import { OPENER_FILLER_PATTERN } from "../core/editorial/opener-hygiene";
-import { isSafetyBlanketOutsideWorld } from "../core/editorial/world-identity-gate";
+import {
+  parsePromptNegationEnforcement,
+  trackViolatesPromptNegation,
+} from "./prompt-negation-enforcement";
 
 export type RetrievalSourceId =
   | "activity_match"
@@ -220,6 +223,7 @@ const COMMITTED_WORLD_RETRIEVAL_IDS = [
   "pop_punk_world",
   "gym_rock_world",
   "angry_rock_world",
+  "britpop_world",
   "lofi_world",
   "focus_study_world",
 ] as const;
@@ -243,6 +247,7 @@ const COMMITTED_WORLD_GENRE_FAMILIES: Record<string, string[]> = {
   pop_punk_world: ["rock", "indie"],
   gym_rock_world: ["rock", "metal"],
   angry_rock_world: ["rock", "metal"],
+  britpop_world: ["rock", "indie"],
   lofi_world: ["indie", "electronic", "hip_hop", "jazz"],
   focus_study_world: ["electronic", "indie", "jazz"],
 };
@@ -599,6 +604,20 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
   const artistCounts = artistFrequencyMap(opts.tracks);
   const rejected: RetrievalRejectedCandidate[] = [];
   let eligible: T[] = [];
+  const negationProfile = parsePromptNegationEnforcement(opts.vibe);
+  const committedWorld = resolveCommittedWorld({
+    prompt: opts.vibe,
+    lockedIntent: opts.intent,
+  });
+  const retrievalWorldIds =
+    opts.activeWorldIds && opts.activeWorldIds.length > 0
+      ? opts.activeWorldIds
+      : [
+          ...new Set([
+            ...(committedWorld?.worldIds ?? []),
+            ...inferWorldIdentityIdsFromPrompt(opts.vibe),
+          ]),
+        ];
 
   for (const track of opts.tracks) {
     const classification = classifyFor(track, opts.classMap);
@@ -609,6 +628,49 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
           artistName: track.artistName,
           trackName: track.trackName,
           reason: "constraint_prefilter",
+          source: "prefilter",
+        });
+      }
+      continue;
+    }
+    const negViolation = trackViolatesPromptNegation(
+      {
+        trackName: track.trackName,
+        artistName: track.artistName,
+        albumName: track.albumName,
+        genreFamily: classification?.genreFamily ?? null,
+        genrePrimary: classification?.genrePrimary ?? null,
+        genres: classification?.subGenres ?? null,
+        acousticness: track.acousticness ?? null,
+        instrumentalness: track.instrumentalness ?? null,
+      },
+      negationProfile,
+    );
+    if (negViolation) {
+      if (opts.debugRetrieval && rejected.length < 12) {
+        rejected.push({
+          trackId: track.trackId,
+          artistName: track.artistName,
+          trackName: track.trackName,
+          reason: negViolation,
+          source: "prefilter",
+        });
+      }
+      continue;
+    }
+    if (
+      retrievalWorldIds.length > 0 &&
+      track.artistName &&
+      (isSafetyBlanketOutsideWorld(track.artistName, retrievalWorldIds) ||
+        (OPENER_FILLER_PATTERN.test(track.artistName) &&
+          isSafetyBlanketOutsideWorld(track.artistName, retrievalWorldIds)))
+    ) {
+      if (opts.debugRetrieval && rejected.length < 12) {
+        rejected.push({
+          trackId: track.trackId,
+          artistName: track.artistName,
+          trackName: track.trackName,
+          reason: "landfill_outside_world",
           source: "prefilter",
         });
       }

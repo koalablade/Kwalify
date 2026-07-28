@@ -42,6 +42,10 @@ export type HumanQualityGateInput = {
   intentFidelityFailed?: boolean | null;
   /** Committed world hard-lock active for this prompt. */
   committedWorldHardLock?: boolean | null;
+  /** Tracks in first 3 that violate explicit negation (no rap, no guitar, no christmas). */
+  openerNegationViolations?: number | null;
+  /** Total tracks violating explicit negation across playlist. */
+  negationViolations?: number | null;
 };
 
 export type HumanQualityGateResult = {
@@ -164,6 +168,21 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   if (input.degradedDelivery) reasons.push("degraded_delivery");
   if (input.humanSavePassed === false) reasons.push("human_save_failed");
   if (input.intentFidelityFailed === true) reasons.push("intent_fidelity_failed");
+  if (
+    input.committedWorldHardLock === true &&
+    typeof input.psychIndieOpenerFillers === "number" &&
+    input.psychIndieOpenerFillers >= 1
+  ) {
+    reasons.push("psych_indie_opener_chain");
+    if (!reasons.includes("intent_fidelity_failed")) reasons.push("intent_fidelity_failed");
+  }
+  if (typeof input.openerNegationViolations === "number" && input.openerNegationViolations >= 1) {
+    reasons.push("negation_violation");
+    if (!reasons.includes("intent_fidelity_failed")) reasons.push("intent_fidelity_failed");
+  }
+  if (typeof input.negationViolations === "number" && input.negationViolations >= 2) {
+    reasons.push("negation_violation");
+  }
   if (artistShare != null && artistShare >= 0.55 && count >= 8) reasons.push("artist_dominance");
   if (density != null && density < 0.42 && count >= MIN_SALVAGEABLE) reasons.push("identity_drift");
   if (
@@ -190,7 +209,8 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
     typeof input.psychIndieOpenerFillers === "number" &&
     input.psychIndieOpenerFillers >= 1 &&
     input.activeWorldId &&
-    isZeroPsychOpenerWorld(input.activeWorldId)
+    isZeroPsychOpenerWorld(input.activeWorldId) &&
+    !reasons.includes("psych_indie_opener_chain")
   ) {
     reasons.push("psych_indie_opener_chain");
   }
@@ -282,7 +302,8 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   }
   if (
     reasons.includes("intent_fidelity_failed") ||
-    (input.committedWorldHardLock === true && reasons.includes("world_lane_mash"))
+    (input.committedWorldHardLock === true && reasons.includes("world_lane_mash")) ||
+    (input.committedWorldHardLock === true && reasons.includes("negation_violation"))
   ) {
     if (salvageableCount >= 3) {
       const partialCap = Math.min(salvageableCount, Math.min(12, Math.ceil(requested * 0.4)));
@@ -369,6 +390,27 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
       worldCoherenceOk,
       stubUnderfill,
     };
+  }
+
+  if (
+    input.committedWorldHardLock === true &&
+    (input.humanSavePassed === false ||
+      (typeof input.curatorScore === "number" && input.curatorScore < 0.72) ||
+      reasons.includes("negation_violation"))
+  ) {
+    if (salvageableCount >= 3) {
+      const partialCap = Math.min(salvageableCount, Math.min(12, Math.ceil(requested * 0.4)));
+      return {
+        action: "honest_partial",
+        reasons: reasons.length > 0 ? reasons : ["human_save_failed"],
+        userMessage: buildHumanQualityPartialMessage(partialCap, requested, reasons),
+        salvageableCount: partialCap,
+        wouldSaveConfidence,
+        replayConfidence,
+        worldCoherenceOk,
+        stubUnderfill,
+      };
+    }
   }
 
   return {

@@ -10,6 +10,7 @@ import {
   worldIdentityProfilesForLock,
   type WorldIdentityProfile,
 } from "./world-identity-gate";
+import { OPENER_FILLER_PATTERN } from "./opener-hygiene";
 
 export type IntentFidelityTrack = {
   trackId?: string;
@@ -137,6 +138,29 @@ function trackRejectedForWorld(
   return alternateVersionTitleRejected(track) || gymSoftTrackRejected(track, worldIds);
 }
 
+function openerLandfillRejected(track: IntentFidelityTrack, worldIds: string[], hardLock: boolean): boolean {
+  if (!hardLock) return false;
+  const artist = track.artistName?.trim() ?? "";
+  if (!artist) return false;
+  return (
+    OPENER_FILLER_PATTERN.test(artist) && isSafetyBlanketOutsideWorld(artist, worldIds)
+  );
+}
+
+function openerFailsHardLock(
+  track: IntentFidelityTrack,
+  profiles: WorldIdentityProfile[],
+  hardLock: boolean,
+  worldIds: string[],
+): boolean {
+  return (
+    openerLandfillRejected(track, worldIds, hardLock) ||
+    !trackPasses(track, profiles, hardLock, worldIds) ||
+    !gymEnergyOk(track, worldIds) ||
+    trackRejectedForWorld(track, worldIds)
+  );
+}
+
 export function evaluateIntentFidelity(opts: {
   tracks: IntentFidelityTrack[];
   committed: CommittedWorld | null;
@@ -176,7 +200,7 @@ export function evaluateIntentFidelity(opts: {
 
   for (let i = 0; i < Math.min(OPENER_SLOTS, tracks.length); i++) {
     const track = tracks[i]!;
-    if (trackFailsFidelity(track)) {
+    if (openerFailsHardLock(track, profiles, hardLock, worldIds)) {
       openerFailures.push(trackLabel(track));
     }
   }

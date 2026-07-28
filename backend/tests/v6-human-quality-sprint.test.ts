@@ -12,6 +12,11 @@ import { evaluateHumanQualityGate } from "../core/editorial/human-quality-gate";
 import { selectEditorialWorld } from "../core/editorial/intent-collapse-layer";
 import { buildLockedIntent } from "../core/v3/intent";
 import { analyzeVibe } from "../lib/emotion";
+import {
+  parsePromptNegationEnforcement,
+  trackViolatesPromptNegation,
+} from "../lib/prompt-negation-enforcement";
+import { OPENER_FILLER_PATTERN } from "../core/editorial/opener-hygiene";
 
 describe("V6 human quality sprint", () => {
   it("resolveCommittedWorld locks dad rock to classic_rock_world", () => {
@@ -316,5 +321,116 @@ describe("V6 human quality sprint", () => {
     });
     assert.ok(result.tailFailures.length >= 1);
     assert.equal(result.passed, false);
+  });
+
+  it("resolveCommittedWorld locks gym and UK genre worlds", () => {
+    const gym = resolveCommittedWorld({ prompt: "gym workout training session" });
+    assert.equal(gym?.id, "gym_rock_world");
+    assert.equal(gym?.hardLock, true);
+
+    const uk = resolveCommittedWorld({ prompt: "madchester pub walk" });
+    assert.equal(uk?.id, "britpop_world");
+    assert.equal(uk?.hardLock, true);
+
+    const grunge = resolveCommittedWorld({ prompt: "90s grunge dark cloudy night" });
+    assert.equal(grunge?.id, "grunge_world");
+    assert.equal(grunge?.hardLock, true);
+  });
+
+  it("Bon Iver blocked as opener on gym UK and genre-locked worlds", () => {
+    const cases = [
+      { prompt: "gym workout training session", worldId: "gym_rock_world" },
+      { prompt: "madchester pub walk", worldId: "britpop_world" },
+      { prompt: "90s grunge dark cloudy night", worldId: "grunge_world" },
+    ];
+    for (const row of cases) {
+      const committed = resolveCommittedWorld({ prompt: row.prompt })!;
+      assert.equal(committed.id, row.worldId);
+      const result = evaluateIntentFidelity({
+        committed,
+        prompt: row.prompt,
+        requestedLength: 25,
+        tracks: [
+          { trackId: "1", trackName: "Skinny Love", artistName: "Bon Iver", genreFamily: "indie", energy: 0.3 },
+          { trackId: "2", trackName: "Back In Black", artistName: "AC/DC", genreFamily: "rock", energy: 0.9 },
+          { trackId: "3", trackName: "Killing In The Name", artistName: "Rage Against The Machine", genreFamily: "rock", energy: 0.88 },
+        ],
+      });
+      assert.equal(result.openerPassed, false, row.prompt);
+      assert.equal(isSafetyBlanketOutsideWorld("Bon Iver", committed.worldIds), true, row.prompt);
+    }
+  });
+
+  it("negation prompts suppress forbidden content", () => {
+    const noRap = parsePromptNegationEnforcement("no rap just heavy workout");
+    assert.equal(noRap.suppressRap, true);
+    assert.equal(
+      trackViolatesPromptNegation(
+        { artistName: "Drake", trackName: "God's Plan", genreFamily: "hip_hop", spotifyArtistGenres: ["hip hop"] },
+        noRap,
+      ),
+      "negation:rap",
+    );
+
+    const noGuitar = parsePromptNegationEnforcement("no guitar electronic focus");
+    assert.equal(noGuitar.suppressGuitar, true);
+    assert.equal(
+      trackViolatesPromptNegation(
+        {
+          artistName: "Green Day",
+          trackName: "Basket Case",
+          genreFamily: "rock",
+          spotifyArtistGenres: ["punk rock"],
+          acousticness: 0.2,
+        },
+        noGuitar,
+      ),
+      "negation:guitar",
+    );
+
+    const noChristmas = parsePromptNegationEnforcement("winter cozy not christmas");
+    assert.equal(noChristmas.suppressChristmas, true);
+    assert.equal(
+      trackViolatesPromptNegation(
+        { artistName: "Wham!", trackName: "Last Christmas", genreFamily: "pop" },
+        noChristmas,
+      ),
+      "negation:christmas",
+    );
+  });
+
+  it("HQG fails when opener landfill on hard-lock world", () => {
+    const result = evaluateHumanQualityGate({
+      trackCount: 18,
+      requestedLength: 25,
+      humanSavePassed: true,
+      wouldSpotifyMakeThis: true,
+      dominantWorldDensity: 0.82,
+      psychIndieOpenerFillers: 1,
+      committedWorldHardLock: true,
+      activeWorldId: "gym_rock_world",
+      intentFidelityFailed: true,
+    });
+    assert.notEqual(result.action, "pass");
+    assert.ok(result.reasons.includes("intent_fidelity_failed"));
+    assert.ok(result.reasons.includes("psych_indie_opener_chain"));
+  });
+
+  it("grunge hard lock rejects Green Day as off-world", () => {
+    const profiles = worldIdentityProfilesForLock({ prompt: "90s grunge dark cloudy night" });
+    assert.equal(
+      passesWorldIdentity(
+        {
+          trackName: "Basket Case",
+          artistName: "Green Day",
+          genreFamily: "rock",
+          spotifyArtistGenres: ["punk rock"],
+          energy: 0.85,
+        },
+        profiles,
+        { hardLock: true },
+      ),
+      false,
+    );
   });
 });

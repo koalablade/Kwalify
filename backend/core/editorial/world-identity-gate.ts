@@ -206,6 +206,36 @@ export const SAFETY_BLANKET_ARTISTS: SafetyBlanketArtist[] = [
     pattern: /\bthe\s+killers\b/i,
     naturalWorlds: ["nostalgia_warm_world", "older_sibling_world", "britpop_world"],
   },
+  {
+    id: "mitski",
+    pattern: /\bmitski\b/i,
+    naturalWorlds: ["indie_dream_world", "soft_sad_world", "sunday_chill_world", "film_ending_world"],
+  },
+  {
+    id: "beach_house",
+    pattern: /\bbeach\s+house\b/i,
+    naturalWorlds: ["beach_sunset_world", "indie_dream_world", "rainy_drive_world", "late_night_calm_world"],
+  },
+  {
+    id: "joji",
+    pattern: /\bjoji\b/i,
+    naturalWorlds: ["indie_dream_world", "late_night_calm_world", "sunday_chill_world"],
+  },
+  {
+    id: "mac_demarco",
+    pattern: /\bmac\s+demarco\b/i,
+    naturalWorlds: ["beach_sunset_world", "indie_dream_world", "sunday_chill_world", "acoustic_sunday_world"],
+  },
+  {
+    id: "fleet_foxes",
+    pattern: /\bfleet\s+foxes\b/i,
+    naturalWorlds: ["acoustic_sunday_world", "rainy_reading_world", "indie_dream_world", "sunday_chill_world"],
+  },
+  {
+    id: "iron_and_wine",
+    pattern: /\biron\s+(?:&|and)\s+wine\b/i,
+    naturalWorlds: ["acoustic_sunday_world", "rainy_reading_world", "chill_rainy_world", "coffee_soft_focus_world"],
+  },
 ];
 
 /** Worlds that must never use classic safety blankets as filler. */
@@ -303,13 +333,14 @@ const AMBIENT_IDENTITY: WorldIdentityProfile = {
 const GRUNGE_IDENTITY: WorldIdentityProfile = {
   id: "grunge_world",
   requireAny: [
-    /\b(?:grunge|seattle|alt[-\s]?rock|alternative\s+rock|90s?\s+rock|post[-\s]?grunge)\b/i,
-    /\b(?:nirvana|pearl\s+jam|soundgarden|alice\s+in\s+chains|stone\s+temple|mudhoney|hole\b|screaming\s+trees|temple\s+of\s+the\s+dog|mad\s+season|foo\s+fighters|smashing\s+pumpkins|(?<!\bkate\s)\bbush\b|candlebox|collective\s+soul|offspring|green\s+day)\b/i,
+    /\b(?:grunge|seattle|alt[-\s]?rock|alternative\s+rock|90s?\s+grunge|post[-\s]?grunge)\b/i,
+    /\b(?:nirvana|pearl\s+jam|soundgarden|alice\s+in\s+chains|stone\s+temple|mudhoney|hole\b|screaming\s+trees|temple\s+of\s+the\s+dog|mad\s+season|smashing\s+pumpkins|candlebox|mother\s+love\s+bone|melvins|babes\s+in\s+toyland|l7\b|skin\s+yard)\b/i,
   ],
   rejectAny: [
-    /\b(?:reggae|disco|country|latin|k-?pop|edm\b|house\b|techno|dance\s*pop|yacht\s*rock|soft\s*rock)\b/i,
+    /\b(?:reggae|disco|country|latin|k-?pop|edm\b|house\b|techno|dance\s*pop|yacht\s*rock|soft\s*rock|pop\s*punk|skate\s*punk|emo\b|easycore)\b/i,
+    /\b(?:green\s+day|blink[-\s]?182|sum\s+41|offspring|good\s+charlotte|simple\s+plan|paramore|fall\s+out\s+boy|my\s+chemical|new\s+found\s+glory|yellowcard|jimmy\s+eat\s+world|all[-\s]?american\s+rejects)\b/i,
     // Adjacent 90s alt/punk can reinforce; classic/new-wave safety blankets cannot.
-    /\b(?:blondie|men\s+at\s+work|journey|fleetwood\s+mac|queen\b(?!\s+of\s+the\s+stone)|led\s+zeppelin|ac\/?dc|guns\s+n'?\s*roses|bon\s+jovi|def\s+leppard|kate\s+bush)\b/i,
+    /\b(?:blondie|men\s+at\s+work|journey|fleetwood\s+mac|queen\b(?!\s+of\s+the\s+stone)|led\s+zeppelin|ac\/?dc|guns\s+n'?\s*roses|bon\s+jovi|def\s+leppard|kate\s+bush|bon\s+iver|clairo|noah\s+kahan|mitski|phoebe\s+bridgers|sufjan\s+stevens)\b/i,
   ],
 };
 
@@ -986,20 +1017,32 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   const ids: string[] = [];
   const p = prompt;
 
-  if (/\b(?:sleepy|tired|low[-\s]?energy)\s+(?:gym|workout)\b|\b(?:gym|workout)\s+(?:sleepy|tired|chill)\b|\bchill\s+(?:gym|workout)\b/i.test(p)) {
+  if (/\bpop[-\s]?punk\b|\b2000s?\s+punk\b|\bemo\s+pop\b/i.test(p)) ids.push("pop_punk_world");
+  if (/\bgrunge\b|\bseattle\s+(?:sound|grunge)\b/i.test(p)) ids.push("grunge_world");
+  if (/\b(?:madchester|britpop|oasis|stone\s+roses)\b/i.test(p)) ids.push("britpop_world");
+  if (/\b(?:ukg|uk\s+garage|2-?step|speed\s+garage|grime)\b/i.test(p)) ids.push("britpop_world");
+  if (
+    /\b(?:pregame|pre[-\s]?game|getting\s+ready\s+(?:to\s+)?go\s+out|hype\s+for\s+(?:a\s+)?night\s+out|night\s+out\s+starting)\b/i.test(p)
+  ) {
+    ids.push("party_prep_world");
+  } else if (/\b(?:sleepy|tired|low[-\s]?energy)\s+(?:gym|workout)\b|\b(?:gym|workout)\s+(?:sleepy|tired|chill)\b|\bchill\s+(?:gym|workout)\b/i.test(p)) {
     ids.push("sleepy_gym_world");
   } else if (
     /\bangry\s+rock\b|\bangry\b.*\b(?:rock|workout|gym)\b|\b(?:rock|gym|workout)\b.*\bangry\b|\baggressive\b.*\b(?:gym|workout|pump|lifting)\b|\b(?:gym|workout|pump|lifting)\b.*\baggressive\b/i.test(p)
   ) {
     ids.push("angry_rock_world");
   } else if (
-    /\b(?:gym|workout)\b.*\brock\b|\brock\b.*\b(?:gym|workout)\b|\bgym\s+rock\b|\bheavy\s+lifting\b|\bgym\s+pump\b|\blifting\s+gym\b/i.test(p)
+    /\b(?:gym|workout|training|lifting|cardio|weights|pump)\b/i.test(p) &&
+    /\b(?:no\s+rap|not\s+rap|no\s+edm|rock|metal|heavy)\b/i.test(p)
   ) {
     ids.push("gym_rock_world");
+  } else if (
+    /\b(?:need\s+energy\s+for\s+the\s+gym|energy\s+for\s+the\s+gym|workout\s+music\s+that\s+isn'?t\s+aggressive|gym\b.*\b(?:not\s+edm|no\s+edm|not\s+aggressive))\b/i.test(p)
+  ) {
+    ids.push("gym_energy_world");
+  } else if (/\b(?:gym|workout|training|lifting|cardio|weights|pump)\b/i.test(p)) {
+    ids.push("gym_rock_world");
   }
-
-  if (/\bpop[-\s]?punk\b|\b2000s?\s+punk\b|\bemo\s+pop\b/i.test(p)) ids.push("pop_punk_world");
-  if (/\bgrunge\b|\bseattle\s+(?:sound|grunge)\b/i.test(p)) ids.push("grunge_world");
   if (/\bgoth\b|\bgothic\b|\bdarkwave\b|\bpost[-\s]?punk\b|\bindustrial\s+goth\b/i.test(p)) {
     ids.push("goth_world");
   }

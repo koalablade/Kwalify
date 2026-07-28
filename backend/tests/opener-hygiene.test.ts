@@ -18,8 +18,8 @@ test("sanitizePsychIndieOpenerChain caps opener psych-indie fillers to one", () 
     { artist: "Tame Impala" },
     { artist: "Kasabian" },
     { artist: "Q Lazzarus" },
-    { artist: "The Killers" },
     { artist: "Franz Ferdinand" },
+    { artist: "Interpol" },
   ];
   const out = sanitizePsychIndieOpenerChain(tracks, 3, 1);
   assert.equal(countOpenerFillerPatternMatches(out.tracks, 3), 1);
@@ -33,7 +33,7 @@ test("sanitizePsychIndieOpenerChain removes all psych openers when max is zero",
     { artist: "Q Lazzarus" },
     { artist: "Sigur Rós" },
     { artist: "Radiohead" },
-    { artist: "The Killers" },
+    { artist: "Interpol" },
   ];
   const out = sanitizePsychIndieOpenerChain(tracks, 3, 0);
   assert.equal(countOpenerFillerPatternMatches(out.tracks, 3), 0);
