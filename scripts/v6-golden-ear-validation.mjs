@@ -37,7 +37,7 @@ const PROMPTS = [
     prompt: "heavy gym workout, aggressive",
     world: "high energy training",
     forbidden: /\b(bon iver|acoustic|iron\s*&\s*wine|sufjan|gregory alan|phoebe bridgers|folk)\b/i,
-    prefer: /\b(metal|hard rock|rap|electronic|dmx|eminem|metallica|rage|pump|aggressive|high energy)\b/i,
+    prefer: /\b(metal|hard rock|rap|electronic|dmx|eminem|metallica|rage|pump|aggressive|high energy|ac\/?dc|offspring)\b/i,
   },
   {
     id: "E",

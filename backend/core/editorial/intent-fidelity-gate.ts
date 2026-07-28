@@ -99,7 +99,19 @@ function gymEnergyOk(track: IntentFidelityTrack, worldIds: string[]): boolean {
   if (typeof energy !== "number" || !Number.isFinite(energy)) return true;
   const acoustic = track.acousticness;
   if (typeof acoustic === "number" && acoustic > 0.72 && energy < 0.55) return false;
-  return energy >= 0.65;
+  const minEnergy = worldIds.includes("angry_rock_world") || worldIds.includes("gym_rock_world")
+    ? 0.72
+    : 0.65;
+  return energy >= minEnergy;
+}
+
+function openerTitleRejected(track: IntentFidelityTrack, worldIds: string[]): boolean {
+  const title = String(track.trackName ?? "").trim();
+  if (!title) return false;
+  const driveWorld = worldIds.some((id) => id === "rainy_drive_world" || id === "night_drive_world");
+  const gymWorld = worldIds.some((id) => GYM_WORLD_IDS.has(id));
+  if (!driveWorld && !gymWorld) return false;
+  return /\b(?:commentary|commentaries|rehearsal|soundcheck|karaoke|instrumental\s+version)\b/i.test(title);
 }
 
 export function evaluateIntentFidelity(opts: {
@@ -133,7 +145,7 @@ export function evaluateIntentFidelity(opts: {
 
   for (let i = 0; i < Math.min(OPENER_SLOTS, tracks.length); i++) {
     const track = tracks[i]!;
-    if (!trackPasses(track, profiles, hardLock, worldIds) || !gymEnergyOk(track, worldIds)) {
+    if (!trackPasses(track, profiles, hardLock, worldIds) || !gymEnergyOk(track, worldIds) || openerTitleRejected(track, worldIds)) {
       openerFailures.push(trackLabel(track));
     }
   }
@@ -141,7 +153,7 @@ export function evaluateIntentFidelity(opts: {
   for (const idx of SAMPLE_INDICES) {
     if (idx >= tracks.length) continue;
     const track = tracks[idx]!;
-    if (!trackPasses(track, profiles, hardLock, worldIds) || !gymEnergyOk(track, worldIds)) {
+    if (!trackPasses(track, profiles, hardLock, worldIds) || !gymEnergyOk(track, worldIds) || openerTitleRejected(track, worldIds)) {
       sampleFailures.push(trackLabel(track));
     }
   }
