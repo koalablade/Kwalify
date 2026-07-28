@@ -242,7 +242,84 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
       (input.dominantFamilyShare ?? 1) < 0.5 ||
       ((input.uniqueGenreFamilies ?? 0) >= 3 && (input.dominantFamilyShare ?? 1) < 0.52));
   const openerChain = reasons.includes("psych_indie_opener_chain");
-  if (underfilled || stubUnderfill || input.degradedDelivery === true || laneMash || openerChain) {
+  const genreWorldCommitted = Boolean(input.activeWorldId);
+  const identityDriftOnLock =
+    genreWorldCommitted &&
+    (reasons.includes("identity_drift") || reasons.includes("world_lane_mash"));
+  if (reasons.includes("human_save_failed")) {
+    if (salvageableCount >= 3) {
+      return {
+        action: "honest_partial",
+        reasons,
+        userMessage: buildHumanQualityPartialMessage(salvageableCount, requested, reasons),
+        salvageableCount: Math.min(salvageableCount, Math.min(12, Math.ceil(requested * 0.4))),
+        wouldSaveConfidence,
+        replayConfidence,
+        worldCoherenceOk,
+        stubUnderfill,
+      };
+    }
+    const refuseReasons = reasons.length > 0 ? reasons : ["human_save_failed"];
+    return {
+      action: "refuse",
+      reasons: refuseReasons,
+      userMessage: buildHumanQualityRefuseMessage(refuseReasons, {
+        trackCount: count,
+        requestedLength: requested,
+        promptLabel: input.promptLabel,
+      }),
+      salvageableCount: 0,
+      wouldSaveConfidence,
+      replayConfidence,
+      worldCoherenceOk,
+      stubUnderfill,
+    };
+  }
+  if (input.degradedDelivery === true) {
+    const partialCap = Math.min(count, Math.min(12, Math.ceil(requested * 0.4)));
+    const partialReasons = reasons.length > 0 ? reasons : ["degraded_delivery"];
+    return {
+      action: "honest_partial",
+      reasons: partialReasons,
+      userMessage: buildHumanQualityPartialMessage(partialCap, requested, partialReasons),
+      salvageableCount: partialCap,
+      wouldSaveConfidence,
+      replayConfidence,
+      worldCoherenceOk,
+      stubUnderfill,
+    };
+  }
+  if (identityDriftOnLock) {
+    if (salvageableCount >= 3) {
+      const partialCap = Math.min(salvageableCount, Math.min(12, Math.ceil(requested * 0.4)));
+      return {
+        action: "honest_partial",
+        reasons,
+        userMessage: buildHumanQualityPartialMessage(partialCap, requested, reasons),
+        salvageableCount: partialCap,
+        wouldSaveConfidence,
+        replayConfidence,
+        worldCoherenceOk,
+        stubUnderfill,
+      };
+    }
+    const refuseReasons = reasons.length > 0 ? reasons : ["identity_drift"];
+    return {
+      action: "refuse",
+      reasons: refuseReasons,
+      userMessage: buildHumanQualityRefuseMessage(refuseReasons, {
+        trackCount: count,
+        requestedLength: requested,
+        promptLabel: input.promptLabel,
+      }),
+      salvageableCount: 0,
+      wouldSaveConfidence,
+      replayConfidence,
+      worldCoherenceOk,
+      stubUnderfill,
+    };
+  }
+  if (underfilled || stubUnderfill || laneMash || openerChain) {
     const partialReasons = reasons.length > 0 ? reasons : ["honest_underfill"];
     return {
       action: "honest_partial",
@@ -258,7 +335,7 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
 
   return {
     action: "pass",
-    reasons: weakWorld ? ["world_soft_warn"] : [],
+    reasons: weakWorld && !reasons.includes("human_save_failed") ? ["world_soft_warn"] : [],
     userMessage: null,
     salvageableCount: count,
     wouldSaveConfidence,

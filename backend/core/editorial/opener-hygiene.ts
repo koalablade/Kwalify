@@ -5,7 +5,7 @@
 
 /** Psych-indie / retrieval filler artists that must not anchor openers outside natural worlds. */
 export const OPENER_FILLER_PATTERN =
-  /\b(?:kasabian|q\s+lazzarus|tame\s+impala|glenn\s+frey|arctic\s+monkeys|the\s+weeknd)\b/i;
+  /\b(?:kasabian|q\s+lazzarus|tame\s+impala|glenn\s+frey|arctic\s+monkeys|the\s+weeknd|bon\s+iver|clairo|noah\s+kahan|dayglow|gregory\s+alan\s+isakov|badbadnotgood)\b/i;
 
 export function trackArtistName(track: { artistName?: string | null; artist?: string | null }): string {
   return String(track.artistName ?? track.artist ?? "").trim();
@@ -25,6 +25,9 @@ const ZERO_PSYCH_OPENER_WORLDS = new Set([
   "latin_summer_rooftop_world",
   "britpop_world",
   "grunge_world",
+  "gym_energy_world",
+  "disco_party_world",
+  "party_prep_world",
 ]);
 
 /** Max psych-indie opener fillers allowed in slots 1–3 for these worlds. */

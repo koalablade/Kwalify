@@ -435,8 +435,8 @@ function inferGenreFromAudioOnly(track: {
   const e = track.energy ?? 0.5;
   const d = track.danceability ?? 0.5;
   const sp = track.speechiness ?? 0.2;
-  let root: RootGenre = "indie";
-  let sub = "indie_rock";
+  let root: RootGenre | null = null;
+  let sub = "unknown";
   if (sp > 0.4 && e > 0.45) {
     root = "hip_hop";
     sub = "trap";
@@ -449,7 +449,7 @@ function inferGenreFromAudioOnly(track: {
     root = a > 0.78 ? "folk" : "country";
     sub = a > 0.78 ? "singer_songwriter" : "folk_country";
   } else if (a > 0.5 && (track.valence ?? 0.5) >= 0.58) {
-    root = "indie";
+    root = "pop";
     sub = "indie_pop";
   } else if (e > 0.75) {
     root = "rock";
@@ -457,6 +457,25 @@ function inferGenreFromAudioOnly(track: {
   } else if (a > 0.5 && (track.valence ?? 0.5) < 0.45) {
     root = "jazz";
     sub = "smooth_jazz";
+  }
+  if (!root) {
+    return {
+      genrePrimary: "unknown",
+      genreFamily: "unknown",
+      genreSecondary: null,
+      primarySubgenre: "unknown",
+      secondarySubgenre: null,
+      subGenres: ["unknown"],
+      microStyle: null,
+      confidenceScore: 0.22,
+      holidayBound: false,
+      diagnostics: {
+        taxonomyHit: false,
+        artistHintMatched: null,
+        patternMatched: null,
+        audioFallbackUsed: true,
+      },
+    };
   }
   return {
     genrePrimary: root,

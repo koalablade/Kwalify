@@ -205,6 +205,19 @@ const COMMITTED_WORLD_RETRIEVAL_IDS = [
   "feel_good_world",
   "party_prep_world",
   "gym_energy_world",
+  "classic_rock_world",
+  "dad_secret_world",
+  "rainy_drive_world",
+  "melancholy_drive",
+  "evening_drive_world",
+  "chill_rainy_world",
+  "goth_world",
+  "grunge_world",
+  "pop_punk_world",
+  "gym_rock_world",
+  "angry_rock_world",
+  "lofi_world",
+  "focus_study_world",
 ] as const;
 
 const COMMITTED_WORLD_GENRE_FAMILIES: Record<string, string[]> = {
@@ -212,6 +225,19 @@ const COMMITTED_WORLD_GENRE_FAMILIES: Record<string, string[]> = {
   feel_good_world: ["pop", "soul", "funk", "disco", "rnb"],
   party_prep_world: ["pop", "electronic", "disco", "hip_hop", "soul"],
   gym_energy_world: ["hip_hop", "electronic", "pop", "rock", "metal"],
+  classic_rock_world: ["rock"],
+  dad_secret_world: ["rock", "pop", "soul"],
+  rainy_drive_world: ["indie", "rock", "electronic"],
+  melancholy_drive: ["indie", "rock", "electronic"],
+  evening_drive_world: ["indie", "electronic", "rock"],
+  chill_rainy_world: ["indie", "folk"],
+  goth_world: ["rock", "electronic", "indie"],
+  grunge_world: ["rock"],
+  pop_punk_world: ["rock", "indie"],
+  gym_rock_world: ["rock", "metal"],
+  angry_rock_world: ["rock", "metal"],
+  lofi_world: ["indie", "electronic", "hip_hop", "jazz"],
+  focus_study_world: ["electronic", "indie", "jazz"],
 };
 
 const HIGH_CONFIDENCE_QUOTAS: Record<RetrievalSourceId, number> = {
@@ -600,6 +626,35 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
   }
 
   if (eligible.length === 0) {
+    const inferredWorldIds = inferWorldIdentityIdsFromPrompt(opts.vibe);
+    const worldCommitted =
+      retrievalProfile.committedWorldId != null ||
+      (opts.activeWorldIds?.length ?? 0) > 0 ||
+      inferredWorldIds.length > 0 ||
+      typeof opts.passesHardGate === "function";
+    if (worldCommitted) {
+      const thinCap = Math.max(
+        3,
+        Math.min(12, Math.ceil(opts.requestedLength * 0.4)),
+      );
+      const thinPool = opts.tracks
+        .filter((track) => (opts.passesHardGate ? opts.passesHardGate(track) : true))
+        .slice(0, thinCap);
+      return {
+        tracks: thinPool,
+        diagnostics: {
+          applied: true,
+          pipeline: "multi_source_retrieval",
+          inputCount: opts.tracks.length,
+          outputCount: thinPool.length,
+          cap: thinCap,
+          fallback: "world_committed_thin_honest_pool",
+          committedWorldId: retrievalProfile.committedWorldId,
+          inferredWorldIds,
+          activityProfileId: retrievalProfile.activityProfile?.id ?? null,
+        },
+      };
+    }
     const fallbackRanked = opts.tracks
       .map((track) => ({
         track,

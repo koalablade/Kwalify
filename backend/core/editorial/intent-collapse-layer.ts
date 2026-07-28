@@ -145,8 +145,8 @@ export const EDITORIAL_WORLD_ARCHETYPE_COMPAT: Record<string, string[]> = {
   festival_golden_hour: ["sunset_indie_drive", "upbeat_alt_morning_drive", "modern_feelgood_pop"],
   tumblr_indie_2012: ["soft_indie_morning", "indie_balanced_default", "balanced_scene_default"],
   bloghouse_2008: ["festival_electronic", "gym_confidence_boost", "night_drive_electronic"],
-  country_open_road: ["sunset_indie_drive", "balanced_scene_default", "indie_balanced_default"],
-  rock_anthem_drive: ["sunset_indie_drive", "gym_confidence_boost", "balanced_scene_default"],
+  country_open_road: ["country_open_road", "balanced_scene_default"],
+  rock_anthem_drive: ["rock_anthem_drive", "gym_confidence_boost", "balanced_scene_default"],
   hip_hop_session: ["gym_confidence_boost", "modern_hiphop_focus", "energetic_workout"],
   rnb_soul_evening: ["late_night_rnb", "late_night_indie_interior", "light_pop_sunday"],
   metal_intensity: ["gym_confidence_boost", "festival_electronic", "energetic_workout"],
@@ -542,7 +542,7 @@ const EDITORIAL_WORLDS: EditorialWorldDefinition[] = [
     allowedMicroClusters: ["rock:balanced", "rock:rhythmic", "rock:dense"],
     moods: ["energetic", "nostalgic", "uplift"],
     sceneTypes: ["drive", "gym"],
-    narrativeTags: ["rock", "classic rock", "alternative", "grunge", "punk", "anthem", "guitar"],
+    narrativeTags: ["rock", "classic rock", "alternative", "grunge", "punk", "anthem", "guitar", "dad rock", "yacht rock", "arena rock", "70s rock", "80s rock"],
     energyRange: [0.52, 0.82],
     valenceTarget: 0.30,
     rhythmDensityCap: 0.72,
@@ -1475,6 +1475,8 @@ export function selectEditorialWorld(opts: {
     : /\bgrunge\b|\bseattle\s+(?:sound|grunge)\b/i.test(lower) ? "grunge_90s_night"
     : /\b(?:rave|club)\s+comedown\b|\bpost[-\s]?rave\b|\bcomedown\b.*\b(?:bus|rave|club|after)\b/i.test(lower)
       ? "rave_comedown_afterglow"
+    : /\b(?:dad\s+rock|yacht\s+rock|arena\s+rock|classic\s+rock|70s?\s+rock|80s?\s+rock)\b/i.test(lower)
+      ? "rock_anthem_drive"
     : /\bsleepy\s+gym\b|\bchill\s+(?:gym|workout)\b|\bgym\b.*\b(?:sleepy|chill|low\s+energy)\b/i.test(lower)
       ? "sleepy_gym_chill"
     : /\bneon\s+(?:drive|city|streets?|nights?|tek)|synthwave|retrowave|cyberpunk|hard\s+techno\b/i.test(lower)
@@ -1513,6 +1515,11 @@ export function selectEditorialWorld(opts: {
       row.world.primaryFamilies.some((family) => lockedFamilies.includes(family)),
     );
     if (genreMatched.length > 0) candidatePool = genreMatched;
+  }
+
+  const genreLockActive = lockedFamilies.length > 0 || opts.lockedIntent.genreFamilies.length > 0;
+  if (genreLockActive) {
+    candidatePool = candidatePool.filter((row) => row.world.tag !== "indie_balanced_default");
   }
 
   if (opts.sceneArchetypeId) {
@@ -1578,6 +1585,10 @@ export function selectEditorialWorld(opts: {
   const withCandidates = withLibrary.filter((row) => row.fit.candidateCount > 0);
   if (withCandidates.length > 0) return withCandidates[0]!.world;
 
+  if (genreLockActive && candidatePool.length > 0) {
+    return candidatePool[0]!.world;
+  }
+
   if (opts.sceneArchetypeId) {
     const preferredTag = ARCHETYPE_PREFERRED_WORLD[opts.sceneArchetypeId];
     const preferredInPool = preferredTag
@@ -1614,6 +1625,8 @@ const ARCHETYPE_PREFERRED_WORLD: Record<string, string> = {
   gym_confidence_boost: "gym_boost",
   balanced_scene_default: "indie_balanced_default",
   indie_balanced_default: "indie_balanced_default",
+  rock_anthem_drive: "rock_anthem_drive",
+  country_open_road: "country_open_road",
 };
 
 export function isEditorialWorldCompatibleWithArchetype(

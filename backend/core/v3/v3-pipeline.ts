@@ -2717,27 +2717,32 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     targetCount,
     hardLockVerifiedIds?.size ?? 0,
   );
-  const minDeliverableTracks = verifiedProceedTarget != null
-    ? verifiedProceedTarget
-    : Math.max(6, Math.floor(targetCount * 0.35));
+  const honestPartialCap = Math.min(12, Math.ceil(targetCount * 0.4));
   const gateWouldHardFail = !humanSaveGate.passed;
   if (gateWouldHardFail) {
-    if (opts.hardWorldLock && hardLockVerifiedIds && verifiedProceedTarget != null) {
+    if (opts.hardWorldLock && hardLockVerifiedIds && hardLockVerifiedIds.size > 0) {
+      finalTracks = finalTracks.filter((track) => hardLockVerifiedIds.has(track.trackId)) as Array<
+        T & V3SelectionCandidate<T>
+      >;
       finalTracks = salvageHardLockVerifiedTracks(
         finalTracks,
         tracks,
         hardLockVerifiedIds,
-        targetCount,
+        honestPartialCap,
       ) as Array<T & V3SelectionCandidate<T>>;
+    } else {
+      finalTracks = finalTracks.slice(0, honestPartialCap) as Array<T & V3SelectionCandidate<T>>;
     }
     // Human Curation Alignment v2: never pad a failed identity into a full-length
-    // "safe" playlist. Keep salvageable tracks for honest partial, or refuse.
-    if (finalTracks.length >= minDeliverableTracks) {
+    // "safe" playlist. Keep world-verified honest partial, or refuse.
+    if (finalTracks.length >= 3) {
       noteReliabilityFallback("human_save_gate_honest_partial_candidate");
       humanSaveabilityDiagnostics = {
         ...humanSaveabilityDiagnostics,
-        hardFailed: false,
+        hardFailed: true,
         degradedDelivery: true,
+        honestPartialCap,
+        honestPartialDelivered: finalTracks.length,
       };
     } else {
       const rejectionReasons = [...humanSaveGate.evaluation.rejectionReasons, "human_quality_refuse_stub"];

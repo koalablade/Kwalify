@@ -9741,12 +9741,35 @@ router.post("/generate", async (req, res): Promise<void> => {
       (lockedIntent.eraStart !== null || constraintLayer.hard.eraStart !== null) &&
         finalValidation.eraAlignment === "FAIL" ? "eraAlignment" : null,
     ].filter((failure): failure is string => !!failure);
-    if (deliveryWorldBoundary.hardLock && finalValidation.genreConsistency === "FAIL") {
-      evidenceRelaxations.push("world_hard_lock_overrides_genre_consistency");
-      req.log.info(
-        { userId, vibe, genreConsistency: finalValidation.genreConsistency },
-        "Hard world lock overrides coarse genreConsistency validation",
-      );
+    if (deliveryWorldBoundary.hardLock && finalValidation.genreConsistency === "FAIL" && delivery.tracks.length > 0) {
+      const genreMismatchCap = Math.min(12, Math.ceil(requestedLength * 0.4));
+      if (delivery.tracks.length > genreMismatchCap) {
+        assignFT(
+          "genre_consistency",
+          "hard lock genre mismatch honest partial",
+          delivery.tracks.slice(0, genreMismatchCap),
+        );
+        evidenceRelaxations.push("world_hard_lock_genre_mismatch_honest_partial");
+        finalization = {
+          tracks: delivery.tracks as PlaylistTrack[],
+          diagnostics: {
+            ...finalization.diagnostics,
+            genreConsistencyMismatchHonestPartial: true,
+            degradedDelivery: true,
+            honestPartialPublished: true,
+          },
+        };
+        req.log.warn(
+          { userId, vibe, genreConsistency: finalValidation.genreConsistency, genreMismatchCap },
+          "Hard world lock genre mismatch — honest partial cap applied",
+        );
+      } else if (delivery.tracks.length < 3) {
+        evidenceRelaxations.push("world_hard_lock_genre_mismatch_refuse_candidate");
+        req.log.warn(
+          { userId, vibe, genreConsistency: finalValidation.genreConsistency, finalCount: delivery.tracks.length },
+          "Hard world lock genre mismatch with stub supply",
+        );
+      }
     }
     if (delivery.tracks.length > 0 && hardValidationFailures.length > 0) {
       const validPrefix = explicitConstraintActive
@@ -12028,12 +12051,12 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     // Terminal Human Quality Gate — save/replay honesty over forced completion.
     {
-      const v3World = ((pipeline.scoringDiagnostics as Record<string, unknown> | undefined)?.v3Pipeline as
+      const v3PipelineDiag = ((pipeline.scoringDiagnostics as Record<string, unknown> | undefined)?.v3Pipeline as
         | Record<string, unknown>
-        | undefined)?.["worldCoherence"] as Record<string, unknown> | undefined;
-      const v3Hqg = ((pipeline.scoringDiagnostics as Record<string, unknown> | undefined)?.v3Pipeline as
-        | Record<string, unknown>
-        | undefined)?.["humanQualityGate"] as Record<string, unknown> | undefined;
+        | undefined);
+      const humanSaveabilityGate = v3PipelineDiag?.["humanSaveabilityGate"] as Record<string, unknown> | undefined;
+      const v3World = v3PipelineDiag?.["worldCoherence"] as Record<string, unknown> | undefined;
+      const v3Hqg = v3PipelineDiag?.["humanQualityGate"] as Record<string, unknown> | undefined;
       const holidayNegated = promptSuppressesChristmas(vibe);
       const holidayRequested = allowHolidaySeason && !holidayNegated;
       const seasonalLeakage =
@@ -12080,14 +12103,18 @@ router.post("/generate", async (req, res): Promise<void> => {
             ? (v3World["retrievalEntropy"] as number)
             : null,
         humanSavePassed:
-          typeof ((pipeline.scoringDiagnostics as Record<string, unknown> | undefined)?.v3Pipeline as
-            | Record<string, unknown>
-            | undefined)?.["humanSaveabilityGate"] === "object"
-            ? ((((pipeline.scoringDiagnostics as Record<string, unknown>).v3Pipeline as Record<string, unknown>)[
-                "humanSaveabilityGate"
-              ] as Record<string, unknown>)["passed"] as boolean | undefined) ?? null
+          humanSaveabilityGate?.passed === true || humanSaveabilityGate?.humanSaveable === true
+            ? true
+            : humanSaveabilityGate?.passed === false || humanSaveabilityGate?.humanSaveable === false
+              ? false
+              : null,
+        curatorScore:
+          typeof humanSaveabilityGate?.curatorScore === "number"
+            ? (humanSaveabilityGate.curatorScore as number)
             : null,
-        degradedDelivery: finalization.diagnostics["degradedDelivery"] === true,
+        degradedDelivery:
+          finalization.diagnostics["degradedDelivery"] === true ||
+          humanSaveabilityGate?.degradedDelivery === true,
         seasonalLeakage:
           !allowHolidaySeason &&
           delivery.tracks.some((track) => trackIsChristmasTrack(track, userGenreProfile.trackClassifications)),
@@ -12134,6 +12161,36 @@ router.post("/generate", async (req, res): Promise<void> => {
             humanQualityUserMessage: terminalHqg.userMessage,
           },
         };
+      }
+      if (
+        humanSaveabilityGate?.humanSaveable === false &&
+        delivery.tracks.length > 0
+      ) {
+        const curator =
+          typeof humanSaveabilityGate.curatorScore === "number"
+            ? (humanSaveabilityGate.curatorScore as number)
+            : null;
+        const unsavableCap = Math.min(12, Math.ceil(requestedLength * 0.4));
+        const shouldCap =
+          humanSaveabilityGate.degradedDelivery === true ||
+          (curator != null && curator < 0.4);
+        if (shouldCap && delivery.tracks.length > unsavableCap) {
+          assignFT(
+            "human_save_gate",
+            "unsavable delivery cap",
+            delivery.tracks.slice(0, unsavableCap),
+          );
+          finalApiTracks = formatTracksForApi(delivery.tracks, emotionProfile);
+          finalization = {
+            tracks: delivery.tracks as PlaylistTrack[],
+            diagnostics: {
+              ...finalization.diagnostics,
+              humanSaveUnsavableCap: unsavableCap,
+              degradedDelivery: true,
+              honestPartialPublished: true,
+            },
+          };
+        }
       }
     }
     const tryEmptyPlaylistRecoveryFloor = (): boolean => {
