@@ -47,7 +47,10 @@ import {
 } from "../editorial/human-quality-gate";
 import { inferWorldIdentityIdsFromPrompt } from "../editorial/world-identity-gate";
 import { resolveCommittedWorld } from "../committed-world";
-import { evaluateIntentFidelity } from "../editorial/intent-fidelity-gate";
+import {
+  evaluateIntentFidelity,
+  selectIntentFidelityHonestPartialTracks,
+} from "../editorial/intent-fidelity-gate";
 import { detectUkHipHopScene } from "../../lib/uk-hip-hop-scene";
 import { promptSuppressesChristmas } from "../../lib/human-scene-knowledge";
 import { artistEcosystemBoost, type ArtistEcosystemGraph } from "../../lib/artist-ecosystem-graph";
@@ -2949,7 +2952,18 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     humanQualityGate.salvageableCount > 0 &&
     finalTracks.length > humanQualityGate.salvageableCount
   ) {
-    finalTracks = finalTracks.slice(0, humanQualityGate.salvageableCount);
+    if (
+      committedWorld?.hardLock === true &&
+      (!intentFidelity.passed || !intentFidelity.openerPassed)
+    ) {
+      finalTracks = selectIntentFidelityHonestPartialTracks(
+        finalTracks,
+        intentFidelity,
+        committedWorld,
+      );
+    } else {
+      finalTracks = finalTracks.slice(0, humanQualityGate.salvageableCount);
+    }
   }
 
   let sceneWorldProof: SceneWorldProofReport | null = null;

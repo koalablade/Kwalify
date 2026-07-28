@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { resolveCommittedWorld } from "../core/committed-world";
-import { evaluateIntentFidelity } from "../core/editorial/intent-fidelity-gate";
+import { evaluateIntentFidelity, selectIntentFidelityHonestPartialTracks } from "../core/editorial/intent-fidelity-gate";
 import {
   inferWorldIdentityIdsFromPrompt,
   isSafetyBlanketOutsideWorld,
@@ -77,6 +77,27 @@ describe("V6 human quality sprint", () => {
     });
     assert.equal(result.openerPassed, false);
     assert.equal(isSafetyBlanketOutsideWorld("Phoebe Bridgers", committed.worldIds), true);
+  });
+
+  it("honest partial salvage keeps only world-verified tracks", () => {
+    const committed = resolveCommittedWorld({ prompt: "dad rock" })!;
+    const tracks = [
+      { trackId: "1", trackName: "Holocene", artistName: "Bon Iver", genreFamily: "indie", energy: 0.3 },
+      { trackId: "2", trackName: "Don't Stop Believin'", artistName: "Journey", genreFamily: "rock", energy: 0.7 },
+      { trackId: "3", trackName: "Sweet Child O' Mine", artistName: "Guns N' Roses", genreFamily: "rock", energy: 0.75 },
+      { trackId: "4", trackName: "Back in Black", artistName: "AC/DC", genreFamily: "rock", energy: 0.8 },
+      { trackId: "5", trackName: "Livin' on a Prayer", artistName: "Bon Jovi", genreFamily: "rock", energy: 0.78 },
+    ];
+    const result = evaluateIntentFidelity({
+      committed,
+      prompt: "dad rock",
+      requestedLength: 25,
+      tracks,
+    });
+    const salvaged = selectIntentFidelityHonestPartialTracks(tracks, result, committed);
+    assert.ok(!salvaged.some((t) => /bon iver/i.test(t.artistName ?? "")));
+    assert.equal(salvaged.length, result.worldVerifiedCount);
+    assert.ok(salvaged.length <= result.honestPartialCap);
   });
 
   it("intent_fidelity_failed triggers honest partial not pass", () => {

@@ -166,9 +166,7 @@ export function evaluateIntentFidelity(opts: {
   const salvageableTracks =
     verified.length >= 3
       ? verified.slice(0, honestPartialCap)
-      : verified.length > 0
-        ? verified
-        : tracks.slice(0, Math.min(3, tracks.length));
+      : verified;
 
   return {
     passed,
@@ -180,4 +178,29 @@ export function evaluateIntentFidelity(opts: {
     salvageableTracks,
     honestPartialCap,
   };
+}
+
+/** World-verified honest partial — never keep opener fillers when hard-locked. */
+export function selectIntentFidelityHonestPartialTracks<
+  T extends IntentFidelityTrack & { trackId?: string },
+>(tracks: T[], result: IntentFidelityResult, committed: CommittedWorld | null): T[] {
+  if (!committed?.hardLock || (result.passed && result.openerPassed)) {
+    return tracks;
+  }
+  const cap = result.honestPartialCap;
+  const verifiedIds = new Set(
+    result.salvageableTracks
+      .map((t) => t.trackId)
+      .filter((id): id is string => typeof id === "string" && id.length > 0),
+  );
+  if (verifiedIds.size > 0) {
+    const verified = tracks.filter((t) => t.trackId != null && verifiedIds.has(t.trackId));
+    if (verified.length > 0) {
+      return verified.slice(0, cap);
+    }
+  }
+  if (result.salvageableTracks.length > 0) {
+    return (result.salvageableTracks as T[]).slice(0, cap);
+  }
+  return tracks.slice(0, Math.min(cap, tracks.length));
 }

@@ -265,7 +265,10 @@ import {
   evaluateHumanQualityGate,
   HumanQualityGateError,
 } from "../core/editorial/human-quality-gate";
-import { evaluateIntentFidelity } from "../core/editorial/intent-fidelity-gate";
+import {
+  evaluateIntentFidelity,
+  selectIntentFidelityHonestPartialTracks,
+} from "../core/editorial/intent-fidelity-gate";
 import { resolveCommittedWorld } from "../core/committed-world";
 import {
   committedWorldQualitySignals,
@@ -12110,20 +12113,20 @@ router.post("/generate", async (req, res): Promise<void> => {
         prompt: vibe,
         requestedLength,
       });
-      if (committedWorld?.hardLock && !intentFidelity.passed && intentFidelity.worldVerifiedCount >= 3) {
-        const verifiedIds = new Set(
-          intentFidelity.salvageableTracks
-            .map((t) => t.trackId)
-            .filter((id): id is string => typeof id === "string" && id.length > 0),
+      if (
+        committedWorld?.hardLock &&
+        !intentFidelity.passed &&
+        intentFidelity.salvageableTracks.length >= 3
+      ) {
+        const salvaged = selectIntentFidelityHonestPartialTracks(
+          delivery.tracks,
+          intentFidelity,
+          committedWorld,
         );
-        const salvaged =
-          verifiedIds.size > 0
-            ? delivery.tracks.filter((t) => verifiedIds.has(t.trackId))
-            : (intentFidelity.salvageableTracks as typeof delivery.tracks);
         assignFT(
           "intent_fidelity_gate",
           "hard lock world-verified honest partial",
-          salvaged.slice(0, intentFidelity.honestPartialCap),
+          salvaged,
         );
         finalApiTracks = formatTracksForApi(delivery.tracks, emotionProfile);
         finalization = {
@@ -12209,10 +12212,18 @@ router.post("/generate", async (req, res): Promise<void> => {
           terminalHqg.salvageableCount > 0 &&
           delivery.tracks.length > terminalHqg.salvageableCount
         ) {
+          const partialTracks =
+            terminalHqg.reasons.includes("intent_fidelity_failed") && committedWorld?.hardLock
+              ? selectIntentFidelityHonestPartialTracks(
+                  delivery.tracks,
+                  intentFidelity,
+                  committedWorld,
+                )
+              : delivery.tracks.slice(0, terminalHqg.salvageableCount);
           assignFT(
             "human_quality_gate",
             "honest partial cap",
-            delivery.tracks.slice(0, terminalHqg.salvageableCount),
+            partialTracks,
           );
           finalApiTracks = formatTracksForApi(delivery.tracks, emotionProfile);
         }
@@ -13092,6 +13103,13 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     let postFreezeOpenerDiagnostics: OpenerHygieneDiagnostics = {};
     const inferredWorldIds = inferWorldIdentityIdsFromPrompt(vibe);
+    const lateCommittedWorld = resolveCommittedWorld({
+      prompt: vibe,
+      sceneLock: sceneLockStatus,
+      sceneAliases,
+      scenePrediction: mergedScenePrediction,
+      lockedIntent,
+    });
     {
       const hygiene = applyFinalApiOpenerHygiene(finalApiTracks, inferredWorldIds, {
         minKeep: HONEST_PARTIAL_MIN,
@@ -13105,6 +13123,56 @@ router.post("/generate", async (req, res): Promise<void> => {
           diagnostics: {
             ...finalization.diagnostics,
             ...hygiene.diagnostics,
+          },
+        };
+      }
+    }
+    const lateIntentFidelity = evaluateIntentFidelity({
+      tracks: deliveredTracks.map((t) => ({
+        trackId: t.trackId,
+        trackName: t.trackName,
+        artistName: t.artistName,
+        albumName: t.albumName,
+        genreFamily: t.genreFamily,
+        genrePrimary: t.genrePrimary,
+        genres: t.genres ?? null,
+        spotifyArtistGenres: (t as { spotifyArtistGenres?: unknown }).spotifyArtistGenres,
+        albumGenres: (t as { albumGenres?: unknown }).albumGenres,
+        energy: t.energy ?? null,
+        valence: t.valence ?? null,
+        danceability: t.danceability ?? null,
+        instrumentalness: t.instrumentalness ?? null,
+        popularity: (t as { popularity?: number | null }).popularity ?? null,
+        acousticness: t.acousticness ?? null,
+      })),
+      committed: lateCommittedWorld,
+      prompt: vibe,
+      requestedLength,
+    });
+    if (
+      lateCommittedWorld?.hardLock &&
+      (!lateIntentFidelity.passed || !lateIntentFidelity.openerPassed) &&
+      deliveredTracks.length > lateIntentFidelity.honestPartialCap
+    ) {
+      const salvaged = selectIntentFidelityHonestPartialTracks(
+        deliveredTracks as PlaylistTrack[],
+        lateIntentFidelity,
+        lateCommittedWorld,
+      );
+      if (salvaged.length >= 3 && salvaged.length < deliveredTracks.length) {
+        deliveredTracks = salvaged;
+        finalApiTracks = formatTracksForApi(
+          deliveredTracks,
+          emotionProfile,
+          momentPipeline?.canonicalScene?.sceneId ?? null,
+        );
+        finalization = {
+          tracks: delivery.tracks as PlaylistTrack[],
+          diagnostics: {
+            ...finalization.diagnostics,
+            intentFidelityGateLate: lateIntentFidelity,
+            honestPartialPublished: true,
+            degradedDelivery: true,
           },
         };
       }
@@ -13132,7 +13200,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         3,
         inferredWorldIds,
       );
-      const lateActiveWorldId = inferredWorldIds[0] ?? null;
+      const lateActiveWorldId = lateCommittedWorld?.id ?? inferredWorldIds[0] ?? null;
       const lateTrackSignals = finalApiTracks.map((track) => ({
         artistName: track.artist ?? (track as { artistName?: string }).artistName,
         genreFamily: (track as { genreFamily?: string }).genreFamily,
@@ -13158,6 +13226,11 @@ router.post("/generate", async (req, res): Promise<void> => {
         degradedDelivery: finalization.diagnostics["degradedDelivery"] === true,
         promptLabel: vibe,
         ...lateWorldSignals,
+        activeWorldId: lateActiveWorldId,
+        intentFidelityFailed:
+          lateCommittedWorld?.hardLock === true &&
+          (!lateIntentFidelity.passed || !lateIntentFidelity.openerPassed),
+        committedWorldHardLock: lateCommittedWorld?.hardLock ?? false,
         committedWorldLaneOk:
           lateActiveWorldId && LANE_PURITY_WORLD_IDS.has(lateActiveWorldId)
             ? scoreCommittedWorldLanePurity(lateActiveWorldId, lateTrackSignals, { prompt: vibe }).ok
@@ -13184,10 +13257,27 @@ router.post("/generate", async (req, res): Promise<void> => {
         lateHqg.action === "honest_partial" &&
         lateHqg.salvageableCount > 0 &&
         finalApiTracks.length > lateHqg.salvageableCount &&
-        finalApiTracks.length < Math.ceil(requestedLength * 0.85)
+        (
+          lateHqg.reasons.includes("intent_fidelity_failed") ||
+          finalApiTracks.length < Math.ceil(requestedLength * 0.85)
+        )
       ) {
-        finalApiTracks = finalApiTracks.slice(0, lateHqg.salvageableCount);
-        deliveredTracks = syncTracksToApiOrder(deliveredTracks, finalApiTracks);
+        if (lateHqg.reasons.includes("intent_fidelity_failed") && lateCommittedWorld?.hardLock) {
+          const salvaged = selectIntentFidelityHonestPartialTracks(
+            deliveredTracks as PlaylistTrack[],
+            lateIntentFidelity,
+            lateCommittedWorld,
+          );
+          deliveredTracks = salvaged;
+          finalApiTracks = formatTracksForApi(
+            deliveredTracks,
+            emotionProfile,
+            momentPipeline?.canonicalScene?.sceneId ?? null,
+          );
+        } else {
+          finalApiTracks = finalApiTracks.slice(0, lateHqg.salvageableCount);
+          deliveredTracks = syncTracksToApiOrder(deliveredTracks, finalApiTracks);
+        }
       }
     }
     const productionHygieneDiagnostics = {
