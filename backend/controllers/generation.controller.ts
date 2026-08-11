@@ -469,6 +469,8 @@ import {
 import { openingLockTrackIdsFromTracks } from "../core/editorial/opener-hygiene";
 import { applyWorldSequencing } from "../core/editorial/world-sequencer";
 import { applyWorldPurityGate } from "../core/editorial/world-purity-gate";
+import { applyHumanCurationSequencing, applyTerminalOpenerGuard, buildMomentReplacementPool } from "../core/editorial/human-curation-sequencer";
+import { passesMomentFitForRefill } from "../core/editorial/song-moment-fit";
 import {
   assessWorldCoverage,
   assessCandidateCoverageTier,
@@ -4255,6 +4257,10 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       hardSafeSkipped++;
       return;
     }
+    if (!passesMomentFitForRefill(sanitized, opts.vibe)) {
+      hardSafeSkipped++;
+      return;
+    }
     const artistKey = sanitized.artistName.toLowerCase().trim();
     const albumKey = normalizeRepeatToken(sanitized.albumName);
     const artistCount = artistCounts.get(artistKey) ?? 0;
@@ -4383,39 +4389,56 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
     relaxedArtistFillUsed = emergencyArtistLimit !== null && out.length > beforeRelaxedFill;
     relaxedAlbumFillUsed = out.length > beforeRelaxedFill;
   }
-  if (out.length < completionTarget) {
+
+  let qualityEligibleRemaining = 0;
+  for (const track of coherentRankedCandidates) {
+    const sanitized = sanitizePlaylistTrack(track);
+    if (!sanitized || seen.has(sanitized.trackId)) continue;
+    if (!finalTrackIsHardSafe(sanitized, opts)) continue;
+    if (!passesMomentFitForRefill(sanitized, opts.vibe)) continue;
+    qualityEligibleRemaining += 1;
+  }
+  const qualityCappedTarget = Math.min(completionTarget, out.length + qualityEligibleRemaining);
+  const effectiveCompletionTarget = Math.max(out.length, qualityCappedTarget);
+
+  if (out.length < effectiveCompletionTarget) {
     cohesionRelaxedFillUsed = preferredFamilies.size > 0;
     for (const track of coherentRankedCandidates) {
+      const sanitized = sanitizePlaylistTrack(track);
+      if (!sanitized || !passesMomentFitForRefill(sanitized, opts.vibe)) continue;
       const before = out.length;
       tryAdd(track, emergencyArtistLimit, emergencyAlbumLimit, true, false);
       if (out.length > before) cohesionRelaxedFillAdded++;
     }
   }
-  if (blockHardSafeFill && out.length < completionTarget) {
+  if (blockHardSafeFill && out.length < effectiveCompletionTarget) {
     siblingSubgenreRefillAdded += fillConstrainedSiblingRefill(
       emergencyArtistLimit,
       emergencyAlbumLimit,
-      completionTarget,
+      effectiveCompletionTarget,
     );
   }
-  if (!blockHardSafeFill && out.length < completionTarget) {
+  if (!blockHardSafeFill && out.length < effectiveCompletionTarget) {
     hardSafeFillUsed = true;
     const strictHardSafeArtistLimit = primaryArtistLimit ?? emergencyArtistLimit;
     const strictHardSafeAlbumLimit = primaryAlbumLimit;
-    fillUniqueHardSafe([...opts.initial, ...coherentRankedCandidates], strictHardSafeArtistLimit, strictHardSafeAlbumLimit);
-    if (out.length < opts.requestedLength) {
-      fillUniqueHardSafe(coherentRankedCandidates, emergencyArtistLimit, emergencyAlbumLimit);
+    fillUniqueHardSafe([...opts.initial, ...coherentRankedCandidates], strictHardSafeArtistLimit, strictHardSafeAlbumLimit, effectiveCompletionTarget);
+    if (out.length < effectiveCompletionTarget) {
+      fillUniqueHardSafe(coherentRankedCandidates, emergencyArtistLimit, emergencyAlbumLimit, effectiveCompletionTarget);
     }
-    if (out.length < recoveryActivationThreshold(opts.requestedLength)) {
-      fillUniqueHardSafe(coherentRankedCandidates, emergencyArtistLimit, emergencyAlbumLimit);
+    if (out.length < recoveryActivationThreshold(opts.requestedLength) && out.length < effectiveCompletionTarget) {
+      fillUniqueHardSafe(coherentRankedCandidates, emergencyArtistLimit, emergencyAlbumLimit, effectiveCompletionTarget);
     }
-    if (out.length < opts.requestedLength) {
+    if (out.length < effectiveCompletionTarget) {
       siblingSubgenreRefillAdded += fillRockPunkSiblingRefill(emergencyArtistLimit, emergencyAlbumLimit);
       siblingSubgenreRefillAdded += fillElectronicSiblingRefill(emergencyArtistLimit, emergencyAlbumLimit);
       siblingSubgenreRefillAdded += fillDreamRockSiblingRefill(emergencyArtistLimit, emergencyAlbumLimit);
     }
   }
-  const minimumCompleteCount = Math.min(opts.requestedLength, Math.ceil(opts.requestedLength * 0.90));
+  const minimumCompleteCount = Math.min(
+    Math.min(opts.requestedLength, Math.ceil(opts.requestedLength * 0.90)),
+    effectiveCompletionTarget,
+  );
   if (blockHardSafeFill && out.length < minimumCompleteCount) {
     siblingSubgenreRefillAdded += fillConstrainedSiblingRefill(
       primaryArtistLimit ?? emergencyArtistLimit,
@@ -4448,7 +4471,9 @@ function finalizePlaylistTracks<T extends ConstraintTrack>(opts: {
       cohesionSkipped,
       cohesionFamilies: preferredFamilies.size ? [...preferredFamilies].join(",") : null,
       intentCoherenceDownranked: coherenceDownranked,
-      completionTarget,
+      completionTarget: effectiveCompletionTarget,
+      qualityEligibleRemaining,
+      qualityCappedTarget,
       activityCompletionTarget: shouldCompleteActivityPlaylist,
       cohesionRelaxedFillUsed,
       cohesionRelaxedFillAdded,
@@ -12260,6 +12285,10 @@ router.post("/generate", async (req, res): Promise<void> => {
           coverageLevel: worldCoverageAssessment?.score ?? null,
           coverageTier: candidateCoverageTier,
           preserveOpener: true,
+          replacementPool: [
+            ...(delivery.tracks as PlaylistTrack[]),
+            ...(worldExpansionCandidates.length > 0 ? (worldExpansionCandidates as PlaylistTrack[]) : []),
+          ],
         });
         if (puritySubFunnel) {
           mergePuritySubFunnelFromGate(
@@ -12270,6 +12299,23 @@ router.post("/generate", async (req, res): Promise<void> => {
         }
         if (purityEarly.tracks.length > 0 && (purityEarly.removed > 0 || purityEarly.honestPartial)) {
           assignFT("world_purity_gate", "V15 delivery recovery purity", purityEarly.tracks as PlaylistTrack[]);
+        }
+        const humanCurationEarly = applyHumanCurationSequencing(delivery.tracks as PlaylistTrack[], {
+          prompt: vibe,
+          preserveThesisOpener: true,
+          culturalProfile: resolveCulturalProfileForCommitted(committedWorld),
+          replacementPool: buildMomentReplacementPool(
+            delivery.tracks as PlaylistTrack[],
+            worldExpansionCandidates.length > 0 ? (worldExpansionCandidates as PlaylistTrack[]) : undefined,
+          ),
+        });
+        if (
+          humanCurationEarly.swaps > 0 ||
+          humanCurationEarly.reorders > 0 ||
+          humanCurationEarly.removals > 0 ||
+          humanCurationEarly.replacements > 0
+        ) {
+          assignFT("human_curation_sequencer", "V16 listenability sequencing", humanCurationEarly.tracks as PlaylistTrack[]);
         }
         if (deliveryLossFunnel) {
           deliveryLossFunnel.postPurity = delivery.tracks.length;
@@ -13442,6 +13488,10 @@ router.post("/generate", async (req, res): Promise<void> => {
         coverageLevel: worldCoverageAssessment?.score ?? null,
         coverageTier: candidateCoverageTier,
         preserveOpener: true,
+        replacementPool: [
+          ...(deliveredTracks as PlaylistTrack[]),
+          ...(worldExpansionCandidates.length > 0 ? (worldExpansionCandidates as PlaylistTrack[]) : []),
+        ],
       });
       if (
         purityLate.removed > 0 ||
@@ -13502,6 +13552,45 @@ router.post("/generate", async (req, res): Promise<void> => {
         };
       }
     }
+    if (deliveredTracks.length > 1) {
+      const humanCurationFinal = applyHumanCurationSequencing(deliveredTracks as PlaylistTrack[], {
+        prompt: vibe,
+        preserveThesisOpener: true,
+        culturalProfile: lateCommittedWorld ? resolveCulturalProfileForCommitted(lateCommittedWorld) : null,
+        replacementPool: buildMomentReplacementPool(
+          deliveredTracks as PlaylistTrack[],
+          worldExpansionCandidates.length > 0 ? (worldExpansionCandidates as PlaylistTrack[]) : undefined,
+        ),
+      });
+      if (
+        humanCurationFinal.swaps > 0 ||
+        humanCurationFinal.reorders > 0 ||
+        humanCurationFinal.removals > 0 ||
+        humanCurationFinal.replacements > 0 ||
+        humanCurationFinal.diagnostics.length > 0
+      ) {
+        deliveredTracks = humanCurationFinal.tracks as PlaylistTrack[];
+        finalApiTracks = formatTracksForApi(
+          deliveredTracks,
+          emotionProfile,
+          momentPipeline?.canonicalScene?.sceneId ?? null,
+        );
+        finalization = {
+          tracks: delivery.tracks as PlaylistTrack[],
+          diagnostics: {
+            ...finalization.diagnostics,
+            humanCurationSequencer: {
+              swaps: humanCurationFinal.swaps,
+              reorders: humanCurationFinal.reorders,
+              removals: humanCurationFinal.removals,
+              replacements: humanCurationFinal.replacements,
+              diagnostics: humanCurationFinal.diagnostics,
+              momentReplacementDiagnostics: humanCurationFinal.momentReplacementDiagnostics,
+            },
+          },
+        };
+      }
+    }
     {
       const hygiene = applyFinalApiOpenerHygiene(finalApiTracks, inferredWorldIds, {
         minKeep: HONEST_PARTIAL_MIN,
@@ -13516,6 +13605,28 @@ router.post("/generate", async (req, res): Promise<void> => {
           diagnostics: {
             ...finalization.diagnostics,
             ...hygiene.diagnostics,
+          },
+        };
+      }
+    }
+    if (deliveredTracks.length > 1) {
+      const terminalOpener = applyTerminalOpenerGuard(deliveredTracks as PlaylistTrack[], vibe);
+      if (terminalOpener.swapped) {
+        deliveredTracks = terminalOpener.tracks as PlaylistTrack[];
+        finalApiTracks = formatTracksForApi(
+          deliveredTracks,
+          emotionProfile,
+          momentPipeline?.canonicalScene?.sceneId ?? null,
+        );
+        finalization = {
+          tracks: delivery.tracks as PlaylistTrack[],
+          diagnostics: {
+            ...finalization.diagnostics,
+            terminalOpenerGuard: {
+              swapped: true,
+              previousOpener: terminalOpener.previousOpener,
+              newOpener: terminalOpener.newOpener,
+            },
           },
         };
       }

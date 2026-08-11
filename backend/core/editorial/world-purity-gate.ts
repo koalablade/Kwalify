@@ -23,6 +23,7 @@ import {
 } from "./world-identity-score";
 import { sequenceAfterPurityFilter } from "./world-sequencer";
 import { selectThesisOpener } from "./thesis-opener-gate";
+import { replaceCheckpointFailures } from "./checkpoint-backfill";
 
 /** Checkpoint indices (0-based): tracks 1, 2, 5, 10, 15 */
 export const WORLD_PURITY_CHECKPOINT_INDICES = [0, 1, 4, 9, 14] as const;
@@ -41,6 +42,8 @@ export type PurityCheckpointDecision = {
 export type PuritySubFunnelDiagnostics = {
   prePurityCount: number;
   postFilterByWorldPurityCount: number;
+  postCheckpointBackfillCount: number;
+  checkpointBackfillReplacements: number;
   postCheckpointStripCount: number;
   checkpointStripApplied: boolean;
   removedReasons: string[];
@@ -67,6 +70,8 @@ function identitySubFunnel(tracks: WorldIdentityTrack[], removedReasons: string[
   return {
     prePurityCount: count,
     postFilterByWorldPurityCount: count,
+    postCheckpointBackfillCount: count,
+    checkpointBackfillReplacements: 0,
     postCheckpointStripCount: count,
     checkpointStripApplied: false,
     removedReasons,
@@ -322,6 +327,8 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
     coverageLevel?: CoverageLevel | null;
     coverageTier?: CoverageTier | null;
     preserveOpener?: boolean;
+    /** Candidates eligible for checkpoint replace-not-truncate (defaults to input tracks). */
+    replacementPool?: WorldIdentityTrack[];
   },
 ): WorldPurityResult & { tracks: T[] } {
   const requested = Math.max(1, opts?.requestedLength ?? 25);
@@ -382,6 +389,28 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
   }
 
   const postFilterByWorldPurityCount = working.length;
+
+  const REPLACEMENT_POOL_CAP = 256;
+  const rawReplacementPool = opts?.replacementPool ?? tracks;
+  const replacementPool = rawReplacementPool.length > REPLACEMENT_POOL_CAP
+    ? [...rawReplacementPool]
+      .sort((a, b) => scoreTrackWorldIdentity(b, profile) - scoreTrackWorldIdentity(a, profile))
+      .slice(0, REPLACEMENT_POOL_CAP)
+    : rawReplacementPool;
+  const backfill = replaceCheckpointFailures(
+    working,
+    replacementPool as T[],
+    committed,
+    profile,
+    {
+      prompt: opts?.prompt,
+      compositionPositions: filtered.survivorCompositionPositions,
+    },
+  );
+  if (backfill.replacements > 0) {
+    working = backfill.tracks;
+  }
+  const postCheckpointBackfillCount = working.length;
 
   const stripped = stripFromCheckpointFailure(
     working,
@@ -449,6 +478,8 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
     subFunnel: {
       prePurityCount,
       postFilterByWorldPurityCount,
+      postCheckpointBackfillCount,
+      checkpointBackfillReplacements: backfill.replacements,
       postCheckpointStripCount,
       checkpointStripApplied,
       removedReasons: [...filtered.removedReasons],

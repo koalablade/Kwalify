@@ -11,6 +11,7 @@ import {
   matchesAvoidEnergy,
   rosterTierScoreFloor,
 } from "./cultural-identity-profile";
+import { sceneAnchorIdentityBonus } from "./scene-anchor-spine";
 import {
   artistForbiddenInWorld,
   artistSupportsWorld,
@@ -81,7 +82,9 @@ export function scoreTrackWorldIdentity(
   if (trackForbidden(profile, artist, title, track)) return 0;
   if (artistForbiddenInWorld(artist, [profile.worldId])) return 0;
 
-  if (artist && artistMatchesAnchor(profile, artist)) return 1;
+  if (artist && artistMatchesAnchor(profile, artist)) {
+    return Math.min(1, 0.84 + sceneAnchorIdentityBonus(profile, artist));
+  }
   if (title && trackMatchesAnchor(profile, title, artist)) return 0.95;
   if (profile.legendaryTracks && title && matchesAny(profile.legendaryTracks, `${artist} ${title}`)) {
     return 0.92;

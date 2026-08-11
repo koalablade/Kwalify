@@ -85,6 +85,7 @@ const PRIORITY_ANCHOR_ORDER: Record<string, string[]> = {
   ],
   disco_1970s_world: [
     "Bee Gees",
+    "ABBA",
     "Michael Jackson",
     "Chic",
     "Donna Summer",
@@ -221,6 +222,8 @@ export function rosterTierScoreFloor(artistName: string, profile: CulturalWorldP
   const artist = String(artistName ?? "").trim();
   if (!artist) return null;
 
+  if (profile.anchorArtists.some((re) => re.test(artist))) return 0.82;
+  if (matchesArtistInNameList(artist, profile.anchorArtistNames ?? [])) return 0.82;
   if (matchesAdjacentArtist(artist, profile)) return 0.82;
   if (matchesArtistInNameList(artist, profile.majorArtists ?? [])) return 0.82;
   if (matchesArtistInNameList(artist, profile.eraExtensions ?? [])) return 0.82;
@@ -582,13 +585,13 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
       /\binspiral\s+carpets\b/i,
     ],
     anchorArtistNames: ["The Stone Roses", "Happy Mondays", "New Order", "Oasis", "Inspiral Carpets"],
-    adjacentArtists: ["The Charlatans", "James", "The Verve", "Primal Scream", "The La's"],
+    adjacentArtists: ["The Charlatans", "James", "The Verve", "Primal Scream", "The La's", "Blur"],
     majorArtists: ["Inspiral Carpets", "The Charlatans", "Primal Scream", "James", "Northside", "808 State", "Black Grape", "Electronic", "The Farm", "The Seahorses", "The La's"],
     deepCuts: ["Northside", "Black Grape", "The Farm", "The Seahorses", "Ride", "Shack"],
     forgottenArtists: ["Paris Angels", "The High", "Sub Sub", "The Mock Turtles"],
     cultArtists: ["808 State", "Electronic", "Northside"],
     eraExtensions: ["Primal Scream", "The Charlatans", "James", "Black Grape"],
-    acceptableAdjacency: ["The Charlatans", "Primal Scream", "James", "Inspiral Carpets", "808 State", "Black Grape"],
+    acceptableAdjacency: ["The Charlatans", "Primal Scream", "James", "Inspiral Carpets", "808 State", "Black Grape", "Blur"],
     acceptableModernArtists: ["The Charlatans", "Primal Scream"],
     avoidArtists: [
       "Destructo Disk",
@@ -791,6 +794,7 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     anchorArtists: [
       /\bmichael\s+jackson\b/i,
       /\bbe\s+gees\b/i,
+      /\babba\b/i,
       /\bchic\b/i,
       /\bdonna\s+summer\b/i,
       /\bearth[\s,]*wind\s*(?:&|and)\s*fire\b/i,
@@ -801,6 +805,7 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     anchorArtistNames: [
       "Michael Jackson",
       "Bee Gees",
+      "ABBA",
       "Chic",
       "Donna Summer",
       "Earth, Wind & Fire",
@@ -918,6 +923,7 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     anchorArtists: [
       /\bmichael\s+jackson\b/i,
       /\bbe\s+gees\b/i,
+      /\babba\b/i,
       /\bchic\b/i,
       /\bdonna\s+summer\b/i,
       /\bearth[\s,]*wind\s*(?:&|and)\s*fire\b/i,
@@ -927,6 +933,7 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     anchorArtistNames: [
       "Michael Jackson",
       "Bee Gees",
+      "ABBA",
       "Chic",
       "Donna Summer",
       "Earth, Wind & Fire",

@@ -192,7 +192,7 @@ export function improvePlaylistByLocalSearch<T extends PatternScoringTrack>(
 
     const tailStart = Math.floor(current.length * 0.65);
     for (let i = tailStart; i < current.length; i += 2) {
-      for (const candidate of pool) {
+      for (const candidate of pool.slice(0, 80)) {
         if (admitTrack && !admitTrack(candidate)) continue;
         const pop = candidate.popularity ?? 50;
         const discovery = candidate.rediscoveryScore ?? (100 - pop) / 100;

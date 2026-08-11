@@ -57,8 +57,10 @@ import {
 } from "../editorial/world-proof-gate";
 import { enforceThesisOpener } from "../editorial/thesis-opener-gate";
 import { resolveCulturalProfileForCommitted } from "../editorial/world-identity-score";
+import { applySceneAnchorRetrievalQuota } from "../editorial/scene-anchor-retrieval-quota";
 import { applyWorldSequencing } from "../editorial/world-sequencer";
 import { applyWorldPurityGate } from "../editorial/world-purity-gate";
+import { applyHumanCurationSequencing } from "../editorial/human-curation-sequencer";
 import {
   filterTracksForDeliveryNegation,
   parsePromptNegationEnforcement,
@@ -1639,6 +1641,28 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     }
     }
   }
+  let sceneAnchorRetrievalDiagnostics: ReturnType<
+    typeof applySceneAnchorRetrievalQuota<T>
+  >["diagnostics"] | null = null;
+  {
+    const culturalProfileForAnchors = resolveCulturalProfileForCommitted(committedWorld);
+    if (culturalProfileForAnchors && retrievedTracks.length > 0 && tracks.length > 0) {
+      const anchorQuota = applySceneAnchorRetrievalQuota(
+        retrievedTracks,
+        tracks,
+        culturalProfileForAnchors,
+        { prompt: vibe },
+      );
+      sceneAnchorRetrievalDiagnostics = anchorQuota.diagnostics;
+      if (anchorQuota.diagnostics.injected.length > 0) {
+        retrievedTracks = anchorQuota.tracks;
+        postIntentFilterCountFinal = retrievedTracks.length;
+        noteReliabilityFallback(
+          `scene_anchor_retrieval_quota_${anchorQuota.diagnostics.injected.length}`,
+        );
+      }
+    }
+  }
   activeRetrievalCloud = {
     ...activeRetrievalCloud,
     tracks: (() => {
@@ -1649,7 +1673,11 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         cloudById.get(track.trackId) ?? {
           track,
           embeddingAffinity: 0.35,
-          retrievalNeighborhood: "intent_backfill",
+          retrievalNeighborhood: sceneAnchorRetrievalDiagnostics?.injected.some(
+            (row) => row.trackId === track.trackId,
+          )
+            ? "scene_anchor_quota"
+            : "intent_backfill",
           componentAffinities: {
             scene: 0.4,
             taste: 0.45,
@@ -2381,6 +2409,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       },
     });
   }
+  const maxSearchPoolTracks = humanSaveStrictMode ? 112 : 96;
   const searchPool = (() => {
     const seen = new Set<string>();
     const out: Array<T & V3SelectionCandidate<T>> = [];
@@ -2391,6 +2420,9 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     }
     return out.map(toPatternTrack);
   })();
+  // Hard-lock can union 9k+ verified tracks into retrieval; cap local-search /
+  // editorial candidate pools to the same bound as complete-playlist search.
+  const cappedSearchPool = searchPool.slice(0, maxSearchPoolTracks);
   const completePlaylistSearch = (() => {
     if (opts.shouldSkipMarginalImprovement?.()) {
       return {
@@ -2435,7 +2467,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       finalTracks = searched;
     }
   }
-  const localSearchPool = searchPool;
+  const localSearchPool = cappedSearchPool;
   const localSearch = (() => {
     if (opts.shouldSkipMarginalImprovement?.()) {
       return {
@@ -2650,12 +2682,18 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     removalReason: string;
   }> = [];
 
+  const gateCandidateIds = new Set(cappedSearchPool.map((track) => track.trackId));
+  const gateCandidates = gateCandidateIds.size > 0
+    ? (retrievedTracks as unknown as import("../human-saveability-gate").HumanSaveabilityTrack[])
+      .filter((track) => gateCandidateIds.has(track.trackId))
+    : (retrievedTracks as unknown as import("../human-saveability-gate").HumanSaveabilityTrack[])
+      .slice(0, maxSearchPoolTracks);
   const humanSaveGateStartedAt = Date.now();
   const humanSaveGate = await runHumanSaveabilityGateWithRetries({
     prompt: vibe,
     lockedIntent,
     initialTracks: finalTracks as unknown as import("../human-saveability-gate").HumanSaveabilityTrack[],
-    candidates: retrievedTracks as unknown as import("../human-saveability-gate").HumanSaveabilityTrack[],
+    candidates: gateCandidates,
     context: sceneWorldContext,
     targetCount,
     strictHumanSave: humanSaveStrictMode,
@@ -2946,9 +2984,23 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       prompt: vibe,
       requestedLength: targetCount,
       preserveOpener: true,
+      replacementPool: finalTracks,
     });
     if (purity.removed > 0 && purity.tracks.length >= 3) {
       finalTracks = purity.tracks as typeof finalTracks;
+    }
+    const humanCuration = applyHumanCurationSequencing(finalTracks, {
+      prompt: vibe,
+      preserveThesisOpener: true,
+      culturalProfile,
+    });
+    if (
+      humanCuration.swaps > 0 ||
+      humanCuration.reorders > 0 ||
+      humanCuration.removals > 0 ||
+      humanCuration.replacements > 0
+    ) {
+      finalTracks = humanCuration.tracks as typeof finalTracks;
     }
   }
   const worldProof = evaluateWorldProof({
@@ -3702,6 +3754,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     editorialPolishLayer: editorialPolishDiagnostics,
     editorialStabiliserLayer: editorialStabiliserDiagnostics,
     intentCollapseLayer: intentCollapseDiagnostics,
+    sceneAnchorRetrievalQuota: sceneAnchorRetrievalDiagnostics,
     samplerIntentContext,
     sceneWorldProof,
     playlistExecutionTrace: finalizeExecutionTrace(
