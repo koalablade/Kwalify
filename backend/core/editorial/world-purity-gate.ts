@@ -5,7 +5,7 @@
 
 import type { CommittedWorld } from "../committed-world";
 import type { CulturalWorldProfile } from "./cultural-identity-profile";
-import { matchesAvoidArtist } from "./cultural-identity-profile";
+import { matchesAvoidArtist, rosterTierScoreFloor } from "./cultural-identity-profile";
 import type { CoverageLevel, CoverageTier } from "./world-coverage";
 import {
   buildDeliveryMessage,
@@ -27,6 +27,27 @@ import { selectThesisOpener } from "./thesis-opener-gate";
 /** Checkpoint indices (0-based): tracks 1, 2, 5, 10, 15 */
 export const WORLD_PURITY_CHECKPOINT_INDICES = [0, 1, 4, 9, 14] as const;
 
+/** Audit-only sub-stage counts observed inside applyWorldPurityGate (no extra purity pass). */
+export type PurityCheckpointDecision = {
+  checkpointSurvivorIndex: number;
+  compositionPosition: number;
+  artist: string;
+  track: string;
+  score: number;
+  threshold: number;
+  passed: boolean;
+};
+
+export type PuritySubFunnelDiagnostics = {
+  prePurityCount: number;
+  postFilterByWorldPurityCount: number;
+  postCheckpointStripCount: number;
+  checkpointStripApplied: boolean;
+  removedReasons: string[];
+  checkpointDecisions: PurityCheckpointDecision[];
+  checkpointRemovedReasons: string[];
+};
+
 export type WorldPurityResult = {
   tracks: WorldIdentityTrack[];
   removed: number;
@@ -37,7 +58,22 @@ export type WorldPurityResult = {
   coverageMessage: string | null;
   deliveryMessage: string | null;
   salvageableCount: number;
+  /** Populated on every applyWorldPurityGate call — diagnostic only. */
+  subFunnel: PuritySubFunnelDiagnostics;
 };
+
+function identitySubFunnel(tracks: WorldIdentityTrack[], removedReasons: string[] = []): PuritySubFunnelDiagnostics {
+  const count = tracks.length;
+  return {
+    prePurityCount: count,
+    postFilterByWorldPurityCount: count,
+    postCheckpointStripCount: count,
+    checkpointStripApplied: false,
+    removedReasons,
+    checkpointDecisions: [],
+    checkpointRemovedReasons: [],
+  };
+}
 
 /** V15 position-tier purity threshold (0–100): T1 95+, T2-3 90+, T4-5 85+, T6-10 85+, T11+ 80+. */
 export function worldPurityThresholdForPosition(position: number): number {
@@ -46,6 +82,29 @@ export function worldPurityThresholdForPosition(position: number): number {
   if (position <= 4) return 85;
   if (position <= 9) return 85;
   return 80;
+}
+
+/** Position tier with roster floor — roster-qualified artists pass at their roster score, not arbitrary metadata tiers. */
+export function effectivePurityThresholdForTrack(
+  track: WorldIdentityTrack,
+  profile: CulturalWorldProfile,
+  compositionPosition: number,
+  opts?: { isThesisOpener?: boolean },
+): number {
+  const artist = String(track.artistName ?? "").trim();
+  const isAnchor = artist ? isAnchorArtistForProfile(artist, profile) : false;
+
+  if (compositionPosition === 0 && (opts?.isThesisOpener || isAnchor)) {
+    return Math.round((profile.openerRules.minWorldIdentityScore ?? 0.8) * 100);
+  }
+
+  const positionThreshold = worldPurityThresholdForPosition(compositionPosition);
+  if (!artist) return positionThreshold;
+
+  const rosterFloor = rosterTierScoreFloor(artist, profile);
+  if (rosterFloor == null) return positionThreshold;
+
+  return Math.min(positionThreshold, Math.round(rosterFloor * 100));
 }
 
 /** World identity score scaled 0–100. */
@@ -63,45 +122,62 @@ export function trackPassesWorldPurity(
   if (artist && matchesAvoidArtist(artist, profile)) return false;
 
   const score = scoreTrackPurityPercent(track, profile);
-  const isAnchor = artist ? isAnchorArtistForProfile(artist, profile) : false;
-
-  // V15 thesis fallback: track 1 anchor always passes even when below 95
-  if (position === 0 && (opts?.isThesisOpener || isAnchor)) {
-    return score >= Math.round((profile.openerRules.minWorldIdentityScore ?? 0.8) * 100);
-  }
-
-  const threshold = worldPurityThresholdForPosition(position);
+  const threshold = effectivePurityThresholdForTrack(track, profile, position, opts);
   return score >= threshold;
 }
 
 /** Human listener simulation — curator belief at checkpoints. */
+export function evaluateCheckpointDecisions(
+  tracks: WorldIdentityTrack[],
+  profile: CulturalWorldProfile,
+  compositionPositions?: readonly number[],
+): PurityCheckpointDecision[] {
+  const decisions: PurityCheckpointDecision[] = [];
+  for (const idx of WORLD_PURITY_CHECKPOINT_INDICES) {
+    if (idx >= tracks.length) continue;
+    const track = tracks[idx]!;
+    const compositionPosition = compositionPositions?.[idx] ?? idx;
+    const score = scoreTrackPurityPercent(track, profile);
+    const isThesis = compositionPosition === 0;
+    const isAnchor = isAnchorArtistForProfile(track.artistName, profile);
+    const threshold = effectivePurityThresholdForTrack(track, profile, compositionPosition, {
+      isThesisOpener: isThesis && isAnchor,
+    });
+    const passed = !(
+      String(track.artistName ?? "").trim() &&
+      matchesAvoidArtist(String(track.artistName ?? ""), profile)
+    ) && score >= threshold;
+    decisions.push({
+      checkpointSurvivorIndex: idx,
+      compositionPosition,
+      artist: String(track.artistName ?? "?"),
+      track: String(track.trackName ?? "?"),
+      score,
+      threshold,
+      passed,
+    });
+  }
+  return decisions;
+}
+
 export function wouldStillBelieveSameCurator(
   prompt: string,
   tracks: WorldIdentityTrack[],
   committed: CommittedWorld | null,
   profile: CulturalWorldProfile | null,
+  compositionPositions?: readonly number[],
 ): { believe: boolean; failures: string[] } {
   void prompt;
   if (!committed?.hardLock || !profile || tracks.length === 0) {
     return { believe: true, failures: [] };
   }
-  const failures: string[] = [];
-  for (const idx of WORLD_PURITY_CHECKPOINT_INDICES) {
-    if (idx >= tracks.length) continue;
-    const track = tracks[idx]!;
-    const score = scoreTrackPurityPercent(track, profile);
-    const isThesis = idx === 0;
-    const isAnchor = isAnchorArtistForProfile(track.artistName, profile);
-    const threshold =
-      isThesis && isAnchor
-        ? Math.round((profile.openerRules.minWorldIdentityScore ?? 0.8) * 100)
-        : worldPurityThresholdForPosition(idx);
-    if (score < threshold) {
-      failures.push(
-        `checkpoint_${idx + 1}:${track.artistName ?? "?"} — ${track.trackName ?? "?"}:${score}<${threshold}`,
-      );
-    }
-  }
+  const decisions = evaluateCheckpointDecisions(tracks, profile, compositionPositions);
+  const failures = decisions
+    .filter((d) => !d.passed)
+    .map(
+      (d) =>
+        `checkpoint_${d.checkpointSurvivorIndex + 1}:${d.artist} — ${d.track}:${d.score}<${d.threshold}@pos_${d.compositionPosition + 1}`,
+    );
   return { believe: failures.length === 0, failures };
 }
 
@@ -109,17 +185,25 @@ export function wouldStillBelieveSameCurator(
 export function filterByWorldPurity<T extends WorldIdentityTrack>(
   tracks: T[],
   committed: CommittedWorld | null,
-): { tracks: T[]; removed: number; removedReasons: string[] } {
+): {
+  tracks: T[];
+  removed: number;
+  removedReasons: string[];
+  survivorCompositionPositions: number[];
+} {
   if (!committed?.hardLock || tracks.length === 0) {
-    return { tracks, removed: 0, removedReasons: [] };
+    return { tracks, removed: 0, removedReasons: [], survivorCompositionPositions: [] };
   }
   const profile = resolveCulturalProfileForCommitted(committed);
-  if (!profile) return { tracks, removed: 0, removedReasons: [] };
+  if (!profile) {
+    return { tracks, removed: 0, removedReasons: [], survivorCompositionPositions: [] };
+  }
 
   const thesis = selectThesisOpener(tracks, profile);
   const thesisKey = thesis ? `${thesis.track.artistName}|${thesis.track.trackName}` : null;
 
   const kept: T[] = [];
+  const survivorCompositionPositions: number[] = [];
   const removedReasons: string[] = [];
   let removed = 0;
 
@@ -129,28 +213,30 @@ export function filterByWorldPurity<T extends WorldIdentityTrack>(
     const isThesisOpener = i === 0 || (thesisKey != null && trackKey === thesisKey);
     if (trackPassesWorldPurity(track, profile, i, { isThesisOpener })) {
       kept.push(track);
+      survivorCompositionPositions.push(i);
     } else {
       removed += 1;
       const score = scoreTrackPurityPercent(track, profile);
+      const threshold = effectivePurityThresholdForTrack(track, profile, i, { isThesisOpener });
       const worldId = committed.worldIds?.[0] ?? committed.id;
       recordRetrievalRejection({
         worldId,
         artistName: track.artistName ?? "",
         trackName: track.trackName ?? "",
-        reason: `purity_pos_${i + 1}:${score}<${worldPurityThresholdForPosition(i)}`,
+        reason: `purity_pos_${i + 1}:${score}<${threshold}`,
         stage: "purity_gate",
         worldIdentityScore: score / 100,
       });
       removedReasons.push(
-        `pos_${i + 1}:${track.artistName ?? "?"} — ${track.trackName ?? "?"}:${score}<${worldPurityThresholdForPosition(i)}`,
+        `pos_${i + 1}:${track.artistName ?? "?"} — ${track.trackName ?? "?"}:${score}<${threshold}`,
       );
     }
   }
 
   if (kept.length > 0 || removed === 0) {
-    return { tracks: kept, removed, removedReasons };
+    return { tracks: kept, removed, removedReasons, survivorCompositionPositions };
   }
-  return { tracks, removed: 0, removedReasons: [] };
+  return { tracks, removed: 0, removedReasons: [], survivorCompositionPositions: [] };
 }
 
 /** Strip from first failing checkpoint forward when belief breaks. */
@@ -158,37 +244,72 @@ export function stripFromCheckpointFailure<T extends WorldIdentityTrack>(
   tracks: T[],
   committed: CommittedWorld | null,
   profile: CulturalWorldProfile | null,
-): { tracks: T[]; stripped: number; failures: string[] } {
+  compositionPositions?: readonly number[],
+): {
+  tracks: T[];
+  stripped: number;
+  failures: string[];
+  checkpointDecisions: PurityCheckpointDecision[];
+  checkpointRemovedReasons: string[];
+} {
   if (!committed?.hardLock || !profile || tracks.length === 0) {
-    return { tracks, stripped: 0, failures: [] };
+    return {
+      tracks,
+      stripped: 0,
+      failures: [],
+      checkpointDecisions: [],
+      checkpointRemovedReasons: [],
+    };
   }
-  const belief = wouldStillBelieveSameCurator("", tracks, committed, profile);
-  if (belief.believe) return { tracks, stripped: 0, failures: [] };
+  const checkpointDecisions = evaluateCheckpointDecisions(tracks, profile, compositionPositions);
+  const belief = wouldStillBelieveSameCurator("", tracks, committed, profile, compositionPositions);
+  if (belief.believe) {
+    return {
+      tracks,
+      stripped: 0,
+      failures: [],
+      checkpointDecisions,
+      checkpointRemovedReasons: [],
+    };
+  }
 
   let cutIndex = tracks.length;
-  for (const idx of WORLD_PURITY_CHECKPOINT_INDICES) {
-    if (idx >= tracks.length) continue;
-    const track = tracks[idx]!;
-    const score = scoreTrackPurityPercent(track, profile);
-    const isAnchor = isAnchorArtistForProfile(track.artistName, profile);
-    const threshold =
-      idx === 0 && isAnchor
-        ? Math.round((profile.openerRules.minWorldIdentityScore ?? 0.8) * 100)
-        : worldPurityThresholdForPosition(idx);
-    if (score < threshold) {
-      cutIndex = Math.min(cutIndex, idx);
+  for (const decision of checkpointDecisions) {
+    if (!decision.passed) {
+      cutIndex = Math.min(cutIndex, decision.checkpointSurvivorIndex);
       break;
     }
   }
-  if (cutIndex >= tracks.length) return { tracks, stripped: 0, failures: belief.failures };
+  const checkpointRemovedReasons = checkpointDecisions
+    .filter((d) => !d.passed)
+    .map(
+      (d) =>
+        `checkpoint_${d.checkpointSurvivorIndex + 1}:${d.artist} — ${d.track}:${d.score}<${d.threshold}@pos_${d.compositionPosition + 1}`,
+    );
+
+  if (cutIndex >= tracks.length) {
+    return { tracks, stripped: 0, failures: belief.failures, checkpointDecisions, checkpointRemovedReasons };
+  }
   const kept = tracks.slice(0, cutIndex);
   if (kept.length >= 3) {
-    return { tracks: kept, stripped: tracks.length - kept.length, failures: belief.failures };
+    return {
+      tracks: kept,
+      stripped: tracks.length - kept.length,
+      failures: belief.failures,
+      checkpointDecisions,
+      checkpointRemovedReasons,
+    };
   }
   if (kept.length > 0) {
-    return { tracks: kept, stripped: tracks.length - kept.length, failures: belief.failures };
+    return {
+      tracks: kept,
+      stripped: tracks.length - kept.length,
+      failures: belief.failures,
+      checkpointDecisions,
+      checkpointRemovedReasons,
+    };
   }
-  return { tracks, stripped: 0, failures: belief.failures };
+  return { tracks, stripped: 0, failures: belief.failures, checkpointDecisions, checkpointRemovedReasons };
 }
 
 /** V15 final pass — purity filter, checkpoint strip, sequence, honest partial cap. */
@@ -208,6 +329,8 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
   const coverageTier =
     opts?.coverageTier ?? (coverageLevel != null ? coverageLevelToDeliveryTier(coverageLevel) : null);
 
+  const prePurityCount = tracks.length;
+
   if (!committed?.hardLock || tracks.length === 0) {
     return {
       tracks,
@@ -219,6 +342,7 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
       coverageMessage: null,
       deliveryMessage: null,
       salvageableCount: tracks.length,
+      subFunnel: identitySubFunnel(tracks),
     };
   }
 
@@ -234,6 +358,7 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
       coverageMessage: null,
       deliveryMessage: null,
       salvageableCount: tracks.length,
+      subFunnel: identitySubFunnel(tracks),
     };
   }
 
@@ -256,12 +381,27 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
     }
   }
 
-  const stripped = stripFromCheckpointFailure(working, committed, profile);
-  if (stripped.stripped > 0 && stripped.tracks.length > 0) {
+  const postFilterByWorldPurityCount = working.length;
+
+  const stripped = stripFromCheckpointFailure(
+    working,
+    committed,
+    profile,
+    filtered.survivorCompositionPositions,
+  );
+  const checkpointStripApplied = stripped.stripped > 0 && stripped.tracks.length > 0;
+  if (checkpointStripApplied) {
     working = stripped.tracks;
   }
+  const postCheckpointStripCount = working.length;
 
-  const belief = wouldStillBelieveSameCurator(opts?.prompt ?? "", working, committed, profile);
+  const belief = wouldStillBelieveSameCurator(
+    opts?.prompt ?? "",
+    working,
+    committed,
+    profile,
+    filtered.survivorCompositionPositions.slice(0, working.length),
+  );
 
   if (opener && working.length > 0 && working[0] !== opener) {
     const rest = working.filter((t) => t !== opener);
@@ -306,5 +446,14 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
     coverageMessage,
     deliveryMessage,
     salvageableCount: Math.max(salvageableCount, working.length > 0 ? working.length : 0),
+    subFunnel: {
+      prePurityCount,
+      postFilterByWorldPurityCount,
+      postCheckpointStripCount,
+      checkpointStripApplied,
+      removedReasons: [...filtered.removedReasons],
+      checkpointDecisions: stripped.checkpointDecisions,
+      checkpointRemovedReasons: stripped.checkpointRemovedReasons,
+    },
   };
 }

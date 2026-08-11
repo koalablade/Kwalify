@@ -184,9 +184,57 @@ export function matchesAcceptableAdjacency(artistName: string, profile: Cultural
 }
 
 export function matchesAdjacentArtist(artistName: string, profile: CulturalWorldProfile): boolean {
-  const artist = String(artistName ?? "").trim().toLowerCase();
+  const artist = normalizeRosterArtistName(String(artistName ?? ""));
   if (!artist) return false;
-  return (profile.adjacentArtists ?? []).some((adj) => artist.includes(adj.toLowerCase()));
+  return (profile.adjacentArtists ?? []).some((adj) => {
+    const needle = normalizeRosterArtistName(adj);
+    if (!needle) return false;
+    if (artist === needle) return true;
+    if (needle.includes(" ")) {
+      return artist.includes(needle) || needle.includes(artist);
+    }
+    // Short single-token names (e.g. James, Blur): exact match only — avoids James Blake ⊂ James.
+    if (needle.length <= 5) return false;
+    return artist.includes(needle) || needle.includes(artist);
+  });
+}
+
+function normalizeRosterArtistName(artist: string): string {
+  return artist
+    .toLowerCase()
+    .replace(/[''`]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function matchesArtistInNameList(artistName: string, names: string[]): boolean {
+  const normalized = normalizeRosterArtistName(String(artistName ?? ""));
+  if (!normalized) return false;
+  return names.some((name) => {
+    const needle = normalizeRosterArtistName(name);
+    return needle.length > 0 && (normalized.includes(needle) || needle.includes(normalized));
+  });
+}
+
+/** Roster-tier floor aligned with retrieval layers — used by purity scoring only. */
+export function rosterTierScoreFloor(artistName: string, profile: CulturalWorldProfile): number | null {
+  const artist = String(artistName ?? "").trim();
+  if (!artist) return null;
+
+  if (matchesAdjacentArtist(artist, profile)) return 0.82;
+  if (matchesArtistInNameList(artist, profile.majorArtists ?? [])) return 0.82;
+  if (matchesArtistInNameList(artist, profile.eraExtensions ?? [])) return 0.82;
+
+  if (matchesAcceptableAdjacency(artist, profile)) return 0.8;
+
+  const deepTier = [
+    ...(profile.deepCuts ?? []),
+    ...(profile.cultArtists ?? []),
+    ...(profile.forgottenArtists ?? []),
+  ];
+  if (matchesArtistInNameList(artist, deepTier)) return 0.8;
+
+  return null;
 }
 
 export function matchesAvoidArtist(artistName: string, profile: CulturalWorldProfile): boolean {
@@ -542,7 +590,21 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     eraExtensions: ["Primal Scream", "The Charlatans", "James", "Black Grape"],
     acceptableAdjacency: ["The Charlatans", "Primal Scream", "James", "Inspiral Carpets", "808 State", "Black Grape"],
     acceptableModernArtists: ["The Charlatans", "Primal Scream"],
-    avoidArtists: ["Destructo Disk", "James Righton", "Bon Iver", "Phoebe Bridgers", "Arctic Monkeys", "Tame Impala", "James Hype", "Jesse James Solomon"],
+    avoidArtists: [
+      "Destructo Disk",
+      "James Righton",
+      "James Blake",
+      "Tommy James",
+      "Mike James Kirkland",
+      "James Arthur",
+      "James Gang",
+      "Bon Iver",
+      "Phoebe Bridgers",
+      "Arctic Monkeys",
+      "Tame Impala",
+      "James Hype",
+      "Jesse James Solomon",
+    ],
     anchorTracks: [/\bfools\s+gold\b/i, /\bstep\s+on\b/i, /\bi\s+am\s+the\s+resurrection\b/i],
     legendaryTracks: [/\bfools\s+gold\b/i, /\bstep\s+on\b/i, /\bi\s+am\s+the\s+resurrection\b/i, /\bwonderwall\b/i],
     preferredEras: { min: 1985, max: 1998 },
@@ -808,7 +870,7 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     forgottenArtists: ["Jamey Johnson", "Cody Jinks", "Whitey Morgan"],
     cultArtists: ["Sturgill Simpson", "Jason Isbell", "Tyler Childers"],
     eraExtensions: ["Brad Paisley", "Keith Urban", "Eric Church"],
-    acceptableAdjacency: ["George Strait", "Merle Haggard", "Tim McGraw", "Brad Paisley", "Eric Church"],
+    acceptableAdjacency: ["George Strait", "Merle Haggard", "Tim McGraw", "Brad Paisley", "Eric Church", "Waylon Jennings"],
     avoidArtists: [
       "Arctic Monkeys",
       "The Jungle Giants",

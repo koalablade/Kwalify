@@ -3,7 +3,14 @@
  */
 
 import type { CulturalWorldProfile } from "./cultural-identity-profile";
-import { culturalProfileForCommittedWorld, getCulturalProfile, matchesAvoidArtist, matchesAvoidGenre, matchesAvoidEnergy, matchesAcceptableAdjacency } from "./cultural-identity-profile";
+import {
+  culturalProfileForCommittedWorld,
+  getCulturalProfile,
+  matchesAvoidArtist,
+  matchesAvoidGenre,
+  matchesAvoidEnergy,
+  rosterTierScoreFloor,
+} from "./cultural-identity-profile";
 import {
   artistForbiddenInWorld,
   artistSupportsWorld,
@@ -84,8 +91,9 @@ export function scoreTrackWorldIdentity(
   if (identity?.naturalWorlds.includes(profile.worldId)) return 0.88;
   if (identity?.forbiddenWorlds.includes(profile.worldId)) return 0;
 
-  if (artist && matchesAcceptableAdjacency(artist, profile)) {
-    return Math.max(0.78, 0.25);
+  if (artist) {
+    const rosterFloor = rosterTierScoreFloor(artist, profile);
+    if (rosterFloor != null) return rosterFloor;
   }
 
   let score = 0.25;

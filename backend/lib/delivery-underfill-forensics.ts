@@ -226,3 +226,109 @@ export function buildGenreEvidenceUnderfillAudit(
     rootCauseHints,
   };
 }
+
+/** Audit-only delivery loss funnel — counts at each post-retrieval stage. */
+export type DeliveryLossFunnel = {
+  orchestratorFinal: number | null;
+  v3PreFilterSurvivors: number | null;
+  v3Composed: number | null;
+  postPurity: number | null;
+  postWorldProof: number | null;
+  postTerminal: number | null;
+  finalDelivered: number | null;
+};
+
+export function createEmptyDeliveryLossFunnel(): DeliveryLossFunnel {
+  return {
+    orchestratorFinal: null,
+    v3PreFilterSurvivors: null,
+    v3Composed: null,
+    postPurity: null,
+    postWorldProof: null,
+    postTerminal: null,
+    finalDelivered: null,
+  };
+}
+
+export function readOrchestratorFinalFromRetrievalFunnel(trace: unknown): number | null {
+  const stages = (trace as { stages?: { afterFinalGate?: unknown } } | null)?.stages;
+  return typeof stages?.afterFinalGate === "number" ? stages.afterFinalGate : null;
+}
+
+export function readV3PreFilterSurvivors(v3Pipeline: Record<string, unknown>): number | null {
+  const controlled = v3Pipeline["controlledGeneration"] as Record<string, unknown> | undefined;
+  const latencyGuard = controlled?.["retrievalLatencyGuard"] as Record<string, unknown> | undefined;
+  if (typeof latencyGuard?.["candidatePoolSizeFinal"] === "number") {
+    return latencyGuard["candidatePoolSizeFinal"];
+  }
+  if (typeof controlled?.["candidatePoolSizeFinal"] === "number") {
+    return controlled["candidatePoolSizeFinal"];
+  }
+  const recovery = v3Pipeline["preV3Recovery"] as Record<string, unknown> | undefined;
+  if (typeof recovery?.["candidateCount"] === "number") {
+    return recovery["candidateCount"];
+  }
+  const waterfall = v3Pipeline["waterfall"] as Record<string, unknown> | undefined;
+  if (typeof waterfall?.["laneCount"] === "number") {
+    return waterfall["laneCount"];
+  }
+  return null;
+}
+
+/** Audit-only purity sub-funnel — observed inside applyWorldPurityGate + pre-purity hard reject tally. */
+export type PurityCheckpointDecision = {
+  checkpointSurvivorIndex: number;
+  compositionPosition: number;
+  artist: string;
+  track: string;
+  score: number;
+  threshold: number;
+  passed: boolean;
+};
+
+export type PuritySubFunnel = {
+  prePurityCount: number | null;
+  postFilterByWorldPurityCount: number | null;
+  postCheckpointStripCount: number | null;
+  hardRejectOffWorldCount: number | null;
+  checkpointStripApplied: boolean | null;
+  removedReasons: string[];
+  checkpointDecisions: PurityCheckpointDecision[];
+  checkpointRemovedReasons: string[];
+};
+
+export function createEmptyPuritySubFunnel(): PuritySubFunnel {
+  return {
+    prePurityCount: null,
+    postFilterByWorldPurityCount: null,
+    postCheckpointStripCount: null,
+    hardRejectOffWorldCount: null,
+    checkpointStripApplied: null,
+    removedReasons: [],
+    checkpointDecisions: [],
+    checkpointRemovedReasons: [],
+  };
+}
+
+export function mergePuritySubFunnelFromGate(
+  target: PuritySubFunnel,
+  subFunnel: {
+    prePurityCount: number;
+    postFilterByWorldPurityCount: number;
+    postCheckpointStripCount: number;
+    checkpointStripApplied: boolean;
+    removedReasons: string[];
+    checkpointDecisions?: PurityCheckpointDecision[];
+    checkpointRemovedReasons?: string[];
+  },
+  hardRejectOffWorldCount: number,
+): void {
+  target.prePurityCount = subFunnel.prePurityCount;
+  target.postFilterByWorldPurityCount = subFunnel.postFilterByWorldPurityCount;
+  target.postCheckpointStripCount = subFunnel.postCheckpointStripCount;
+  target.checkpointStripApplied = subFunnel.checkpointStripApplied;
+  target.hardRejectOffWorldCount = hardRejectOffWorldCount;
+  target.removedReasons = [...subFunnel.removedReasons];
+  target.checkpointDecisions = [...(subFunnel.checkpointDecisions ?? [])];
+  target.checkpointRemovedReasons = [...(subFunnel.checkpointRemovedReasons ?? [])];
+}

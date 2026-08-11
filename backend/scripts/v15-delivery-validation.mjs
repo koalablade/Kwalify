@@ -113,6 +113,107 @@ function formatFunnel(funnel) {
     .join(", ");
 }
 
+function formatDeliveryLossFunnel(funnel) {
+  if (!funnel) return "(no deliveryLossFunnel)";
+  const keys = [
+    "orchestratorFinal",
+    "v3PreFilterSurvivors",
+    "v3Composed",
+    "postPurity",
+    "postWorldProof",
+    "postTerminal",
+    "finalDelivered",
+  ];
+  return keys.map((k) => `${k}=${funnel[k] ?? "—"}`).join(", ");
+}
+
+function formatDeliveryFunnelChain(funnel) {
+  if (!funnel) return "—";
+  const keys = [
+    "orchestratorFinal",
+    "v3PreFilterSurvivors",
+    "v3Composed",
+    "postPurity",
+    "postWorldProof",
+    "postTerminal",
+    "finalDelivered",
+  ];
+  return keys.map((k) => funnel[k] ?? "—").join(" → ");
+}
+
+function parsePuritySubFunnel(data) {
+  return (
+    data.puritySubFunnel ??
+    data.generationDiagnostics?.puritySubFunnel ??
+    null
+  );
+}
+
+function formatPurityChain(sub) {
+  if (!sub) return "(no puritySubFunnel)";
+  const pre = sub.prePurityCount ?? "—";
+  const postFilter = sub.postFilterByWorldPurityCount ?? "—";
+  const postCheckpoint = sub.postCheckpointStripCount ?? "—";
+  return `${pre} → ${postFilter} → ${postCheckpoint}`;
+}
+
+function summarizeRemovalReasons(reasons) {
+  if (!Array.isArray(reasons) || reasons.length === 0) return "(none)";
+  const counts = new Map();
+  for (const reason of reasons) {
+    const posMatch = /^pos_(\d+):/.exec(String(reason));
+    const key = posMatch ? `pos_${posMatch[1]} score<threshold` : String(reason).split(":")[0] ?? "other";
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => `${k}: ${n}`)
+    .join("; ");
+}
+
+function formatPuritySubFunnelDetail(id, sub) {
+  if (!sub) {
+    return [
+      `${id}`,
+      "  delivery: (no deliveryLossFunnel)",
+      "  purity:   (no puritySubFunnel)",
+      "  removals: (none)",
+      "",
+    ].join("\n");
+  }
+  const lines = [
+    `${id}`,
+    `  purity:   ${formatPurityChain(sub)}`,
+    `  hardRejectOffWorld (since v3Composed): ${sub.hardRejectOffWorldCount ?? "—"}`,
+    `  checkpointStripApplied: ${sub.checkpointStripApplied ?? "—"}`,
+    `  removal summary: ${summarizeRemovalReasons(sub.removedReasons)}`,
+  ];
+  if (Array.isArray(sub.removedReasons) && sub.removedReasons.length > 0) {
+    lines.push("  removals:");
+    for (const reason of sub.removedReasons) {
+      lines.push(`    ${reason}`);
+    }
+  } else {
+    lines.push("  removals: (none)");
+  }
+  if (Array.isArray(sub.checkpointDecisions) && sub.checkpointDecisions.length > 0) {
+    lines.push("  checkpoint decisions:");
+    for (const d of sub.checkpointDecisions) {
+      lines.push(
+        `    idx_${d.checkpointSurvivorIndex + 1} pos_${d.compositionPosition + 1}:${d.artist} — ${d.track}:${d.score}<${d.threshold} ${d.passed ? "PASS" : "FAIL"}`,
+      );
+    }
+  }
+  if (Array.isArray(sub.checkpointRemovedReasons) && sub.checkpointRemovedReasons.length > 0) {
+    lines.push("  checkpoint removals:");
+    for (const reason of sub.checkpointRemovedReasons) {
+      lines.push(`    ${reason}`);
+    }
+  }
+  lines.push("");
+  return lines.join("\n");
+}
+
 async function fetchGenerate(creds, prompt, requestId) {
   const url = `${creds.baseUrl}/api/generate?audit=1`;
   const res = await fetch(url, {
@@ -141,6 +242,11 @@ async function fetchGenerate(creds, prompt, requestId) {
   }
   const parsed = parseHumanSaveabilityFromGenerateResponse(res.status, data);
   const tracks = Array.isArray(data.tracks) ? data.tracks : [];
+  const deliveryLossFunnel =
+    data.deliveryLossFunnel ??
+    data.generationDiagnostics?.deliveryLossFunnel ??
+    null;
+  const puritySubFunnel = parsePuritySubFunnel(data);
   return {
     httpStatus: res.status,
     tracks,
@@ -150,6 +256,8 @@ async function fetchGenerate(creds, prompt, requestId) {
     retrievalFunnel: data.retrievalFunnel ?? data.generationDiagnostics?.retrievalFunnel ?? null,
     retrievalConfidence: data.retrievalConfidence ?? null,
     deliveryMessage: data.deliveryMessage ?? null,
+    deliveryLossFunnel,
+    puritySubFunnel,
   };
 }
 
@@ -190,6 +298,8 @@ async function main() {
 
   const verdicts = [];
   const detailSections = [];
+  const purityTableRows = [];
+  const purityDetailBlocks = [];
   let zeroTrackCount = 0;
 
   for (const { id, prompt, v14Count } of PROMPTS) {
@@ -205,6 +315,27 @@ async function main() {
     lines.push(
       `| ${id} | ${verdict} | ${v14Count} | ${tracks.length} | ${delta >= 0 ? "+" : ""}${delta} | ${diversity} | ${result.coverageTier ?? result.coverageLevel ?? "—"} | ${funnelFinal} |`,
     );
+    const sub = result.puritySubFunnel;
+    purityTableRows.push({
+      id,
+      pre: sub?.prePurityCount ?? "—",
+      postFilter: sub?.postFilterByWorldPurityCount ?? "—",
+      postCheckpoint: sub?.postCheckpointStripCount ?? "—",
+      hardReject: sub?.hardRejectOffWorldCount ?? "—",
+      final: result.deliveryLossFunnel?.finalDelivered ?? tracks.length,
+      removalSummary: summarizeRemovalReasons(sub?.removedReasons),
+    });
+    purityDetailBlocks.push(
+      `${id}`,
+      `  delivery: ${formatDeliveryFunnelChain(result.deliveryLossFunnel)}`,
+      `  purity:   ${formatPurityChain(sub)}`,
+      `  hardRejectOffWorld (since v3Composed): ${sub?.hardRejectOffWorldCount ?? "—"}`,
+      `  removal summary: ${summarizeRemovalReasons(sub?.removedReasons)}`,
+      ...(Array.isArray(sub?.removedReasons) && sub.removedReasons.length > 0
+        ? ["  removals:", ...sub.removedReasons.map((r) => `    ${r}`)]
+        : ["  removals: (none)"]),
+      "",
+    );
     detailSections.push(
       `### ${id} — ${verdict}`,
       "",
@@ -212,6 +343,10 @@ async function main() {
       `Why: ${why}`,
       `V14 count: ${v14Count} → V15 count: ${tracks.length}`,
       `Retrieval funnel: ${formatFunnel(result.retrievalFunnel)}`,
+      `Delivery loss funnel: ${formatDeliveryLossFunnel(result.deliveryLossFunnel)}`,
+      `Purity sub-funnel: ${formatPurityChain(sub)}`,
+      sub ? `Hard reject off-world (since v3Composed): ${sub.hardRejectOffWorldCount ?? "—"}` : "",
+      sub ? `Removal summary: ${summarizeRemovalReasons(sub.removedReasons)}` : "",
       result.retrievalConfidence
         ? `Retrieval confidence: ${result.retrievalConfidence.score} (${result.retrievalConfidence.tier})`
         : "",
@@ -221,6 +356,9 @@ async function main() {
       "**Full track list:**",
       formatTrackList(tracks) || "(empty)",
       "",
+      ...(Array.isArray(sub?.removedReasons) && sub.removedReasons.length > 0
+        ? ["**Purity removedReasons:**", ...sub.removedReasons.map((r) => `- ${r}`), ""]
+        : []),
     );
   }
 
@@ -230,6 +368,20 @@ async function main() {
   lines.push("");
   lines.push(`**Summary:** ${keep} KEEP / ${maybe} MAYBE / ${drop} DROP`);
   lines.push(`**Zero-track responses:** ${zeroTrackCount}`);
+  lines.push("");
+  lines.push("## Purity sub-funnel");
+  lines.push("");
+  lines.push("| Prompt | Pre-purity | Post-filter | Post-checkpoint | Hard off-world removed | Final delivered | Removal summary |");
+  lines.push("|--------|----------:|------------:|----------------:|-----------------------:|----------------:|-----------------|");
+  for (const row of purityTableRows) {
+    lines.push(
+      `| ${row.id} | ${row.pre} | ${row.postFilter} | ${row.postCheckpoint} | ${row.hardReject} | ${row.final} | ${row.removalSummary} |`,
+    );
+  }
+  lines.push("");
+  lines.push("```text");
+  lines.push(...purityDetailBlocks);
+  lines.push("```");
   lines.push("");
   lines.push("## Retrieval funnel examples");
   lines.push("");
@@ -246,6 +398,14 @@ async function main() {
   console.log(`Wrote ${outPath}`);
   console.log(`SUMMARY: ${keep} KEEP / ${maybe} MAYBE / ${drop} DROP`);
   console.log(`ZERO-TRACK: ${zeroTrackCount}`);
+  console.log("");
+  console.log("PURITY SUB-FUNNEL:");
+  for (const row of purityTableRows) {
+    console.log(
+      `${row.id}: pre=${row.pre} filter=${row.postFilter} checkpoint=${row.postCheckpoint} hardReject=${row.hardReject} final=${row.final}`,
+    );
+    console.log(`  ${row.removalSummary}`);
+  }
 }
 
 main().catch((err) => {

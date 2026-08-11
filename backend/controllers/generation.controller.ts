@@ -397,9 +397,16 @@ import {
 } from "../lib/family-stage-funnel";
 import {
   buildGenreEvidenceUnderfillAudit,
+  createEmptyDeliveryLossFunnel,
+  createEmptyPuritySubFunnel,
+  mergePuritySubFunnelFromGate,
+  readOrchestratorFinalFromRetrievalFunnel,
+  readV3PreFilterSurvivors,
   snapshotDeliveryTracks,
+  type DeliveryLossFunnel,
   type DeliveryStageSnap,
   type DeliveryTrackSnap,
+  type PuritySubFunnel,
 } from "../lib/delivery-underfill-forensics";
 import { filterEmbarrassingTracks } from "../lib/human-embarrassment-filter";
 import { buildFallbackUxPayload } from "../lib/fallback-ux-payload";
@@ -5172,6 +5179,9 @@ router.post("/generate", async (req, res): Promise<void> => {
   let clientDisconnected = false;
   let cleanupClientDisconnectListeners: (() => void) | null = null;
   let requestHardTimeoutMs = REQUEST_HARD_TIMEOUT_MS;
+  let deliveryLossFunnel: DeliveryLossFunnel | null = null;
+  let puritySubFunnel: PuritySubFunnel | null = null;
+  let hardRejectOffWorldSinceV3Composed = 0;
   try {
     startTimelineStage(productionTimeline, startMs, "request_validation");
     const devMode = useMockSpotify();
@@ -7130,6 +7140,13 @@ router.post("/generate", async (req, res): Promise<void> => {
     };
     const retrievalFunnelTrace =
       (preScoringCandidateShape.diagnostics as { retrievalFunnel?: unknown }).retrievalFunnel ?? null;
+    deliveryLossFunnel = auditMode
+      ? createEmptyDeliveryLossFunnel()
+      : null;
+    puritySubFunnel = auditMode ? createEmptyPuritySubFunnel() : null;
+    if (deliveryLossFunnel) {
+      deliveryLossFunnel.orchestratorFinal = readOrchestratorFinalFromRetrievalFunnel(retrievalFunnelTrace);
+    }
     const retrievalConfidenceResult =
       culturalProfilePre && preScoringOrchestration.tracks.length > 0
         ? computeRetrievalConfidence(preScoringOrchestration.tracks, culturalProfilePre)
@@ -7693,6 +7710,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         userGenreProfile.trackClassifications,
       );
       if (purified.rejected.length === 0) return 0;
+      if (auditMode) {
+        hardRejectOffWorldSinceV3Composed += purified.rejected.length;
+      }
       const keptIds = new Set(purified.kept.map((track) => track.trackId));
       assignFT(
         stage,
@@ -7745,6 +7765,12 @@ router.post("/generate", async (req, res): Promise<void> => {
     let deliveryGenreEvidenceAudit: ReturnType<typeof buildGenreEvidenceUnderfillAudit> | null = null;
     if (auditMode) {
       deliveryPipelineExitSnap = snapshotDeliveryTracks(delivery.tracks);
+      if (deliveryLossFunnel) {
+        deliveryLossFunnel.v3Composed = deliveryPipelineExitSnap.length;
+      }
+      if (auditMode) {
+        hardRejectOffWorldSinceV3Composed = 0;
+      }
       deliveryUnderfillStages.push({
         stage: "pipeline_exit_afterDiversity",
         exit: deliveryPipelineExitSnap.length,
@@ -10290,6 +10316,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       poolCapped?: boolean;
     };
     const v3PipelineDiagnostics = ((scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {}) as Record<string, unknown>;
+    if (deliveryLossFunnel) {
+      deliveryLossFunnel.v3PreFilterSurvivors = readV3PreFilterSurvivors(v3PipelineDiagnostics);
+    }
     // Fold the contract-aware retrieval re-rank (computed inside the pipeline)
     // into the unified humanExpectation diagnostics so the interpreted moment,
     // its expectations, detected risks and the retrieval influence sit together.
@@ -10542,6 +10571,8 @@ router.post("/generate", async (req, res): Promise<void> => {
                   : null,
               },
             },
+            ...(deliveryLossFunnel ? { deliveryLossFunnel } : {}),
+            ...(puritySubFunnel ? { puritySubFunnel } : {}),
           }
         : {}),
       promptSurvivability,
@@ -12230,9 +12261,21 @@ router.post("/generate", async (req, res): Promise<void> => {
           coverageTier: candidateCoverageTier,
           preserveOpener: true,
         });
+        if (puritySubFunnel) {
+          mergePuritySubFunnelFromGate(
+            puritySubFunnel,
+            purityEarly.subFunnel,
+            hardRejectOffWorldSinceV3Composed,
+          );
+        }
         if (purityEarly.tracks.length > 0 && (purityEarly.removed > 0 || purityEarly.honestPartial)) {
           assignFT("world_purity_gate", "V15 delivery recovery purity", purityEarly.tracks as PlaylistTrack[]);
         }
+        if (deliveryLossFunnel) {
+          deliveryLossFunnel.postPurity = delivery.tracks.length;
+        }
+      } else if (deliveryLossFunnel) {
+        deliveryLossFunnel.postPurity = delivery.tracks.length;
       }
       const worldProof = evaluateWorldProof({
         tracks: delivery.tracks.map((t) => ({
@@ -12270,6 +12313,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         if (tailStripped.removed > 0 && tailStripped.tracks.length >= 3) {
           assignFT("world_proof_gate", "tail world violation strip tracks 5-10", tailStripped.tracks);
         }
+      }
+      if (deliveryLossFunnel) {
+        deliveryLossFunnel.postWorldProof = delivery.tracks.length;
       }
       const intentFidelity = worldProof.fidelity;
       if (
@@ -12419,6 +12465,10 @@ router.post("/generate", async (req, res): Promise<void> => {
             },
           };
         } else {
+          if (deliveryLossFunnel) {
+            deliveryLossFunnel.postTerminal = delivery.tracks.length;
+            deliveryLossFunnel.finalDelivered = 0;
+          }
           throw new HumanQualityGateError(terminalHqg.action === "refuse" ? terminalHqg : {
             action: "refuse",
             reasons: terminalUnderstood.reasons,
@@ -12431,6 +12481,10 @@ router.post("/generate", async (req, res): Promise<void> => {
           });
         }
       } else if (terminalHqg.action === "refuse" || terminalUnderstood.action === "refuse") {
+        if (deliveryLossFunnel) {
+          deliveryLossFunnel.postTerminal = delivery.tracks.length;
+          deliveryLossFunnel.finalDelivered = 0;
+        }
         throw new HumanQualityGateError(terminalHqg.action === "refuse" ? terminalHqg : {
           action: "refuse",
           reasons: terminalUnderstood.reasons,
@@ -12501,6 +12555,9 @@ router.post("/generate", async (req, res): Promise<void> => {
             },
           };
         }
+      }
+      if (deliveryLossFunnel) {
+        deliveryLossFunnel.postTerminal = delivery.tracks.length;
       }
     }
     const tryEmptyPlaylistRecoveryFloor = (): boolean => {
@@ -13878,6 +13935,9 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     if (sideEffectPolicy.mode === "audit" && !debugMode) {
       const endAuditResponseProfile = liveStageProfiler.start("controller.responseAssembly.auditSlim", `${finalApiTracks.length} tracks`);
+      if (deliveryLossFunnel) {
+        deliveryLossFunnel.finalDelivered = finalApiTracks.length;
+      }
       const auditGenerationDiagnostics = {
         ...generationDiagnosticsWithTimeline,
         stageProfile: liveStageProfiler.snapshot(),
@@ -13950,6 +14010,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         playlistExecutionTrace: successExecutionTrace,
         ...(retrievalFunnelTrace ? { retrievalFunnel: retrievalFunnelTrace } : {}),
         ...(retrievalConfidenceResult ? { retrievalConfidence: retrievalConfidenceResult } : {}),
+        ...(deliveryLossFunnel ? { deliveryLossFunnel } : {}),
+        ...(puritySubFunnel ? { puritySubFunnel } : {}),
       };
       endAuditResponseProfile();
       const endAuditJsonProfile = liveStageProfiler.start("controller.responseJson.auditSlim", `${finalApiTracks.length} tracks`);
@@ -14357,6 +14419,8 @@ router.post("/generate", async (req, res): Promise<void> => {
             seed: generationSeed,
             humanQualityGate: fatalErr.result,
             userMessage: fatalErr.result.userMessage,
+            ...(deliveryLossFunnel ? { deliveryLossFunnel } : {}),
+            ...(puritySubFunnel ? { puritySubFunnel } : {}),
           },
         );
         return;

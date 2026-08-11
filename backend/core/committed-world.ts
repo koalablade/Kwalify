@@ -338,6 +338,7 @@ const EXPLICIT_GENRE_WORLD: Array<{ pattern: RegExp; id: string }> = [
   { pattern: /\bpub\s+singalong\b/i, id: "pub_singalong_world" },
   { pattern: /\brooftop\s+party\b/i, id: "rooftop_party_world" },
   { pattern: /\b(?:pregame|pre[-\s]?game|getting\s+ready.*go\s+out)\b/i, id: "party_prep_world" },
+  { pattern: /\bheavy\s+gym\s+workout\s+aggressive\b/i, id: "gym_rock_world" },
   { pattern: /\b(?:heavy|aggressive)\s+(?:gym|workout)\b|\bgym\b.*\baggressive\b|\baggressive\b.*\b(?:gym|workout|pump)\b/i, id: "angry_rock_world" },
   {
     pattern: /\bmetal\b.*\b(?:gym|workout|training)\b|\b(?:gym|workout|training)\b.*\bmetal\b/i,
