@@ -518,4 +518,17 @@ describe("V6 human quality sprint", () => {
     assert.equal(result.openerPassed, false);
     assert.ok(result.openerFailures.some((f) => /remix|extended/i.test(f)));
   });
+
+  it("V36: downstream-validated soft playlists are not capped at 10 tracks", () => {
+    const result = evaluateHumanQualityGate({
+      trackCount: 25,
+      requestedLength: 25,
+      humanSavePassed: true,
+      wouldSpotifyMakeThis: true,
+      dominantWorldDensity: 0.8,
+      committedWorldHardLock: false,
+    });
+    assert.equal(result.salvageableCount, 25);
+    assert.equal(result.action, "pass");
+  });
 });

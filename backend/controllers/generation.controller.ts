@@ -469,6 +469,12 @@ import {
 import { openingLockTrackIdsFromTracks } from "../core/editorial/opener-hygiene";
 import { applyWorldSequencing } from "../core/editorial/world-sequencer";
 import { applyWorldPurityGate } from "../core/editorial/world-purity-gate";
+import {
+  mergeDeliverableCandidatePools,
+  refillDeliverableDepth,
+  refillAfterArtistCap,
+  enrichDeliverableTrack,
+} from "../core/editorial/deliverable-depth-refill";
 import { applyHumanCurationSequencing, applyTerminalOpenerGuard, buildMomentReplacementPool } from "../core/editorial/human-curation-sequencer";
 import { passesMomentFitForRefill } from "../core/editorial/song-moment-fit";
 import {
@@ -8480,6 +8486,30 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     const endEvidenceGuardProfile = liveStageProfiler.start("controller.evidenceAndRecoveryGuards", `${finalization.tracks.length}/${length} finalized tracks`);
     const preGenreGuardTracks = [...delivery.tracks];
+    const deliverableSurvivorPoolLimit = Math.max(384, length * 16);
+    const deliverableSurvivorPool = (() => {
+      const seen = new Set<string>();
+      const out: PlaylistTrack[] = [];
+      const pushRaw = (track: { trackId: string }) => {
+        if (!track.trackId || seen.has(track.trackId) || out.length >= deliverableSurvivorPoolLimit) return;
+        seen.add(track.trackId);
+        out.push(
+          enrichDeliverableTrack(
+            hydrateTrackGenre(track) as PlaylistTrack,
+            likedIdentityForDelivery.get(track.trackId),
+          ),
+        );
+      };
+      for (const track of delivery.tracks) pushRaw(track);
+      for (const track of preGenreGuardTracks) pushRaw(track);
+      for (const track of pipeline.sorted as Array<{ trackId: string }>) pushRaw(track);
+      for (const track of pipeline.finalTracks as Array<{ trackId: string }>) pushRaw(track);
+      for (const track of scoringInputSongs) pushRaw(track);
+      for (const track of worldExpansionCandidates) pushRaw(track);
+      return out;
+    })();
+    const enrichForWorld = (track: PlaylistTrack) =>
+      enrichDeliverableTrack(track, likedIdentityForDelivery.get(track.trackId));
     const minBestAvailableCount = resolveThinLibraryMinBestAvailableCount(length, thinLibraryPolicy);
     const evidenceRelaxations: string[] = [];
     let strictGenreEvidenceRelaxed = false;
@@ -8812,7 +8842,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     };
     const genreAwareRepairInput = () => ({
       verifiedPrefix: genreEvidenceVerifiedPrefix.filter((track) => trackPassesDeliveryWorld(track)),
-      v3Tracks: preGenreGuardTracks.filter((track) => trackPassesDeliveryWorld(track)),
+      v3Tracks: deliverableSurvivorPool.filter((track) => trackPassesDeliveryWorld(track)),
       requestedLength: length,
       availableGenreVerifiedSupply: resolveEffectiveGenreVerifiedSupply({
         confidenceQualifiedSupply: v3ConfidenceQualifiedSupply,
@@ -9789,6 +9819,38 @@ router.post("/generate", async (req, res): Promise<void> => {
         skippedReason: "v3_selected_tracks_are_authoritative",
       },
     };
+    if (committedWorldPreRetrieval?.hardLock && delivery.tracks.length < length) {
+      const refillProfile = resolveCulturalProfileForCommitted(committedWorldPreRetrieval);
+      if (refillProfile) {
+        const refilled = refillDeliverableDepth(
+          delivery.tracks as PlaylistTrack[],
+          deliverableSurvivorPool,
+          {
+            prompt: vibe,
+            requestedLength: length,
+            committed: committedWorldPreRetrieval,
+            profile: refillProfile,
+            preserveOpener: true,
+            isGenreVerified: strictGenreEvidenceDiagnostics.active ? isGenreEvidenceVerified : undefined,
+            enrichTrack: enrichForWorld,
+          },
+        );
+        if (refilled.diagnostics.refilledCount > 0 || refilled.tracks.length > delivery.tracks.length) {
+          const refilledTracks = assignFT(
+            "deliverable_depth_refill",
+            "V35 ranked survivor refill after evidence gates",
+            refilled.tracks as PlaylistTrack[],
+          );
+          finalization = {
+            tracks: [...refilledTracks],
+            diagnostics: {
+              ...finalization.diagnostics,
+              deliverableDepthRefill: refilled.diagnostics,
+            },
+          };
+        }
+      }
+    }
     endEvidenceGuardProfile();
     const postEvidenceCheckpoint = runDeliveryCheckpoint(pipelineAuthority, "post_evidence", checkpointCtx({
       genreEvidenceVerifiedCount: strictGenreEvidenceDiagnostics.verified.length,
@@ -10414,6 +10476,19 @@ router.post("/generate", async (req, res): Promise<void> => {
     const materialRecoveryTriggered = shouldMarkRecoveryTriggered(recoveryDiagnosticsSnapshot);
     const pipelineTiming = (v3PipelineDiagnostics["timingMs"] ?? null) as Record<string, unknown> | null;
     const intentContractGuardDiagnostics = (v3PipelineDiagnostics["intentContractGuard"] ?? {}) as Record<string, unknown>;
+    const preV3WorldSamplingAudit = intentContractGuardDiagnostics["preV3WorldSampling"] ?? null;
+    const preV3SamplingFunnelBase = Array.isArray(intentContractGuardDiagnostics["preV3SamplingFunnel"])
+      ? intentContractGuardDiagnostics["preV3SamplingFunnel"] as Array<{ stage: string; count: number; note?: string }>
+      : [];
+    const preV3SamplingFunnelAudit = auditMode
+      ? [
+          ...preV3SamplingFunnelBase,
+          ...(deliveryLossFunnel?.postPurity != null
+            ? [{ stage: "post_purity", count: deliveryLossFunnel.postPurity }]
+            : []),
+          { stage: "delivered", count: delivery.tracks.length },
+        ]
+      : null;
     const pipelinePromptSurvivability = (intentContractGuardDiagnostics["promptSurvivability"] ?? {}) as Record<string, unknown>;
     const promptSurvivability = {
       preFilterPoolSize: typeof pipelinePromptSurvivability["preFilterPoolSize"] === "number"
@@ -10598,6 +10673,8 @@ router.post("/generate", async (req, res): Promise<void> => {
             },
             ...(deliveryLossFunnel ? { deliveryLossFunnel } : {}),
             ...(puritySubFunnel ? { puritySubFunnel } : {}),
+            ...(preV3SamplingFunnelAudit ? { preV3SamplingFunnel: preV3SamplingFunnelAudit } : {}),
+            ...(preV3WorldSamplingAudit ? { preV3WorldSampling: preV3WorldSamplingAudit } : {}),
           }
         : {}),
       promptSurvivability,
@@ -12054,6 +12131,46 @@ router.post("/generate", async (req, res): Promise<void> => {
         },
       };
     }
+    // V36: artist-cap-aware refill from survivor pool — restores depth after per-artist prune.
+    {
+      const underfilledAfterCap =
+        delivery.tracks.length < Math.ceil(requestedLength * 0.75);
+      if (underfilledAfterCap && deliverableSurvivorPool.length > delivery.tracks.length) {
+        const refillProfile = resolveCulturalProfileForCommitted(committedWorldPreRetrieval);
+        const artistCapRefill = refillAfterArtistCap(
+          delivery.tracks as PlaylistTrack[],
+          deliverableSurvivorPool,
+          {
+            prompt: vibe,
+            requestedLength,
+            committed: committedWorldPreRetrieval,
+            profile: refillProfile,
+            preserveOpener: true,
+            perArtistCap: maxPerArtist,
+            promptCentralArtists: promptCentralArtistsForCap,
+            enforceWorldPurity: !!committedWorldPreRetrieval?.hardLock,
+            isGenreVerified: strictGenreEvidenceDiagnostics?.active ? isGenreEvidenceVerified : undefined,
+            enrichTrack: enrichForWorld,
+            maxPoolSize: deliverableSurvivorPoolLimit,
+          },
+        );
+        if (artistCapRefill.diagnostics.refilledCount > 0 || artistCapRefill.tracks.length > delivery.tracks.length) {
+          assignFT(
+            "artist_cap_diverse_refill",
+            "V36 artist-cap-aware survivor refill",
+            artistCapRefill.tracks.slice(0, requestedLength) as PlaylistTrack[],
+          );
+          finalApiTracks = formatTracksForApi(delivery.tracks, emotionProfile);
+          finalization = {
+            tracks: delivery.tracks as PlaylistTrack[],
+            diagnostics: {
+              ...finalization.diagnostics,
+              artistCapDiverseRefill: artistCapRefill.diagnostics,
+            },
+          };
+        }
+      }
+    }
     // Disco/latin etc.: artist-cap prune often collapses a strong verified pool
     // (n≈35) to n≈10. Refill along the scene fallback chain with artist diversity.
     {
@@ -12269,6 +12386,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             ? (worldExpansionCandidates as typeof delivery.tracks)
             : undefined,
           20,
+          terminalNegationProfileEarly.excludedArtists,
         );
         assignFT(
           "world_thesis_opener",
@@ -12285,10 +12403,13 @@ router.post("/generate", async (req, res): Promise<void> => {
           coverageLevel: worldCoverageAssessment?.score ?? null,
           coverageTier: candidateCoverageTier,
           preserveOpener: true,
-          replacementPool: [
-            ...(delivery.tracks as PlaylistTrack[]),
-            ...(worldExpansionCandidates.length > 0 ? (worldExpansionCandidates as PlaylistTrack[]) : []),
-          ],
+          replacementPool: mergeDeliverableCandidatePools(
+            delivery.tracks as PlaylistTrack[],
+            deliverableSurvivorPool,
+            worldExpansionCandidates as PlaylistTrack[],
+          ),
+          isGenreVerified: strictGenreEvidenceDiagnostics?.active ? isGenreEvidenceVerified : undefined,
+          enrichTrack: enrichForWorld,
         });
         if (puritySubFunnel) {
           mergePuritySubFunnelFromGate(
@@ -12299,6 +12420,39 @@ router.post("/generate", async (req, res): Promise<void> => {
         }
         if (purityEarly.tracks.length > 0 && (purityEarly.removed > 0 || purityEarly.honestPartial)) {
           assignFT("world_purity_gate", "V15 delivery recovery purity", purityEarly.tracks as PlaylistTrack[]);
+        }
+        if (
+          committedWorld?.hardLock &&
+          delivery.tracks.length < requestedLength &&
+          deliverableSurvivorPool.length > delivery.tracks.length
+        ) {
+          const postPurityRefill = refillDeliverableDepth(
+            delivery.tracks as PlaylistTrack[],
+            deliverableSurvivorPool,
+            {
+              prompt: vibe,
+              requestedLength,
+              committed: committedWorld,
+              profile: culturalProfile,
+              preserveOpener: true,
+              isGenreVerified: strictGenreEvidenceDiagnostics?.active ? isGenreEvidenceVerified : undefined,
+              enrichTrack: enrichForWorld,
+            },
+          );
+          if (postPurityRefill.diagnostics.refilledCount > 0 || postPurityRefill.tracks.length > delivery.tracks.length) {
+            const refilledTracks = assignFT(
+              "deliverable_depth_refill",
+              "V35 post-purity ranked survivor refill",
+              postPurityRefill.tracks as PlaylistTrack[],
+            );
+            finalization = {
+              tracks: [...refilledTracks],
+              diagnostics: {
+                ...finalization.diagnostics,
+                postPurityDeliverableDepthRefill: postPurityRefill.diagnostics,
+              },
+            };
+          }
         }
         const humanCurationEarly = applyHumanCurationSequencing(delivery.tracks as PlaylistTrack[], {
           prompt: vibe,
@@ -13455,12 +13609,14 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     if (lateCommittedWorld?.hardLock && deliveredTracks.length > 0) {
       const lateProfile = resolveCulturalProfileForCommitted(lateCommittedWorld);
+      const lateNegationForThesis = parsePromptNegationEnforcement(vibe);
       const lateThesis = enforceThesisOpener(
         deliveredTracks as PlaylistTrack[],
         lateProfile,
         lateCommittedWorld,
         undefined,
         20,
+        lateNegationForThesis.excludedArtists,
       );
       if (lateThesis.promoted || lateThesis.tracks[0]?.artistName !== deliveredTracks[0]?.artistName) {
         deliveredTracks = lateThesis.tracks as PlaylistTrack[];
@@ -13482,16 +13638,20 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
     }
     if (lateCommittedWorld?.hardLock && deliveredTracks.length > 0) {
+      const enrichForWorldLate = (track: PlaylistTrack) =>
+        enrichDeliverableTrack(track, likedIdentityForDelivery.get(track.trackId));
       const purityLate = applyWorldPurityGate(deliveredTracks as PlaylistTrack[], lateCommittedWorld, {
         prompt: vibe,
         requestedLength,
         coverageLevel: worldCoverageAssessment?.score ?? null,
         coverageTier: candidateCoverageTier,
         preserveOpener: true,
-        replacementPool: [
-          ...(deliveredTracks as PlaylistTrack[]),
-          ...(worldExpansionCandidates.length > 0 ? (worldExpansionCandidates as PlaylistTrack[]) : []),
-        ],
+        replacementPool: mergeDeliverableCandidatePools(
+          deliveredTracks as PlaylistTrack[],
+          deliverableSurvivorPool,
+          worldExpansionCandidates as PlaylistTrack[],
+        ),
+        enrichTrack: enrichForWorldLate,
       });
       if (
         purityLate.removed > 0 ||

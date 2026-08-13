@@ -157,6 +157,11 @@ function clamp01(n: number): number {
   return Math.max(0, Math.min(1, n));
 }
 
+/** Honest partial cap — tier max when coverage is known; never below salvageable pool. */
+function honestPartialCap(count: number, salvageable: number, coverageCap: number): number {
+  return Math.min(count, Math.max(salvageable, 0), coverageCap);
+}
+
 export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQualityGateResult {
   const requested = Math.max(1, input.requestedLength || 1);
   const count = Math.max(0, input.trackCount);
@@ -254,10 +259,21 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   }
 
   // Salvageable means we can honestly publish what we have (including mid-stubs 3–5).
+  const softDefaultCap = Math.min(12, Math.ceil(requested * 0.4));
+  const downstreamValidatedSoftPlaylist =
+    input.committedWorldHardLock !== true &&
+    worldCoherenceOk &&
+    !input.degradedDelivery &&
+    !reasons.includes("seasonal_leakage") &&
+    !reasons.includes("human_save_failed") &&
+    !reasons.includes("world_proof_failed") &&
+    count >= Math.ceil(requested * 0.5);
   const coverageCap =
     input.coverageLevel && input.committedWorldHardLock
       ? coverageLevelToMaxTracks(input.coverageLevel, requested)
-      : Math.min(12, Math.ceil(requested * 0.4));
+      : downstreamValidatedSoftPlaylist
+        ? Math.min(count, requested)
+        : softDefaultCap;
   const salvageableCount = count >= 3 ? Math.min(count, coverageCap) : 0;
 
   let wouldSaveConfidence = 0.55;
@@ -387,7 +403,7 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
         action: "honest_partial",
         reasons,
         userMessage: buildHumanQualityPartialMessage(salvageableCount, requested, reasons),
-        salvageableCount: Math.min(salvageableCount, Math.min(12, Math.ceil(requested * 0.4))),
+        salvageableCount,
         wouldSaveConfidence,
         replayConfidence,
         worldCoherenceOk,
@@ -417,7 +433,7 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
     (input.committedWorldHardLock === true && reasons.includes("negation_violation"))
   ) {
     if (salvageableCount >= 3) {
-      const partialCap = Math.min(salvageableCount, Math.min(12, Math.ceil(requested * 0.4)));
+      const partialCap = honestPartialCap(count, salvageableCount, coverageCap);
       const worldProofMessage =
         reasons.includes("world_proof_failed")
           ? `Found ${partialCap} track${partialCap === 1 ? "" : "s"} that genuinely fit this world — publishing only those rather than padding with mismatched filler.`
@@ -450,7 +466,7 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
     };
   }
   if (input.degradedDelivery === true) {
-    const partialCap = Math.min(count, Math.min(12, Math.ceil(requested * 0.4)));
+    const partialCap = honestPartialCap(count, salvageableCount, coverageCap);
     const partialReasons = reasons.length > 0 ? reasons : ["degraded_delivery"];
     return {
       action: "honest_partial",
@@ -465,7 +481,7 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   }
   if (identityDriftOnLock) {
     if (salvageableCount >= 3) {
-      const partialCap = Math.min(salvageableCount, Math.min(12, Math.ceil(requested * 0.4)));
+      const partialCap = honestPartialCap(count, salvageableCount, coverageCap);
       return {
         action: "honest_partial",
         reasons,
@@ -515,7 +531,7 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
       reasons.includes("negation_violation"))
   ) {
     if (salvageableCount >= 3) {
-      const partialCap = Math.min(salvageableCount, Math.min(12, Math.ceil(requested * 0.4)));
+      const partialCap = honestPartialCap(count, salvageableCount, coverageCap);
       return {
         action: "honest_partial",
         reasons: reasons.length > 0 ? reasons : ["human_save_failed"],
@@ -535,9 +551,9 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
       input.worldProofFailed === true ||
       reasons.includes("world_proof_failed") ||
       reasons.includes("intent_fidelity_failed")) &&
-    count > Math.min(12, Math.ceil(requested * 0.4))
+    count > coverageCap
   ) {
-    const partialCap = Math.min(count, Math.min(12, Math.ceil(requested * 0.4)));
+    const partialCap = honestPartialCap(count, salvageableCount, coverageCap);
     return {
       action: "honest_partial",
       reasons: reasons.length > 0 ? reasons : ["world_proof_failed"],
