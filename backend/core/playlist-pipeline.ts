@@ -3795,7 +3795,7 @@ function buildV3CandidatePool<T extends {
     contractRetrievalPool?: T[];
   } = {},
   logger?: import("pino").Logger,
-): { tracks: T[]; diagnostics: Record<string, unknown> } {
+): { tracks: T[]; contractCoveragePool?: T[]; diagnostics: Record<string, unknown> } {
   const forensicPreV3Trace: PreV3TraceStage[] = [];
   const relaxationPlan = buildConstraintRelaxationPlan(lockedIntent, opts.mode ?? "balanced");
   const genreFamilyCache = new Map<string, string | null>();
@@ -3998,6 +3998,7 @@ function buildV3CandidatePool<T extends {
       : Math.max(500, playlistLength * 22),
   );
   let contractPoolSelectionDiagnostics: ContractCoverageSelectionDiagnostics | null = null;
+  let contractCoveragePool: T[] | undefined;
   let intentReady: T[];
   if (opts.contractComposition?.enabled) {
     const enriched = enrichContractCompositionTracks(
@@ -4008,6 +4009,7 @@ function buildV3CandidatePool<T extends {
     );
     const selected = selectContractCoveragePreservingPool(enriched, opts.contractComposition.contract, intentReadyCap);
     intentReady = selected.tracks;
+    contractCoveragePool = intentReady;
     contractPoolSelectionDiagnostics = selected.diagnostics;
     forensicPreV3Trace.push(preV3StageTrace(
       "contract_coverage_preserving_pool",
@@ -4077,6 +4079,7 @@ function buildV3CandidatePool<T extends {
   }, "Pre-V3 candidate pool diagnostics");
   return {
     tracks,
+    contractCoveragePool,
     diagnostics: {
       inputCount: sorted.length,
       laneReadyCount: laneReady.length,
@@ -5499,6 +5502,22 @@ export async function buildPlaylistPipeline<T extends {
     : baseV3SafetyInputCap;
   const capV3SafetyPool = (pool: ScoredLibraryTrack<T>[]): ScoredLibraryTrack<T>[] =>
     pool.length > v3SafetyInputCap ? pool.slice(0, v3SafetyInputCap) : pool;
+  const mergeContractCompositionRebalancePool = (
+    contractCoveragePool: Array<T & { genrePrimary?: string; releaseYear?: number | null }> | undefined,
+    inputPool: Array<T & { genrePrimary?: string; releaseYear?: number | null }>,
+  ): Array<T & { genrePrimary?: string; releaseYear?: number | null }> => {
+    if (!contractCoveragePool || contractCoveragePool.length === 0) return inputPool;
+    const seen = new Set<string>();
+    const out: Array<T & { genrePrimary?: string; releaseYear?: number | null }> = [];
+    const push = (track: T & { genrePrimary?: string; releaseYear?: number | null }) => {
+      if (seen.has(track.trackId)) return;
+      seen.add(track.trackId);
+      out.push(track);
+    };
+    for (const track of contractCoveragePool) push(track);
+    for (const track of inputPool) push(track);
+    return out;
+  };
   const mergeV3UniverseInput = (
     candidateTracks: Array<T & { genrePrimary?: string; releaseYear?: number | null }>,
     retrievalPool: ScoredLibraryTrack<T>[],
@@ -6188,7 +6207,16 @@ export async function buildPlaylistPipeline<T extends {
   // V3 output is the selected candidate list. Post-V3 recovery guards are bounded
   // to the existing candidate pool and never re-enter retrieval, scoring, or V3.
   let finalTracksList = v3.finalTracks as V3MetadataTrack<T>[];
-  let qualityRecoveryCandidatePool = selectedCandidate.inputPool.map((track) => ({
+  let contractRebalanceApplied = false;
+  const contractRebalanceSourcePool = opts.contractComposition?.enabled
+    ? mergeContractCompositionRebalancePool(
+        selectedCandidate.candidatePool.contractCoveragePool as unknown as Array<
+          T & { genrePrimary?: string; releaseYear?: number | null }
+        >,
+        selectedCandidate.inputPool,
+      )
+    : selectedCandidate.inputPool;
+  let qualityRecoveryCandidatePool = contractRebalanceSourcePool.map((track) => ({
     ...(track as unknown as V3MetadataTrack<T>),
     selectedByV3: (track as V3MetadataTrack<T>).selectedByV3 ?? false,
     sourceLane: (track as V3MetadataTrack<T>).sourceLane ?? "quality_recovery",
@@ -6217,12 +6245,14 @@ export async function buildPlaylistPipeline<T extends {
       opts.maxPerArtist,
     );
     finalTracksList = rebalanced.tracks as V3MetadataTrack<T>[];
+    contractRebalanceApplied = rebalanced.diagnostics.rebalanced === true;
     contractCompositionPipelineDiagnostics = {
       compositionAuthority: "playlist_contract",
       contractDeferredPoolSeeded,
       contractRetrievalSeed: contractRetrievalSeedDiagnostics,
       contractUniverseSize: opts.contractRetrievalPool?.length ?? null,
       poolSelection: selectedCandidate.candidatePool.diagnostics.contractCompositionPoolSelection ?? null,
+      rebalanceSourcePoolSize: contractRebalanceSourcePool.length,
       rebalance: rebalanced.diagnostics,
     };
     qualityRecoveryCandidatePool = enrichedPool;
@@ -6365,8 +6395,9 @@ export async function buildPlaylistPipeline<T extends {
         opts.postScore.scenePrediction,
       );
       const useConstraint =
-        worldBoundary.hardLock ||
-        constrained.coherenceScore.overallScore >= v3Score.overallScore;
+        !contractRebalanceApplied &&
+        (worldBoundary.hardLock ||
+          constrained.coherenceScore.overallScore >= v3Score.overallScore);
       if (useConstraint) {
         finalTracksList = constrained.tracks
           .map((track) => trackById.get(track.trackId))

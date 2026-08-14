@@ -135,3 +135,53 @@ test("rebalancePlaylistForContractCoverage increases intersection coverage", () 
     tracks.filter((t) => (t.contractCompositionMeta?.intersectionStrength ?? 0) >= 0.32).length >= 1,
   );
 });
+
+test("rebalancePlaylistForContractCoverage injects missing axis when V3 output is single-sided", () => {
+  const contract: PlaylistContract = {
+    ...syntheticContract(),
+    tension: [
+      {
+        axes: ["party_energy", "melancholy"],
+        description: "preserve party_energy and melancholy",
+        resolution: "preserve_both",
+      },
+    ],
+  };
+  const pool: SyntheticTrack[] = [
+    ...Array.from({ length: 8 }, (_, i) =>
+      track(`sad-${i}`, `sad-artist-${i}`, meta({
+        axisScores: { party_energy: 0.1, melancholy: 0.88 },
+        axesActive: ["melancholy"],
+        intersectionStrength: 0.05,
+      })),
+    ),
+    ...Array.from({ length: 8 }, (_, i) =>
+      track(`party-${i}`, `party-artist-${i}`, meta({
+        axisScores: { party_energy: 0.82, melancholy: 0.12 },
+        axesActive: ["party_energy"],
+        intersectionStrength: 0.06,
+      })),
+    ),
+    track("both-1", "both-artist-1", meta({
+      axisScores: { party_energy: 0.7, melancholy: 0.68 },
+      axesActive: ["party_energy", "melancholy"],
+      intersectionStrength: 0.72,
+    })),
+  ];
+  const v3Collapsed = pool.filter((t) => t.trackId.startsWith("sad-"));
+
+  const { tracks, diagnostics } = rebalancePlaylistForContractCoverage(
+    v3Collapsed,
+    pool,
+    contract,
+    10,
+    2,
+  );
+
+  const dimCoverage = (diagnostics as { dimensionCoverage?: Record<string, number> }).dimensionCoverage ?? {};
+  assert.ok((dimCoverage.party_energy ?? 0) >= 2, "party_energy should appear in final rebalance");
+  assert.ok((dimCoverage.melancholy ?? 0) >= 2, "melancholy should remain represented");
+  assert.ok(
+    tracks.filter((t) => (t.contractCompositionMeta?.axisScores.party_energy ?? 0) >= 0.42).length >= 2,
+  );
+});

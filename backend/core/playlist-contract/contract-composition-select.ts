@@ -5,7 +5,7 @@
 import type { ContractCompositionMeta, ContractCompositionTrack } from "./contract-composition-types";
 import { getContractCompositionMeta, requiredContractDimensions } from "./contract-composition-types";
 import type { PlaylistContract } from "./types";
-import { intersectionThreshold } from "./contract-axis-scoring";
+import { CONTRACT_AXIS_ACTIVATION_THRESHOLD, intersectionThreshold } from "./contract-axis-scoring";
 
 export type ContractCoverageSelectionDiagnostics = {
   inputCount: number;
@@ -206,7 +206,8 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
   if (candidatePool.length === 0 || selected.length === 0) {
     return { tracks: selected, diagnostics: { skipped: true } };
   }
-  const preserveBoth = contract.tension.some((t) => t.resolution === "preserve_both");
+  const preserveBothTension = contract.tension.find((t) => t.resolution === "preserve_both");
+  const preserveBoth = !!preserveBothTension;
   if (!preserveBoth && requiredContractDimensions(contract).length <= 1) {
     return { tracks: selected.slice(0, targetLength), diagnostics: { skipped: "single_dimension" } };
   }
@@ -219,11 +220,15 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
   const coveredDimensions = new Map<string, number>();
   coveredDimensions.set("__intersection", 0);
 
+  const required = requiredContractDimensions(contract);
+
   const register = (track: T) => {
     const meta = getContractCompositionMeta(track);
     if (!meta) return;
-    for (const dim of meta.axesActive) {
-      coveredDimensions.set(dim, (coveredDimensions.get(dim) ?? 0) + 1);
+    for (const dim of required) {
+      if ((meta.axisScores[dim] ?? 0) >= CONTRACT_AXIS_ACTIVATION_THRESHOLD) {
+        coveredDimensions.set(dim, (coveredDimensions.get(dim) ?? 0) + 1);
+      }
     }
     if (meta.intersectionStrength >= 0.32) {
       coveredDimensions.set("__intersection", (coveredDimensions.get("__intersection") ?? 0) + 1);
@@ -250,6 +255,50 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
   for (const track of seed) {
     if (result.length >= targetLength) break;
     addTrack(poolById.get(track.trackId) ?? track);
+  }
+
+  const minPerAxis = Math.max(2, Math.ceil(targetLength * 0.12));
+  for (const dim of required) {
+    if (result.length >= targetLength) break;
+    const current = coveredDimensions.get(dim) ?? 0;
+    if (current >= minPerAxis) continue;
+    const dimRanked = candidatePool
+      .filter(
+        (t) =>
+          !used.has(t.trackId) &&
+          (getContractCompositionMeta(t)?.axisScores[dim] ?? 0) >= CONTRACT_AXIS_ACTIVATION_THRESHOLD,
+      )
+      .sort(
+        (a, b) =>
+          (getContractCompositionMeta(b)?.axisScores[dim] ?? 0) -
+          (getContractCompositionMeta(a)?.axisScores[dim] ?? 0),
+      );
+    let added = 0;
+    for (const track of dimRanked) {
+      if (added >= minPerAxis - current || result.length >= targetLength) break;
+      if (addTrack(track)) added += 1;
+    }
+  }
+
+  const intersectionQuota = Math.max(2, Math.ceil(targetLength * 0.16));
+  const currentIntersection = coveredDimensions.get("__intersection") ?? 0;
+  if (currentIntersection < intersectionQuota) {
+    const byIntersection = candidatePool
+      .filter(
+        (t) =>
+          !used.has(t.trackId) &&
+          (getContractCompositionMeta(t)?.intersectionStrength ?? 0) >= intersectionThreshold(preserveBothTension!),
+      )
+      .sort(
+        (a, b) =>
+          (getContractCompositionMeta(b)?.intersectionStrength ?? 0) -
+          (getContractCompositionMeta(a)?.intersectionStrength ?? 0),
+      );
+    let added = 0;
+    for (const track of byIntersection) {
+      if (added >= intersectionQuota - currentIntersection || result.length >= targetLength) break;
+      if (addTrack(track)) added += 1;
+    }
   }
 
   const remaining = candidatePool.filter((t) => !used.has(t.trackId));
@@ -286,9 +335,8 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
       rebalanced: true,
       inputSelected: selected.length,
       outputCount: result.length,
-      dimensionCoverage: Object.fromEntries(
-        requiredContractDimensions(contract).map((d) => [d, coveredDimensions.get(d) ?? 0]),
-      ),
+      dimensionCoverage: Object.fromEntries(required.map((d) => [d, coveredDimensions.get(d) ?? 0])),
+      rebalancePoolSize: candidatePool.length,
       intersectionCoverage: coveredDimensions.get("__intersection") ?? 0,
     },
   };
