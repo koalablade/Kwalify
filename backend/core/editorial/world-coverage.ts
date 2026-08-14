@@ -49,15 +49,17 @@ export function getDeliveryTarget(tier: CoverageTier): DeliveryTarget | null {
 }
 
 /**
- * Base tier ceiling remains conservative for callers that have not validated deeper delivery.
- * Once downstream purity/world gates have actually validated a deeper set, that validated
- * depth is authoritative; the old LOW=12 / MEDIUM=20 ceiling must not throw those tracks away.
+ * Coverage is evidence about supply, not a second terminal playlist-length gate.
+ * LOW/MEDIUM still describe thinness for UX/retrieval decisions, but once the
+ * downstream pipeline has produced N valid tracks, the coverage tier must not
+ * discard those tracks merely because N crossed a historical 12/20 ceiling.
+ * VERY_LOW remains conservative because it represents genuinely scarce worlds.
  */
 export function getDeliveryCap(tier: CoverageTier, requestedLength = 25, validatedTrackCount?: number): number {
   const requested = Math.max(1, requestedLength);
   const baseCap = tier === "HIGH" ? Math.min(25, requested)
-    : tier === "MEDIUM" ? Math.min(20, requested)
-    : tier === "LOW" ? Math.min(12, requested)
+    : tier === "MEDIUM" ? requested
+    : tier === "LOW" ? requested
     : tier === "VERY_LOW" ? 5
     : tier === "NONE" ? 0
     : requested;
