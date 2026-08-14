@@ -2,7 +2,7 @@
 
 **Generate Spotify playlists from your liked songs — describe the moment, get the mix.**
 
-Kwalify is a full-stack web app: static frontend in `frontend/public/`, API in `backend/`, deployed as one service on Render.
+Kwalify is a full-stack web app: static frontend in `frontend/public/`, API in `backend/`, self-hosted on your Windows PC via Cloudflare Tunnel.
 
 ---
 
@@ -47,14 +47,12 @@ This repo is the **Kwalify app** (Node, Express, PostgreSQL, static frontend).
 
 | Environment | How to run | Spotify OAuth |
 |-------------|------------|---------------|
-| **Local Windows (primary)** | `start.bat` → `https://kwalify.net` (+ `http://127.0.0.1:5000` on this PC) | `https://kwalify.net/api/auth/callback` |
-| **Self-hosted beta (your PC)** | `setup-self-host.bat` then `start.bat` | Your public URL + `/api/auth/callback` |
-| **Render (optional prod)** | `render.yaml` blueprint | Same redirect URI on public domain |
+| **Self-hosted (primary)** | `setup-self-host.bat` then `start.bat` → `https://kwalify.net` | `https://kwalify.net/api/auth/callback` |
 | **Debug only** | `start-kwalify.bat local` → `http://localhost:5000` | Not supported (Spotify blocks localhost) |
 
 **Local upkeep:** [docs/LOCAL-MAINTENANCE.md](docs/LOCAL-MAINTENANCE.md) · [docs/PRODUCTION-CHECKLIST.md](docs/PRODUCTION-CHECKLIST.md) · send testers [docs/BETA-TESTER-GUIDE.md](docs/BETA-TESTER-GUIDE.md)
 
-CI nightly eval workflows target production `https://kwalify.net` on Render when deployed. Local dev does not need Render.
+CI nightly eval workflows can target `https://kwalify.net` when your PC is running and the tunnel is up.
 
 `start-kwalify.bat` auto-pulls, rebuilds when code changed, and restarts the API every time. Create `.kwalify-nopull` to skip git pull.
 
@@ -97,7 +95,7 @@ Set `PORT` locally (default `5000`).
 | `SPOTIFY_REDIRECT_URI` | OAuth callback (must match Spotify dashboard) |
 | `APP_URL` | Public site URL, e.g. `https://kwalify.net` (no trailing slash) |
 | `FRONTEND_URL` | CORS origins; comma-separated if you use www + apex |
-| `NODE_ENV` | Use `production` on Render |
+| `NODE_ENV` | Use `production` when running the public self-host instance |
 
 ### Spotify redirect URI
 
@@ -107,23 +105,12 @@ In the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), a
 https://kwalify.net/api/auth/callback
 ```
 
-Use the same value for `SPOTIFY_REDIRECT_URI`. Custom domain setup: [CUSTOM_DOMAIN.md](./CUSTOM_DOMAIN.md).
-
-### Deploy on Render
-
-| Setting | Value |
-|---------|--------|
-| **Build command** | `rm -rf node_modules && npm cache clean --force && npm ci --include=dev --cache /tmp/npm-cache --prefer-online && npm run build` |
-| **Start command** | `npm start` |
-
-Attach PostgreSQL and set the environment variables above.
-
-**Health check:** `GET /api/readyz`
+Use the same value for `SPOTIFY_REDIRECT_URI`. See [CUSTOM_DOMAIN.md](./CUSTOM_DOMAIN.md).
 
 ### Further docs
 
 - [FIRST-TIME-SETUP.txt](./FIRST-TIME-SETUP.txt) — Windows local hosting (start/stop bats)
-- [docs/deployment.md](./docs/deployment.md) — local + Render deploy
+- [docs/deployment.md](./docs/deployment.md) — local self-host deploy
 - [docs/environment-variables.md](./docs/environment-variables.md) — full env reference
 - [Playlist generation flow](./docs/playlist-generation-flow.md) — pipeline from prompt to playlist
 - [Semantic music intelligence](./docs/SEMANTIC_MUSIC_INTELLIGENCE.md) — scene, genre, and scoring stack

@@ -153,13 +153,15 @@ export function initPool(connectionString: string): pg.Pool {
       "[pool] initPool() called with an empty connectionString — call validateEnv() first",
     );
   }
-  const useRenderSsl = /render\.com/i.test(connectionString);
+  const needsSsl =
+    process.env["DATABASE_SSL"] === "true" ||
+    /sslmode=(require|verify-full|verify-ca)/i.test(connectionString);
   const selfHost = process.env["KWALIFY_HOST_MODE"] === "selfhost";
   const defaultPoolMax = selfHost ? "15" : "10";
   const defaultConnectMs = selfHost ? "15000" : "12000";
   _pool = new pg.Pool({
     connectionString,
-    ...(useRenderSsl ? { ssl: { rejectUnauthorized: false } } : {}),
+    ...(needsSsl ? { ssl: { rejectUnauthorized: false } } : {}),
     max: Number.parseInt(process.env["DB_POOL_MAX"] ?? process.env["PG_POOL_MAX"] ?? defaultPoolMax, 10),
     idleTimeoutMillis: Number.parseInt(process.env["DB_POOL_IDLE_MS"] ?? "30000", 10),
     connectionTimeoutMillis: Number.parseInt(process.env["DB_POOL_CONNECT_MS"] ?? defaultConnectMs, 10),

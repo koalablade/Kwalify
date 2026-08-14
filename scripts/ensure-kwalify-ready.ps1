@@ -113,23 +113,12 @@ $marker = Join-Path $Root ".kwalify-startup-tasks-done"
 if (-not (Test-Path -LiteralPath $marker)) {
   Step "One-time startup tasks"
   try { & (Join-Path $Root "scripts\schedule-db-backup.ps1") } catch {}
-  try { & (Join-Path $Root "scripts\schedule-uptime-check.ps1") } catch {}
   try { & (Join-Path $Root "scripts\schedule-weekly-maintenance.ps1") } catch {}
-  try { & (Join-Path $Root "scripts\register-startup-task.ps1") -Confirm } catch {}
   Set-Content -LiteralPath $marker -Value (Get-Date -Format o) -Encoding ASCII
 }
 
 Step "Startup maintenance and audits"
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\ensure-startup-maintenance.ps1") -Root $Root
-
-if (Test-SelfHostConfigured $envPath) {
-  $taskName = "Kwalify-SelfHost-Start"
-  $existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-  if (-not $existingTask) {
-    Write-Host "  Registering auto-start at Windows logon..." -ForegroundColor DarkCyan
-    try { & (Join-Path $Root "scripts\register-startup-task.ps1") -Confirm } catch {}
-  }
-}
 
 $shortcutScript = Join-Path $Root "scripts\create-kwalify-shortcuts.ps1"
 if (Test-Path -LiteralPath $shortcutScript) {

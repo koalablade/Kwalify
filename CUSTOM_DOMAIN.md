@@ -1,49 +1,33 @@
 # Custom domain (kwalify.net)
 
-Use this when pointing a domain at the Kwalify service on Render.
+Kwalify runs on **your PC** with a **Cloudflare Tunnel** — not a cloud PaaS.
 
-## 1. Add the domain in Render
+## Setup
 
-1. Open your **Kwalify** web service in the [Render dashboard](https://dashboard.render.com).
-2. Go to **Settings** → **Custom Domains**.
-3. Add `kwalify.net` and `www.kwalify.net` (optional).
-4. Render shows DNS records to create at your registrar.
-
-## 2. DNS at your registrar
-
-Typical setup:
-
-| Host | Type | Value |
-|------|------|--------|
-| `@` | A or ALIAS | Render’s apex target (shown in dashboard) |
-| `www` | CNAME | Your `*.onrender.com` hostname |
-
-DNS can take up to 48 hours to propagate; often it is much faster.
-
-## 3. Environment variables
-
-After the domain is live, set on Render:
+1. Run **`setup-self-host.bat`** once (or `start.bat` on first launch — setup runs automatically).
+2. Complete Cloudflare tunnel login when prompted.
+3. Ensure `.env` has:
 
 | Variable | Example |
 |----------|---------|
+| `KWALIFY_HOST_MODE` | `selfhost` |
 | `APP_URL` | `https://kwalify.net` |
-| `FRONTEND_URL` | `https://www.kwalify.net` (if you use www) |
+| `FRONTEND_URL` | `https://kwalify.net` |
 | `SPOTIFY_REDIRECT_URI` | `https://kwalify.net/api/auth/callback` |
 
-Redeploy after changing env vars.
-
-## 4. Spotify Developer Dashboard
-
-Under your Spotify app → **Redirect URIs**, add exactly:
+4. In the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), add redirect URI:
 
 ```
 https://kwalify.net/api/auth/callback
 ```
 
-Remove or keep localhost URIs only if you still need local development.
-
-## 5. Verify
+## Verify
 
 - `https://kwalify.net/api/healthz` — process up
 - `https://kwalify.net/api/readyz` — database and dependencies ready
 - `https://kwalify.net/api/auth/login` — redirects to Spotify
+
+## More detail
+
+- [docs/SELF-HOST-PRODUCTION.md](docs/SELF-HOST-PRODUCTION.md)
+- [START-HERE.txt](START-HERE.txt)

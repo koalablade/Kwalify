@@ -10,7 +10,52 @@ export type PromptNegationProfile = {
   suppressAcoustic: boolean;
   suppressSad: boolean;
   suppressedTerms: string[];
+  /** Explicit "no <artist>" exclusions from the prompt. */
+  excludedArtists: string[];
 };
+
+const GENERIC_NON_ARTIST =
+  /\b(?:music|songs?|tracks?|vocals?|words?|lyrics?|ambient|electronic|metal|pop|rock|rap|hip\s*hop|country|jazz|classical|christmas|sad|slow|fast|screamo)\b/i;
+
+/** Normalize artist names for exclusion matching. */
+export function normalizeArtistConstraint(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/\bthe\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+/** Parse explicit artist exclusions — "no Blink-182", "without Drake", etc. */
+export function parsePromptExcludedArtists(prompt: string): string[] {
+  const excluded: string[] = [];
+  for (const match of prompt.matchAll(/\b(?:no|without|exclude|excluding)\s+([a-z0-9&,'\-!\s]{2,96})/gi)) {
+    const phrase = (match[1] ?? "")
+      .replace(/\b(?:music|songs?|tracks?|playlist|please|pls|obviously|only)\b/gi, "")
+      .trim();
+    if (!phrase || GENERIC_NON_ARTIST.test(phrase)) continue;
+    for (const part of phrase.split(/\s*,\s*|\s+or\s+|\s+and\s+/i)) {
+      const normalized = normalizeArtistConstraint(part);
+      if (normalized && !excluded.includes(normalized)) excluded.push(normalized);
+    }
+  }
+  return excluded;
+}
+
+/** True when track artist matches any excluded-artist constraint. */
+export function trackMatchesExcludedArtist(
+  artistName: string | null | undefined,
+  excludedArtists: string[],
+): boolean {
+  if (!excludedArtists.length) return false;
+  const artist = normalizeArtistConstraint(String(artistName ?? ""));
+  if (!artist) return false;
+  return excludedArtists.some(
+    (excluded) => artist === excluded || artist.includes(excluded) || excluded.includes(artist),
+  );
+}
 
 const CHRISTMAS_NEGATION_RE =
   /\b(?:no|not|without|never|non[-\s]?)\s*(?:christmas|xmas|festive(?:\s+songs?)?|holiday\s+songs?)\b/i;
@@ -88,7 +133,17 @@ export function parsePromptNegationEnforcement(prompt: string): PromptNegationPr
   if (suppressAcoustic) suppressedTerms.push("acoustic");
   if (suppressSad) suppressedTerms.push("sad");
 
-  return { suppressChristmas, suppressRap, suppressGuitar, suppressAcoustic, suppressSad, suppressedTerms };
+  const excludedArtists = parsePromptExcludedArtists(prompt);
+
+  return {
+    suppressChristmas,
+    suppressRap,
+    suppressGuitar,
+    suppressAcoustic,
+    suppressSad,
+    suppressedTerms,
+    excludedArtists,
+  };
 }
 
 /** Returns violation reason or null when track is admissible. */
@@ -106,7 +161,10 @@ export function trackViolatesPromptNegation(
   },
   profile: PromptNegationProfile,
 ): string | null {
-  if (profile.suppressedTerms.length === 0) return null;
+  if (profile.excludedArtists.length > 0 && trackMatchesExcludedArtist(track.artistName, profile.excludedArtists)) {
+    return "negation:excluded_artist";
+  }
+  if (profile.suppressedTerms.length === 0 && profile.excludedArtists.length === 0) return null;
   const blob = trackTextBlob(track);
   const titleAlbum = `${track.trackName ?? ""} ${track.albumName ?? ""}`.toLowerCase();
 
@@ -178,7 +236,7 @@ export function countOpenerNegationViolations<
     instrumentalness?: number | null;
   },
 >(tracks: T[], profile: PromptNegationProfile, openerSlots = 3): number {
-  if (profile.suppressedTerms.length === 0) return 0;
+  if (profile.suppressedTerms.length === 0 && profile.excludedArtists.length === 0) return 0;
   let count = 0;
   for (const track of tracks.slice(0, openerSlots)) {
     if (trackViolatesPromptNegation(track, profile)) count += 1;
@@ -200,7 +258,7 @@ export function countAllNegationViolations<
     instrumentalness?: number | null;
   },
 >(tracks: T[], profile: PromptNegationProfile): number {
-  if (profile.suppressedTerms.length === 0) return 0;
+  if (profile.suppressedTerms.length === 0 && profile.excludedArtists.length === 0) return 0;
   let count = 0;
   for (const track of tracks) {
     if (trackViolatesPromptNegation(track, profile)) count += 1;
@@ -222,7 +280,9 @@ export function filterTracksForDeliveryNegation<
     instrumentalness?: number | null;
   },
 >(tracks: T[], profile: PromptNegationProfile): { tracks: T[]; removed: number } {
-  if (profile.suppressedTerms.length === 0) return { tracks, removed: 0 };
+  if (profile.suppressedTerms.length === 0 && profile.excludedArtists.length === 0) {
+    return { tracks, removed: 0 };
+  }
   const kept: T[] = [];
   let removed = 0;
   for (const track of tracks) {

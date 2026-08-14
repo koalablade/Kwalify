@@ -46,7 +46,7 @@ runs:
 
         if [ -n "$TOKEN" ] && [ "${#TOKEN}" -ne "$EXPECTED_LEN" ]; then
           echo "PLAYLIST_EVAL_TOKEN must be exactly $EXPECTED_LEN characters (got ${#TOKEN})"
-          echo "Update GitHub secret from Render dashboard: npm run sync:eval-token -Token \"<Render value>\""
+          echo "Update GitHub secret to match production .env: npm run sync:eval-token -Token \"<eval token>\""
           exit 1
         fi
 

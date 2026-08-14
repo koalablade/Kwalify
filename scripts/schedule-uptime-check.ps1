@@ -1,5 +1,6 @@
 # Register local uptime checks every 5 minutes (logs to reports/uptime-check.log).
-# Complements external UptimeRobot - runs while this PC is on.
+# OPT-IN ONLY — not registered by setup/start. Use when you want polling while PC is on.
+# Remove with: scripts\unregister-uptime-check.ps1
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $TaskName = "Kwalify-Uptime-Check"
@@ -10,13 +11,15 @@ if (-not (Test-Path $Script)) {
 }
 
 $action = New-ScheduledTaskAction -Execute "powershell.exe" `
-  -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$Script`" -Root `"$Root`""
+  -Argument "-WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$Script`" -Root `"$Root`" -Quiet"
 
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
   -RepetitionInterval (New-TimeSpan -Minutes 5) `
   -RepetitionDuration (New-TimeSpan -Days 3650)
 
-Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Hidden
+
+Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings `
   -Description "Every 5 min health check for Kwalify (local + public)" -Force | Out-Null
 
 Write-Host "Registered scheduled task: $TaskName (every 5 minutes)"

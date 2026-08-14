@@ -240,7 +240,7 @@ Render auto-deploys from `main`. Confirm commit on prod:
 (Invoke-RestMethod https://kwalify.net/api/readyz).commit
 ```
 
-Setup reference: [../RENDER_SETUP.md](../RENDER_SETUP.md), [deployment.md](./deployment.md)
+Setup reference: [deployment.md](./deployment.md), [SELF-HOST-PRODUCTION.md](./SELF-HOST-PRODUCTION.md)
 
 ---
 
@@ -262,7 +262,7 @@ All under `reports/` (gitignored — generated locally or downloaded from Action
 | Symptom | Fix |
 |---------|-----|
 | Benchmark preflight: commit mismatch | Pass `--expected-deployment-version` from `/api/eval/ping`, or deploy latest `main` |
-| `tokenAccepted: false` / 403 | Token on Render ≠ GitHub secret; redeploy Render after env change; run `npm run verify:eval-token` |
+| `tokenAccepted: false` / 403 | Token in `.env` ≠ GitHub secret; restart API after env change; run `npm run verify:eval-token` |
 | PowerShell `&&` error | Use `;` or separate lines |
 | Missing `PLAYLIST_EVAL_TOKEN` locally | Set env var or add to `.env`; use `npm run sync:eval-token` |
 | Blank homepage after JS change | `npm run ci:frontend-modules` |

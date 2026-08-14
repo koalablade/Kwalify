@@ -23,6 +23,8 @@
     "maintenance:verify-backup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-backup.ps1",
     "maintenance:test-restore": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-backup-restore.ps1",
     "maintenance:schedule-uptime": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/schedule-uptime-check.ps1",
+    "maintenance:disable-uptime": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/unregister-uptime-check.ps1",
+    "maintenance:disable-autostart": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/disable-kwalify-autostart.ps1",
     "maintenance:check-uptime": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-uptime.ps1",
     "maintenance:mark-restore": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/mark-backup-restore-verified.ps1",
     "maintenance:mark-uptime": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/mark-external-uptime.ps1",

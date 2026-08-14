@@ -52,6 +52,12 @@ import {
 } from "./editorial/world-identity-gate";
 import { culturalProfileForCommittedWorld } from "./editorial/cultural-identity-profile";
 import { trackBelongsForWorldRetrieval } from "./editorial/world-belonging-retrieval";
+import {
+  applyMusicalWorldPreV3Sampling,
+  buildPreV3SamplingAuditFunnel,
+  type PreV3WorldSamplingDiagnostics,
+} from "./pre-v3-world-sampling";
+import { resolveV3BuildInputPool, type V3InputPoolRoutingReason } from "./v3-input-pool-routing";
 import { HONEST_PARTIAL_MIN } from "./editorial/intent-collapse-layer";
 import { scorePlaylistCoherence } from "./playlist-coherence-audit";
 import type { GenerationPolicy } from "../lib/library-generation-policy";
@@ -4665,6 +4671,34 @@ export async function buildPlaylistPipeline<T extends {
       return true;
     });
   }
+  let preV3WorldSamplingDiagnostics: PreV3WorldSamplingDiagnostics | null = null;
+  const preV3WorldSampling = applyMusicalWorldPreV3Sampling({
+    prompt: opts.vibe,
+    lockedIntent: unifiedIntentContext.lockedIntent,
+    currentPool: contractGuardedScoredPool,
+    retrievalPool: pooledCandidates,
+    libraryPool: worldScanLibrary as T[],
+    classMap,
+    worldBoundary,
+    minTarget: minSafePreRankingPool,
+    maxTarget: Math.min(300, Math.max(minSafePreRankingPool, opts.playlistLength * 8)),
+    contractEvidenceCount: contractEvidencePool.length,
+    enrich: enrichWorldIdentity,
+  });
+  if (preV3WorldSampling.diagnostics.applied) {
+    contractGuardedScoredPool = preV3WorldSampling.pool as ScoredLibraryTrack<T>[];
+    preV3WorldSamplingDiagnostics = preV3WorldSampling.diagnostics;
+    opts.pipelineLog?.info(
+      {
+        ...preV3WorldSampling.diagnostics,
+        contractEvidenceCount: contractEvidencePool.length,
+        retrievalPoolCount: pooledCandidates.length,
+      },
+      "Musical hard-lock pre-V3 world sampling expanded candidate pool",
+    );
+  } else {
+    preV3WorldSamplingDiagnostics = preV3WorldSampling.diagnostics;
+  }
   const compoundPromptDimensions =
     (intentContract.genreFamilies.length > 0 ? 1 : 0) +
     (intentContract.eraRange ? 1 : 0) +
@@ -5008,6 +5042,7 @@ export async function buildPlaylistPipeline<T extends {
       };
     })
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const preV3DeCollapseTarget = Math.max(minSafePreRankingPool, opts.playlistLength * 8);
   const preV3DeCollapse = deCollapseCandidatePool(
     contractGuardedScoredPool.slice(0, Math.min(
       contractGuardedScoredPool.length,
@@ -5016,10 +5051,15 @@ export async function buildPlaylistPipeline<T extends {
     contractGuardedScoredPool,
     classMap,
     diversityKind,
-    Math.max(minSafePreRankingPool, opts.playlistLength * 8),
+    preV3DeCollapseTarget,
   );
-  contractGuardedScoredPool = preV3DeCollapse.tracks
-    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const deCollapsedPool = preV3DeCollapse.tracks.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  contractGuardedScoredPool =
+    preV3WorldSamplingDiagnostics?.applied &&
+    deCollapsedPool.length < minSafePreRankingPool &&
+    contractGuardedScoredPool.length >= minSafePreRankingPool
+      ? contractGuardedScoredPool
+      : deCollapsedPool;
   if (starvationTriggerReason) {
     opts.pipelineLog?.warn({
       fallbackLevelUsed: finalFallbackLevelUsed,
@@ -5146,8 +5186,17 @@ export async function buildPlaylistPipeline<T extends {
       structuredRetrieval: subgenreEvidencePool.length,
       contractSafe: contractSafePool.length,
       contractGuard: contractGuardPool.length,
+      contractEvidence: contractEvidencePool.length,
       preRanking: contractGuardedScoredPool.length,
     },
+    preV3WorldSampling: preV3WorldSamplingDiagnostics,
+    preV3SamplingFunnel: buildPreV3SamplingAuditFunnel({
+      libraryCount: (opts.worldIdentityLibrary ?? opts.likedSongs).length,
+      retrievalCount: pooledCandidates.length,
+      contractEvidenceCount: contractEvidencePool.length,
+      preV3SampleCount: contractGuardedScoredPool.length,
+      worldSampling: preV3WorldSamplingDiagnostics,
+    }),
     explicitGenreScoredPoolCount: explicitGenreScoredPool.length,
     explicitGenreRecoveryUsed,
     promptSurvivability,
@@ -5429,14 +5478,44 @@ export async function buildPlaylistPipeline<T extends {
           worldVerifiedV3Pool,
         )
       : null;
+  let v3InputRoutingDiagnostics: {
+    routingReason: V3InputPoolRoutingReason;
+    inputPoolSize: number;
+    contractPoolSize: number;
+    safetyPoolSize: number;
+    preV3WorldSamplingApplied: boolean;
+    retrievalSafetyExpanded: boolean;
+  } | null = null;
   // Phase A — prepare each candidate's pool and V3 input (cheap; pool build is cached per
   // interpretation). This is deterministic and does not mutate shared state.
   const prepared: PreparedCandidate[] = [];
   for (const candidate of executableCandidateInputs) {
     await emitProgress(opts, "sampling", `Sampling ${candidate.label.replace(/_/g, " ")} candidates`);
     if (opts.shouldAbort?.()) abortPipeline(`sampling:${candidate.label}`);
-    const baseInputPool = (candidate.pool.length > 0 ? candidate.pool : contractGuardedScoredPool) as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
-    const inputPool = (hardLockVerifiedCandidatePool ?? baseInputPool) as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
+    const resolvedV3Input = resolveV3BuildInputPool({
+      hardLockVerifiedCandidatePool: hardLockVerifiedCandidatePool as unknown as Array<T & { trackId: string }> | null,
+      preV3WorldSamplingApplied: preV3WorldSamplingDiagnostics?.applied === true,
+      retrievalSafetyExpanded,
+      contractGuardedScoredPool: contractGuardedScoredPool as unknown as Array<T & { trackId: string }>,
+      safetyRetrievalPool: safetyRetrievalPool as unknown as Array<T & { trackId: string }>,
+      candidatePool: candidate.pool as unknown as Array<T & { trackId: string }>,
+      capContractPool: (pool) => capV3SafetyPool(pool as ScoredLibraryTrack<T>[]) as unknown as Array<T & { trackId: string }>,
+      mergeUniverse: (primary, secondary) => mergeV3UniverseInput(
+        primary as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>,
+        secondary as ScoredLibraryTrack<T>[],
+      ) as unknown as Array<T & { trackId: string }>,
+    });
+    const inputPool = resolvedV3Input.inputPool as unknown as Array<T & { genrePrimary?: string; releaseYear?: number | null }>;
+    if (!v3InputRoutingDiagnostics) {
+      v3InputRoutingDiagnostics = {
+        routingReason: resolvedV3Input.routingReason,
+        inputPoolSize: inputPool.length,
+        contractPoolSize: contractGuardedScoredPool.length,
+        safetyPoolSize: safetyRetrievalPool.length,
+        preV3WorldSamplingApplied: preV3WorldSamplingDiagnostics?.applied === true,
+        retrievalSafetyExpanded,
+      };
+    }
     stageStartedAt = Date.now();
     const endCandidateGenerationProfile = opts.profileStage?.(`pipeline.candidateGeneration.${candidate.label}`, `${inputPool.length} input tracks`);
     let candidatePool: ReturnType<typeof buildV3CandidatePool<T & { genrePrimary?: string; releaseYear?: number | null }>>;
@@ -5845,6 +5924,7 @@ export async function buildPlaylistPipeline<T extends {
       candidatePoolStabilized,
       repetitionPassSkipped,
       candidatePoolSizeFinal: v3CandidatePool.tracks.length,
+      v3InputRouting: v3InputRoutingDiagnostics,
       executionDepth,
       retrievalElapsedMs: timingMs.retrieval,
       candidateAttemptCount: candidateAttempts.length,

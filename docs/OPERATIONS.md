@@ -2,7 +2,7 @@
 
 This is the canonical operations guide for running Kwalify on your own host (bare
 metal, VM, or a container you manage). It replaces earlier platform-specific
-guidance (Render/Replit) for self-hosted deployments.
+guidance for self-hosted deployments.
 
 Kwalify is a single Node.js process (Express API + static frontend) backed by
 PostgreSQL. There is no separate worker service — CPU-heavy playlist generation

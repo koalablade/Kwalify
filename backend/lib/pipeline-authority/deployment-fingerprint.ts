@@ -15,7 +15,6 @@ export function pipelineDeploymentFingerprint(): {
 } {
   const buildTimestamp =
     process.env["BUILD_TIMESTAMP"]?.trim() ||
-    process.env["RENDER_GIT_COMMIT_CREATED_AT"]?.trim() ||
     process.env["SOURCE_VERSION_CREATED_AT"]?.trim() ||
     null;
 

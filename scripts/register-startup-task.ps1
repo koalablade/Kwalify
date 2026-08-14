@@ -1,4 +1,5 @@
-# Register Kwalify to start at user logon (self-host mode). Opt-in only.
+# Register Kwalify to start at user logon (self-host mode). Opt-in only — never called automatically.
+# To remove: scripts\unregister-startup-task.ps1
 param(
   [switch]$Confirm
 )

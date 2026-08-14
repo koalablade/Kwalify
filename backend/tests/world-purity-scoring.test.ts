@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { resolveCommittedWorld, getCulturalProfile } from "../core/committed-world";
-import { scoreTrackWorldIdentity } from "../core/editorial/world-identity-score";
+import { scoreTrackWorldIdentity, decomposeTrackWorldIdentity } from "../core/editorial/world-identity-score";
 import { matchesAvoidArtist, matchesAdjacentArtist } from "../core/editorial/cultural-identity-profile";
 import {
   worldPurityThresholdForPosition,
@@ -10,6 +10,9 @@ import {
   effectivePurityThresholdForTrack,
   filterByWorldPurity,
   stripFromCheckpointFailure,
+  evidenceAlignedPurityThreshold,
+  estimatePuritySurvivalRate,
+  purityAwareComposeTarget,
 } from "../core/editorial/world-purity-gate";
 
 describe("world purity roster-tier scoring (V15 fix)", () => {
@@ -172,5 +175,67 @@ describe("world purity roster-tier scoring (V15 fix)", () => {
       ),
       0,
     );
+  });
+
+  it("V34: instrumentation_token members pass tail purity but not opener", () => {
+    const profile = getCulturalProfile("reggae_world")!;
+    const genreMember = {
+      artistName: "Lee Perry Jr",
+      trackName: "Riverside Session",
+      energy: 0.55,
+      releaseYear: 1985,
+      genres: ["reggae"],
+      genrePrimary: "reggae",
+    };
+    const decomp = decomposeTrackWorldIdentity(genreMember, profile);
+    assert.equal(decomp.evidenceTier, "instrumentation_token");
+    assert.equal(scoreTrackPurityPercent(genreMember, profile), 62);
+    assert.equal(effectivePurityThresholdForTrack(genreMember, profile, 12), 62);
+    assert.ok(trackPassesWorldPurity(genreMember, profile, 12));
+    assert.equal(effectivePurityThresholdForTrack(genreMember, profile, 0), 95);
+    assert.ok(!trackPassesWorldPurity(genreMember, profile, 0));
+  });
+
+  it("V34: era_energy-only metadata track keeps strict position threshold", () => {
+    const profile = getCulturalProfile("80s_night_drive_world")!;
+    const metadataOnly = {
+      artistName: "Unknown Artist",
+      trackName: "Night Song",
+      energy: 0.62,
+      releaseYear: 1984,
+    };
+    const decomp = decomposeTrackWorldIdentity(metadataOnly, profile);
+    assert.equal(decomp.evidenceTier, "era_energy");
+    assert.equal(effectivePurityThresholdForTrack(metadataOnly, profile, 7), 85);
+    assert.ok(!trackPassesWorldPurity(metadataOnly, profile, 7));
+  });
+
+  it("V34: purity-aware compose target scales under hard lock", () => {
+    const profile = getCulturalProfile("reggae_world")!;
+    const sample = Array.from({ length: 20 }, (_, i) => ({
+      artistName: `Reggae Artist ${i}`,
+      trackName: `Track ${i}`,
+      energy: 0.55,
+      releaseYear: 1985,
+      genres: ["reggae"],
+    }));
+    const retention = estimatePuritySurvivalRate(sample, profile);
+    assert.ok(retention > 0.5);
+    const composeTarget = purityAwareComposeTarget(25, {
+      hardLock: true,
+      candidatePoolSize: 60,
+      sampleTracks: sample,
+      profile,
+    });
+    assert.ok(composeTarget >= 25);
+    assert.ok(composeTarget <= 60);
+    assert.ok(composeTarget >= 40, `expected compose depth >=40 for hard lock, got ${composeTarget}`);
+    assert.equal(purityAwareComposeTarget(25, { hardLock: false, profile }), 25);
+  });
+
+  it("V34: evidenceAlignedPurityThreshold preserves opener strictness", () => {
+    assert.equal(evidenceAlignedPurityThreshold("instrumentation_token", 0, 62, 95), 95);
+    assert.equal(evidenceAlignedPurityThreshold("instrumentation_token", 10, 62, 80), 62);
+    assert.equal(evidenceAlignedPurityThreshold("era_energy", 10, 58, 80), 80);
   });
 });

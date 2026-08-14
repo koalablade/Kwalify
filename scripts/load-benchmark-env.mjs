@@ -120,7 +120,7 @@ export async function loadBenchmarkEnv(opts = {}) {
 
 export async function requireProductionAuth(cfg) {
   if (!cfg.token) {
-    console.error("PLAYLIST_EVAL_TOKEN missing — npm run sync:eval-token -Token \"<21-char Render token>\"");
+    console.error("PLAYLIST_EVAL_TOKEN missing — npm run sync:eval-token -Token \"<21-char eval token>\"");
     process.exit(1);
   }
   if (cfg.token.length !== EXPECTED_EVAL_TOKEN_LENGTH) {
@@ -129,7 +129,7 @@ export async function requireProductionAuth(cfg) {
       tokenLength: cfg.token.length,
       expectedLength: EXPECTED_EVAL_TOKEN_LENGTH,
       tokenSource: cfg.tokenSource,
-      fix: "npm run sync:eval-token -Token \"<paste exact 21-char Render token>\"",
+      fix: "npm run sync:eval-token -Token \"<paste exact 21-char eval token>\"",
     }, null, 2));
     process.exit(1);
   }

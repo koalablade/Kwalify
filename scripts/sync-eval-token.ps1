@@ -1,4 +1,4 @@
-# Sync PLAYLIST_EVAL_TOKEN to local .env + GitHub secret. Requires explicit -Token from Render.
+# Sync PLAYLIST_EVAL_TOKEN to local .env + GitHub secret.
 param(
   [Parameter(Mandatory = $true)]
   [string]$Token
@@ -21,7 +21,7 @@ if (-not $tokenValue) {
 }
 
 if ($tokenValue.Length -ne $ExpectedLength) {
-  Write-Error "PLAYLIST_EVAL_TOKEN must be exactly $ExpectedLength characters (got $($tokenValue.Length)). Copy the value from Render dashboard."
+  Write-Error "PLAYLIST_EVAL_TOKEN must be exactly $ExpectedLength characters (got $($tokenValue.Length)). Set the same value in production .env."
 }
 
 $lines = @()
@@ -43,7 +43,7 @@ if ($gh) {
 }
 
 Write-Host ''
-Write-Host "Render must already have this same $ExpectedLength-char token. If not, paste there, Save, Manual Deploy."
+Write-Host "Production .env must use this same $ExpectedLength-char token. Restart the API after changing .env."
 Write-Host ''
 
 Remove-Item Env:PLAYLIST_EVAL_TOKEN -ErrorAction SilentlyContinue

@@ -56,19 +56,15 @@ SPA routes in `backend/app.ts`:
 
 ---
 
-## Production (Render)
+## Production (self-host)
 
-The repo includes `render.yaml`. Typical settings:
+Kwalify runs on your Windows PC with PostgreSQL locally and Cloudflare Tunnel for `https://kwalify.net`.
 
-| Setting | Value |
-|---------|--------|
-| **Build** | `npm ci && npm run build` |
-| **Start** | `npm start` |
-| **Health check** | `GET /api/readyz` |
+1. **`setup-self-host.bat`** once
+2. **`start.bat`** when you want the site live
+3. Set `NODE_ENV=production`, `APP_URL`, database URL, and Spotify credentials in `.env`
 
-Set `NODE_ENV=production`, `APP_URL`, `FRONTEND_URL`, database URL, and Spotify credentials in the Render dashboard.
-
-Custom domain: [CUSTOM_DOMAIN.md](../CUSTOM_DOMAIN.md).
+See [SELF-HOST-PRODUCTION.md](./SELF-HOST-PRODUCTION.md) and [CUSTOM_DOMAIN.md](../CUSTOM_DOMAIN.md).
 
 ---
 
@@ -105,7 +101,7 @@ On `SIGTERM` the server stops accepting connections, waits up to 25s for in-flig
 |---------|--------|
 | Rate limiting | In-memory per process |
 | Sessions | PostgreSQL-backed |
-| HTTPS | Terminated at Render / local mkcert proxy |
+| HTTPS | Terminated at Cloudflare Tunnel / local mkcert proxy |
 | Logging | JSON via pino; `LOG_LEVEL=warn` in production |
 
 ---
@@ -114,7 +110,7 @@ On `SIGTERM` the server stops accepting connections, waits up to 25s for in-flig
 
 - [ ] `DATABASE_URL` reachable
 - [ ] `SESSION_SECRET` set (32+ random chars)
-- [ ] `PORT` set (5000 locally; Render sets automatically)
+- [ ] `PORT` set (5000 locally)
 - [ ] Spotify credentials + redirect URI on allowlist
-- [ ] `NODE_ENV=production` (Render)
+- [ ] `NODE_ENV=production` (public self-host)
 - [ ] `APP_URL` matches public origin

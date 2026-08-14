@@ -10,7 +10,7 @@ export const BENCHMARK_GITHUB_SECRETS = [
   "SMOKE_SPOTIFY_USER_ID",
 ] as const;
 
-/** Production Render eval token length (must match exactly). */
+/** Production eval token length (must match exactly). */
 export const EXPECTED_EVAL_TOKEN_LENGTH = 21;
 
 export const BENCHMARK_ENV_ALIASES = {
@@ -294,7 +294,7 @@ export function warnIfProductionEvalTokenMissing(nodeEnv: string): void {
   if (nodeEnv !== "production") return;
   if (readBenchmarkEnv(BENCHMARK_ENV_ALIASES.token)) return;
   console.warn(
-    "[env] PLAYLIST_EVAL_TOKEN is not set — /api/eval audit mode and live benchmarks against this deployment will fail until it is configured on Render and redeployed.",
+    "[env] PLAYLIST_EVAL_TOKEN is not set — /api/eval audit mode and live benchmarks against this deployment will fail until it is configured in .env and the API is restarted.",
   );
 }
 

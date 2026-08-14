@@ -52,7 +52,7 @@ async function main(): Promise<void> {
 
   process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
   if (!payload.ok) {
-    process.stderr.write("\nProduction auth failed — sync PLAYLIST_EVAL_TOKEN with Render.\n");
+    process.stderr.write("\nProduction auth failed — sync PLAYLIST_EVAL_TOKEN with production .env.\n");
     process.exit(1);
   }
 }

@@ -144,7 +144,7 @@ const expectedVersion = deployedCommit !== "unknown" ? deployedCommit : gitCommi
 if (!env.PLAYLIST_EVAL_TOKEN) {
   console.error(
     "[benchmark-50] PLAYLIST_EVAL_TOKEN missing for remote benchmark. Run:\n" +
-      "  npm run sync:eval-token -Token \"<21-char Render token>\"",
+      "  npm run sync:eval-token -Token \"<21-char eval token>\"",
   );
   process.exit(1);
 }

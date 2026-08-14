@@ -11,11 +11,13 @@ if (-not (Test-Path $Script)) {
 }
 
 $action = New-ScheduledTaskAction -Execute "powershell.exe" `
-  -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$Script`""
+  -Argument "-WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$Script`""
 
 $trigger = New-ScheduledTaskTrigger -Daily -At 3:00AM
 
-Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Hidden
+
+Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings `
   -Description "Daily pg_dump backup for Kwalify" -Force | Out-Null
 
 Write-Host "Registered scheduled task: $TaskName (daily 3:00 AM)"

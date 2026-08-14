@@ -38,7 +38,9 @@ import {
 } from "../core/editorial/world-belonging-retrieval";
 import {
   committedWorldArtistForbidden,
+  hasExplicitMusicalHardLock,
   resolveCommittedWorld,
+  resolveRetrievalWorldIds,
 } from "../core/committed-world";
 import {
   detectUkHipHopScene,
@@ -244,6 +246,7 @@ const COMMITTED_WORLD_RETRIEVAL_IDS = [
   "feel_good_world",
   "party_prep_world",
   "gym_energy_world",
+  "reggae_world",
   "classic_rock_world",
   "yacht_rock_world",
   "dad_secret_world",
@@ -276,7 +279,8 @@ const COMMITTED_WORLD_GENRE_FAMILIES: Record<string, string[]> = {
   upbeat_chore_world: ["pop", "electronic", "disco", "funk", "hip_hop"],
   feel_good_world: ["pop", "soul", "funk", "disco", "rnb"],
   party_prep_world: ["pop", "electronic", "disco", "hip_hop", "soul"],
-  gym_energy_world: ["hip_hop", "electronic", "pop", "rock", "metal"],
+  gym_energy_world: ["electronic", "hip_hop", "pop"],
+  reggae_world: ["reggae", "world"],
   classic_rock_world: ["rock"],
   yacht_rock_world: ["rock", "pop", "soul"],
   night_drive_world: ["indie", "electronic", "rock"],
@@ -741,15 +745,12 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
     prompt: opts.vibe,
     lockedIntent: opts.intent,
   });
-  const retrievalWorldIds =
-    opts.activeWorldIds && opts.activeWorldIds.length > 0
-      ? opts.activeWorldIds
-      : [
-          ...new Set([
-            ...(committedWorld?.worldIds ?? []),
-            ...inferWorldIdentityIdsFromPrompt(opts.vibe),
-          ]),
-        ];
+  const musicalHardLock = hasExplicitMusicalHardLock(committedWorld);
+  const retrievalWorldIds = resolveRetrievalWorldIds({
+    committed: committedWorld,
+    prompt: opts.vibe,
+    activeWorldIds: opts.activeWorldIds,
+  });
 
   for (const track of opts.tracks) {
     const classification = classifyFor(track, opts.classMap);
@@ -935,14 +936,35 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
     const activityKeepTarget = Math.max(minActivityKeep, Math.ceil(opts.requestedLength * 0.6));
     if (
       !committedWorld?.hardLock &&
+      !musicalHardLock &&
       (hardGated.length >= minActivityKeep || hardGated.length >= activityKeepTarget)
     ) {
       eligible = hardGated;
     } else if (
       committedWorld?.hardLock &&
+      !musicalHardLock &&
       hardGated.length >= Math.max(3, Math.min(8, Math.ceil(opts.requestedLength * 0.25)))
     ) {
       eligible = hardGated;
+    }
+  }
+
+  if (musicalHardLock && committedWorld && retrievalWorldIds.length > 0) {
+    const lockWorldId = committedWorld.musicalWorldId ?? committedWorld.id;
+    const worldFiltered = eligible.filter((track) => {
+      const classification = classifyFor(track, opts.classMap);
+      if (
+        committedWorldArtistForbidden(committedWorld, track.artistName, track.trackName) ||
+        artistForbiddenInWorld(track.artistName, retrievalWorldIds)
+      ) {
+        return false;
+      }
+      const worldFit = worldRetrievalFit(track, classification, retrievalWorldIds, lockWorldId);
+      return worldFit >= WORLD_BELONGING_RETRIEVAL_MIN;
+    });
+    const minWorldKeep = Math.max(3, Math.min(12, Math.ceil(opts.requestedLength * 0.35)));
+    if (worldFiltered.length >= minWorldKeep) {
+      eligible = worldFiltered;
     }
   }
 
@@ -1054,6 +1076,135 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
           committedWorldId: committed?.id ?? retrievalProfile.committedWorldId,
           committedWorldHardLock: committed?.hardLock ?? false,
           inferredWorldIds,
+          activityProfileId: retrievalProfile.activityProfile?.id ?? null,
+        },
+      };
+    }
+    const musicalLock = hasExplicitMusicalHardLock(committed ?? committedWorld);
+    const worldIdsForFallback =
+      retrievalWorldIds.length > 0
+        ? retrievalWorldIds
+        : committed?.worldIds ?? committedWorld?.worldIds ?? [];
+    if (musicalLock && worldIdsForFallback.length > 0) {
+      const lockWorldId =
+        committed?.musicalWorldId ??
+        committed?.id ??
+        committedWorld?.musicalWorldId ??
+        committedWorld?.id ??
+        worldIdsForFallback[0]!;
+      const profiles = worldIdentityProfilesForLock({
+        anchors: worldIdsForFallback,
+        prompt: opts.vibe,
+        reason: committed?.reason ?? committedWorld?.reason,
+      });
+      const worldPreservingRanked = opts.tracks
+        .map((track) => {
+          const classification = classifyFor(track, opts.classMap);
+          if (
+            committedWorldArtistForbidden(committed ?? committedWorld, track.artistName, track.trackName) ||
+            artistForbiddenInWorld(track.artistName, worldIdsForFallback)
+          ) {
+            return { track, score: 0 };
+          }
+          const worldFit = worldRetrievalFit(track, classification, worldIdsForFallback, lockWorldId);
+          if (profiles.length > 0) {
+            const passes = passesWorldIdentity(
+              {
+                trackName: track.trackName,
+                artistName: track.artistName,
+                albumName: track.albumName,
+                genreFamily: classification?.genreFamily ?? null,
+                genrePrimary: classification?.genrePrimary ?? null,
+                genres: classification?.subGenres ?? null,
+                energy: track.energy ?? null,
+                valence: track.valence ?? null,
+                danceability: track.danceability ?? null,
+              },
+              profiles,
+              { hardLock: true },
+            );
+            if (!passes) return { track, score: 0 };
+          }
+          return { track, score: worldFit };
+        })
+        .filter((row) => row.score >= WORLD_BELONGING_RETRIEVAL_MIN)
+        .sort((a, b) => b.score - a.score)
+        .map((row) => row.track)
+        .slice(0, broadCap);
+      if (worldPreservingRanked.length > 0) {
+        return {
+          tracks: worldPreservingRanked,
+          diagnostics: {
+            applied: true,
+            pipeline: "multi_source_retrieval",
+            inputCount: opts.tracks.length,
+            outputCount: worldPreservingRanked.length,
+            cap: broadCap,
+            fallback: "world_preserving_ranked_library",
+            committedWorldId: lockWorldId,
+            committedWorldHardLock: true,
+            inferredWorldIds: worldIdsForFallback,
+            activityProfileId: retrievalProfile.activityProfile?.id ?? null,
+          },
+        };
+      }
+      const thinCap = Math.max(3, Math.min(12, Math.ceil(opts.requestedLength * 0.4)));
+      const honestPartial = opts.tracks
+        .filter((track) => {
+          const classification = classifyFor(track, opts.classMap);
+          if (
+            committedWorldArtistForbidden(committed ?? committedWorld, track.artistName, track.trackName) ||
+            artistForbiddenInWorld(track.artistName, worldIdsForFallback)
+          ) {
+            return false;
+          }
+          if (trackViolatesPromptNegation(
+            {
+              trackName: track.trackName,
+              artistName: track.artistName,
+              albumName: track.albumName,
+              genreFamily: classification?.genreFamily ?? null,
+              genrePrimary: classification?.genrePrimary ?? null,
+              genres: classification?.subGenres ?? null,
+              acousticness: track.acousticness ?? null,
+              instrumentalness: track.instrumentalness ?? null,
+            },
+            negationProfile,
+          )) {
+            return false;
+          }
+          const worldFit = worldRetrievalFit(track, classification, worldIdsForFallback, lockWorldId);
+          return worldFit >= WORLD_BELONGING_RETRIEVAL_MIN;
+        })
+        .slice(0, thinCap);
+      return {
+        tracks: honestPartial,
+        diagnostics: {
+          applied: true,
+          pipeline: "multi_source_retrieval",
+          inputCount: opts.tracks.length,
+          outputCount: honestPartial.length,
+          cap: thinCap,
+          fallback: "world_preserving_honest_partial",
+          committedWorldId: lockWorldId,
+          committedWorldHardLock: true,
+          inferredWorldIds: worldIdsForFallback,
+          activityProfileId: retrievalProfile.activityProfile?.id ?? null,
+        },
+      };
+    }
+    if (musicalLock) {
+      return {
+        tracks: [],
+        diagnostics: {
+          applied: true,
+          pipeline: "multi_source_retrieval",
+          inputCount: opts.tracks.length,
+          outputCount: 0,
+          cap: 0,
+          fallback: "world_musical_lock_no_activity_substitute",
+          committedWorldId: committed?.musicalWorldId ?? committed?.id ?? null,
+          committedWorldHardLock: true,
           activityProfileId: retrievalProfile.activityProfile?.id ?? null,
         },
       };
@@ -1251,8 +1402,8 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
   };
 
   const sourceOrder: RetrievalSourceId[] = retrievalProfile.highConfidenceActivity
-    ? retrievalWorldIds.length > 0
-      ? ["genre_match", "activity_match", "sonic_match", "forgotten_favourites", "emotional_match", "exploratory", "favourite_artists"]
+    ? musicalHardLock || retrievalWorldIds.length > 0
+      ? ["genre_match", "sonic_match", "forgotten_favourites", "activity_match", "emotional_match", "exploratory", "favourite_artists"]
       : ["activity_match", "sonic_match", "forgotten_favourites", "genre_match", "emotional_match", "exploratory", "favourite_artists"]
     : retrievalWorldIds.length > 0
       ? ["genre_match", "forgotten_favourites", "sonic_match", "activity_match", "emotional_match", "exploratory", "favourite_artists"]

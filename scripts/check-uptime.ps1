@@ -1,6 +1,7 @@
 # Log local + public health checks (for weekly maintenance and manual runs).
 param(
-  [string]$Root = (Split-Path -Parent $PSScriptRoot)
+  [string]$Root = (Split-Path -Parent $PSScriptRoot),
+  [switch]$Quiet
 )
 
 $ErrorActionPreference = "Continue"
@@ -30,6 +31,8 @@ $publicOk = if ($appUrl) { Test-Ready $appUrl } else { $false }
 $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 $line = "$stamp  local=$localOk  public=$publicOk  url=$appUrl"
 Add-Content -LiteralPath $logPath -Value $line -Encoding UTF8
+
+if ($Quiet) { exit 0 }
 
 Write-Host ""
 Write-Host "  UPTIME CHECK" -ForegroundColor Magenta

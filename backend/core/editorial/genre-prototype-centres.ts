@@ -83,7 +83,8 @@ export function resolveGenrePrototypeCentres(opts: {
 /** World-specific prototype centres for everyday locks. */
 const WORLD_PROTOTYPE_HINTS: Record<string, string[]> = {
   feel_good_world: ["disco", "funk", "motown", "nu_disco"],
-  gym_energy_world: ["edm", "house", "hip_hop", "pop_punk"],
+  gym_energy_world: ["edm", "house", "techno", "hip_hop"],
+  reggae_world: ["reggae", "dancehall", "dub"],
   latin_summer_rooftop_world: ["reggaeton", "latin_pop", "salsa", "bachata"],
   social_kitchen_world: ["funk", "nu_disco", "motown"],
   party_prep_world: ["disco", "nu_disco", "house"],

@@ -13,6 +13,7 @@ import {
   type WorldIdentityTrack,
 } from "./world-identity-score";
 import { promoteWorldThesisOpener, rankThesisOpenerCandidate, isRemixBaitTrackTitle } from "./opener-hygiene";
+import { trackMatchesExcludedArtist } from "../../lib/prompt-negation-enforcement";
 
 export const THESIS_OPENER_MIN_SCORE = 0.8;
 export const THESIS_OPENER_UNDENIABLE_SCORE = 0.85;
@@ -51,11 +52,17 @@ function dedupeKey(track: WorldIdentityTrack): string {
 function buildSearchPool<T extends WorldIdentityTrack>(
   tracks: T[],
   expansionCandidates?: T[],
+  excludedArtists: string[] = [],
 ): T[] {
-  if (!expansionCandidates || expansionCandidates.length === 0) return tracks;
-  const seen = new Set(tracks.map(dedupeKey));
-  const merged = tracks.slice();
-  for (const candidate of expansionCandidates) {
+  const filterExcluded = (list: T[]) =>
+    excludedArtists.length > 0
+      ? list.filter((track) => !trackMatchesExcludedArtist(track.artistName, excludedArtists))
+      : list;
+  const base = filterExcluded(tracks);
+  if (!expansionCandidates || expansionCandidates.length === 0) return base;
+  const seen = new Set(base.map(dedupeKey));
+  const merged = base.slice();
+  for (const candidate of filterExcluded(expansionCandidates)) {
     const key = dedupeKey(candidate);
     if (seen.has(key)) continue;
     seen.add(key);
@@ -103,14 +110,18 @@ export function selectThesisOpener<T extends WorldIdentityTrack>(
   candidates: T[],
   profile: CulturalWorldProfile,
   searchDepth = 20,
+  excludedArtists: string[] = [],
 ): { track: T; score: number; isAnchor: boolean; index: number } | null {
-  if (candidates.length === 0) return null;
+  const pool = excludedArtists.length > 0
+    ? candidates.filter((track) => !trackMatchesExcludedArtist(track.artistName, excludedArtists))
+    : candidates;
+  if (pool.length === 0) return null;
 
-  const depth = Math.min(searchDepth, candidates.length);
+  const depth = Math.min(searchDepth, pool.length);
   let bestIdx = 0;
   let bestRank = -1;
   for (let i = 0; i < depth; i++) {
-    const rank = rankOpenerForProfile(candidates[i]!, profile);
+    const rank = rankOpenerForProfile(pool[i]!, profile);
     if (rank > bestRank) {
       bestRank = rank;
       bestIdx = i;
@@ -118,7 +129,7 @@ export function selectThesisOpener<T extends WorldIdentityTrack>(
   }
   if (bestRank < 0) return null;
 
-  const track = candidates[bestIdx]!;
+  const track = pool[bestIdx]!;
   return {
     track,
     score: scoreTrackWorldIdentity(track, profile),
@@ -137,6 +148,7 @@ export function enforceThesisOpener<T extends WorldIdentityTrack>(
   committed: CommittedWorld | null,
   expansionCandidates?: T[],
   searchDepth = 20,
+  excludedArtists: string[] = [],
 ): ThesisOpenerResult<T> {
   if (!committed?.hardLock || tracks.length === 0) {
     return { tracks, passed: true, promoted: false, fromIndex: 0, openerScore: 1, failures: [], refuseMessage: null };
@@ -146,10 +158,13 @@ export function enforceThesisOpener<T extends WorldIdentityTrack>(
   }
 
   const minScore = profile.openerRules.minWorldIdentityScore ?? THESIS_OPENER_MIN_SCORE;
-  const searchPool = buildSearchPool(tracks, expansionCandidates);
-  const selected = selectThesisOpener(searchPool, profile, searchDepth);
+  const searchPool = buildSearchPool(tracks, expansionCandidates, excludedArtists);
+  const selected = selectThesisOpener(searchPool, profile, searchDepth, excludedArtists);
 
-  let out = tracks.slice();
+  let out =
+    excludedArtists.length > 0
+      ? tracks.filter((track) => !trackMatchesExcludedArtist(track.artistName, excludedArtists))
+      : tracks.slice();
   let promoted = false;
   let fromIndex = 0;
 

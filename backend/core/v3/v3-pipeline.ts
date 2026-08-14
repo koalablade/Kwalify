@@ -59,7 +59,8 @@ import { enforceThesisOpener } from "../editorial/thesis-opener-gate";
 import { resolveCulturalProfileForCommitted } from "../editorial/world-identity-score";
 import { applySceneAnchorRetrievalQuota } from "../editorial/scene-anchor-retrieval-quota";
 import { applyWorldSequencing } from "../editorial/world-sequencer";
-import { applyWorldPurityGate } from "../editorial/world-purity-gate";
+import { applyWorldPurityGate, purityAwareComposeTarget } from "../editorial/world-purity-gate";
+import { mergeDeliverableCandidatePools } from "../editorial/deliverable-depth-refill";
 import { applyHumanCurationSequencing } from "../editorial/human-curation-sequencer";
 import {
   filterTracksForDeliveryNegation,
@@ -2307,6 +2308,22 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
 
   // ── Stage 7: Adaptive cluster-aware interleaving ─────────────────────────
   const interleaverInputCount = sampledResults.reduce((sum, lane) => sum + lane.tracks.length, 0);
+  const culturalProfileForCompose = resolveCulturalProfileForCommitted(committedWorld);
+  const hardLockCompose = opts.hardWorldLock === true || committedWorld?.hardLock === true;
+  const composeTarget = purityAwareComposeTarget(targetCount, {
+    hardLock: hardLockCompose,
+    candidatePoolSize: postIntentFilterCountFinal,
+    sampleTracks: tracks.slice(0, 50).map((t) => ({
+      trackName: t.trackName,
+      artistName: t.artistName,
+      genreFamily: t.genreFamily,
+      genrePrimary: t.genrePrimary,
+      spotifyArtistGenres: (t as { spotifyArtistGenres?: unknown }).spotifyArtistGenres,
+      energy: t.energy,
+      releaseYear: (t as { releaseYear?: number | null }).releaseYear,
+    })),
+    profile: culturalProfileForCompose,
+  });
   stageStartedAt = Date.now();
   const endInterleaverProfile = opts.profileStage?.("v3.interleaver", `${interleaverInputCount} sampled tracks`);
   const cohesivePlaylist = lockedIntent.genreFamilies.length === 0 && !lockedIntent.eraRange;
@@ -2315,13 +2332,13 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     type: "SYSTEM_FAILURE",
     requestId: opts.requestId,
     trace: opts.pipelineTrace,
-    run: () => interleaveLanes(lanes, sampledResults, targetCount, {
+    run: () => interleaveLanes(lanes, sampledResults, composeTarget, {
       cohesivePlaylist: cohesivePlaylist || humanSaveStrictMode,
       sceneWorld: sceneWorldContext,
       strictOpeningCluster: false,
     }),
     recover: () => ({
-      tracks: sampledResults.flatMap((lane) => lane.tracks).slice(0, targetCount),
+      tracks: sampledResults.flatMap((lane) => lane.tracks).slice(0, composeTarget),
       laneContributions: Object.fromEntries(sampledResults.map((lane) => [lane.laneId, lane.tracks.length])),
       interleaverDiagnostics: {
         repetitionEvents: 0,
@@ -2978,13 +2995,23 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
   }
   if (committedWorld?.hardLock) {
     const culturalProfile = resolveCulturalProfileForCommitted(committedWorld);
-    const thesis = enforceThesisOpener(finalTracks, culturalProfile, committedWorld, undefined, 20);
+    const thesis = enforceThesisOpener(
+      finalTracks,
+      culturalProfile,
+      committedWorld,
+      undefined,
+      20,
+      negationProfile.excludedArtists,
+    );
     finalTracks = applyWorldSequencing(thesis.tracks, committedWorld);
     const purity = applyWorldPurityGate(finalTracks, committedWorld, {
       prompt: vibe,
       requestedLength: targetCount,
       preserveOpener: true,
-      replacementPool: finalTracks,
+      replacementPool: mergeDeliverableCandidatePools(
+        finalTracks,
+        retrievedTracks,
+      ),
     });
     if (purity.removed > 0 && purity.tracks.length >= 3) {
       finalTracks = purity.tracks as typeof finalTracks;
@@ -3666,6 +3693,8 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     // Legacy / compatibility fields
     poolSize: tracks.length,
     selectedCount: finalTracks.length,
+    deliverableRefillPoolSize: mergeDeliverableCandidatePools(finalTracks, retrievedTracks).length,
+    postIntentFilterSurvivors: postIntentFilterCountFinal,
     genreDistribution: genreDist,
     eraDistribution: eraDist,
     genreConcentrationScore: Math.round(genreConcentration * 1000) / 1000,

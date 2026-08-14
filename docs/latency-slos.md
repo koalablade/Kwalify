@@ -1,6 +1,6 @@
 # Generation latency SLOs
 
-Target service levels for library-mode playlist generation on Render (Frankfurt, free/starter tier).
+Target service levels for library-mode playlist generation on self-hosted Kwalify (local PostgreSQL, Cloudflare Tunnel).
 
 | Library size | p95 target | p99 target | Notes |
 |--------------|------------|------------|-------|

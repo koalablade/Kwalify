@@ -15,7 +15,7 @@ Permanent configuration for live benchmarks, evaluations, and regression runs.
 
 | Secret | Purpose |
 |--------|---------|
-| `PLAYLIST_EVAL_TOKEN` | Audit/eval API auth (must match Render production) |
+| `PLAYLIST_EVAL_TOKEN` | Audit/eval API auth (must match production `.env`) |
 | `SMOKE_SPOTIFY_USER_ID` | Spotify user id for audit-mode `/api/generate` |
 
 Configure: **Settings → Secrets and variables → Actions**
@@ -94,4 +94,4 @@ These require a browser session and remain local-only.
 
 `validateEnv()` warns on startup when `NODE_ENV=production` and `PLAYLIST_EVAL_TOKEN` is unset (audit mode unavailable).
 
-Render must have the **same** `PLAYLIST_EVAL_TOKEN` as GitHub secret, then **Manual Deploy**.
+Production must have the **same** `PLAYLIST_EVAL_TOKEN` as GitHub secret and local `.env`. Restart the API after changing `.env` (`stop-kwalify.bat` then `start.bat`).

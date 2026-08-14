@@ -68,11 +68,11 @@ if (-not $Auto) {
   }
   $fw = Read-Host "Open Windows Firewall for ports 5000/443? [Y/n]"
   if ($fw -eq "" -or $fw -match '^[Yy]') { $Firewall = $true }
-  $su = Read-Host "Start Kwalify automatically when you log in? [Y/n]"
-  if ($su -eq "" -or $su -match '^[Yy]') { $Startup = $true }
+  $su = Read-Host "Start Kwalify automatically when you log in? [y/N]"
+  if ($su -match '^[Yy]') { $Startup = $true }
 } else {
   if (-not $Firewall) { $Firewall = $true }
-  if (-not $Startup) { $Startup = $true }
+  # Auto setup (start.bat): do not register logon auto-start unless -Startup passed explicitly.
 }
 
 $siteUrl = Normalize-PublicUrl $PublicUrl
@@ -156,12 +156,8 @@ try {
   Write-Host "  Could not register backup task (try running setup-self-host.bat as Administrator)" -ForegroundColor Yellow
 }
 
-Write-Step "Uptime checks every 5 minutes (while PC is on)"
-try {
-  & (Join-Path $Root "scripts\schedule-uptime-check.ps1")
-} catch {
-  Write-Host "  Could not register uptime task (optional - run schedule-uptime-check.ps1 as Administrator)" -ForegroundColor Yellow
-}
+# Uptime polling is manual-only: run check-uptime.ps1 or maintain.bat when Kwalify is up.
+# Optional: scripts\schedule-uptime-check.ps1 if you want every-5-min checks while PC is on.
 
 Write-Step "Disable PC sleep on AC power"
 try {

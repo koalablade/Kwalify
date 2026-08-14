@@ -9,11 +9,13 @@ if (-not (Test-Path $Script)) {
 }
 
 $action = New-ScheduledTaskAction -Execute "powershell.exe" `
-  -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$Script`" -Root `"$Root`""
+  -Argument "-WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$Script`" -Root `"$Root`""
 
 $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 10:00AM
 
-Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Hidden
+
+Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings `
   -Description "Weekly Kwalify readiness + backup verification" -Force | Out-Null
 
 Write-Host "Registered scheduled task: $TaskName (Sundays 10:00 AM)"

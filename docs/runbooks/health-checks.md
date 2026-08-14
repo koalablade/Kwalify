@@ -24,7 +24,7 @@ Validates healthz, readyz, deployment commit, eval ping, CORS, and launch pages.
 
 | Signal | Source | Action |
 |--------|--------|--------|
-| `SERVER_BUSY` rate | API logs / metrics | Scale Render instance or lower generate concurrency |
+| `SERVER_BUSY` rate | API logs / metrics | Lower generate concurrency or run fewer concurrent users on self-host |
 | Sync failures | `sync_status` stuck + error logs | Check Spotify API status, token refresh |
 | p95 generate latency | production validation harness | Profile stage timings, library size |
 

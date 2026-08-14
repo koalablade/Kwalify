@@ -50,7 +50,7 @@ Pick one:
 |--------|--------|
 | VPS (Hetzner, DO, etc.) | Same Node + Postgres stack |
 | Dedicated mini-PC at home | Cheapest always-on; keep tunnel |
-| Managed cloud (Render, Fly.io) | Less ops; legacy `render.yaml` in repo |
+| Managed VPS (Hetzner, DO, etc.) | Same Node + Postgres stack; point tunnel or reverse proxy |
 
 - [ ] Staging environment (even a second tunnel hostname)  
 - [ ] Migrate Postgres + `.env`  

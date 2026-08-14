@@ -127,8 +127,6 @@ LOG_LEVEL=info
 PLAYLIST_EVAL_TOKEN=your-shared-eval-token
 ```
 
-## Production secrets (Render)
+## Production secrets (self-host)
 
-On Render, set environment variables in the service dashboard. Attach a PostgreSQL instance — `DATABASE_URL` is injected automatically.
-
-For local Windows hosting, use `start-kwalify.bat` and `.env` instead — see [deployment.md](./deployment.md).
+Set environment variables in `.env` on the host PC. Use local PostgreSQL — see [deployment.md](./deployment.md) and [SELF-HOST-PRODUCTION.md](./SELF-HOST-PRODUCTION.md).

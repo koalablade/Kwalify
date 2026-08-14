@@ -2,10 +2,10 @@
 /**
  * Resolve SMOKE_SPOTIFY_USER_ID for GitHub Actions.
  *
- * Option A — from production (needs PLAYLIST_EVAL_TOKEN on Render + locally):
+ * Option A — from production (needs PLAYLIST_EVAL_TOKEN in production .env + locally):
  *   PLAYLIST_EVAL_TOKEN=... node scripts/resolve-smoke-spotify-user-id.mjs
  *
- * Option B — from DB (local Render DATABASE_URL):
+ * Option B — from DB (local DATABASE_URL):
  *   DATABASE_URL=... node scripts/resolve-smoke-spotify-user-id.mjs
  */
 

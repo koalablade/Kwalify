@@ -12,7 +12,7 @@ if (-not $env:SMOKE_SPOTIFY_USER_ID) {
 
 $token = $env:PLAYLIST_EVAL_TOKEN
 if (-not $token) {
-  throw "PLAYLIST_EVAL_TOKEN missing in .env - run: npm run sync:eval-token -Token `"<21-char Render token>`""
+  throw "PLAYLIST_EVAL_TOKEN missing in .env - run: npm run sync:eval-token -Token `"<21-char eval token>`""
 }
 if ($token.Length -ne 21) {
   throw "PLAYLIST_EVAL_TOKEN must be 21 characters (got $($token.Length))."
