@@ -299,6 +299,7 @@ import {
   isPlaylistContractWorldGateEvaluationEnabled,
 } from "../core/playlist-contract/feature-flag";
 import type { ContractCompositionContext } from "../core/playlist-contract/contract-composition-types";
+import { contractRebalanceWasApplied } from "../core/playlist-contract/contract-composition-select";
 import {
   resolveWorldGateContext,
   softenWorldBoundaryForGate,
@@ -7795,6 +7796,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         playlistContractV41Diagnostics = { ...playlistContractV41Diagnostics, ...fromPipeline };
       }
     }
+    const contractRebalanceDeliveryGuard =
+      isPlaylistContractV41Enabled() &&
+      contractRebalanceWasApplied(playlistContractV41Diagnostics);
 
     type PlaylistTrack = V3MetadataTrack<(typeof likedSongs)[number]> & {
       score: number;
@@ -7859,6 +7863,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       ]),
     );
     const stripDeliveryOffWorld = (stage: string, reason: string): number => {
+      if (contractRebalanceDeliveryGuard) return 0;
       if (!deliveryWorldBoundary.active || delivery.tracks.length === 0) return 0;
       const enrichedForIdentity = delivery.tracks.map((track) => {
         const liked = likedIdentityForDelivery.get(track.trackId);
@@ -12601,7 +12606,9 @@ router.post("/generate", async (req, res): Promise<void> => {
             };
           }
         }
-        const humanCurationEarly = applyHumanCurationSequencing(delivery.tracks as PlaylistTrack[], {
+        const humanCurationEarly = contractRebalanceDeliveryGuard
+          ? { tracks: delivery.tracks as PlaylistTrack[], swaps: 0, reorders: 0, removals: 0, replacements: 0, diagnostics: ["contract_rebalance_guard_skipped"] }
+          : applyHumanCurationSequencing(delivery.tracks as PlaylistTrack[], {
           prompt: vibe,
           preserveThesisOpener: true,
           culturalProfile: resolveCulturalProfileForCommitted(committedWorld),
@@ -12667,6 +12674,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       postPurityValidatedDepth = delivery.tracks.length;
       const intentFidelity = worldProof.fidelity;
       const skipIntentFidelityStrip =
+        contractRebalanceDeliveryGuard ||
         postPurityValidatedDepth >= Math.ceil(requestedLength * 0.5);
       if (
         committedWorld?.hardLock &&
@@ -12918,7 +12926,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (
         humanSaveabilityGate?.humanSaveable === false &&
         delivery.tracks.length > 0 &&
-        !skipIntentFidelityStrip
+        !skipIntentFidelityStrip &&
+        !contractRebalanceDeliveryGuard
       ) {
         const curator =
           typeof humanSaveabilityGate.curatorScore === "number"
@@ -13797,7 +13806,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       lateCommittedResolved,
       "late_delivery",
     );
-    if (lateCommittedWorld?.hardLock && deliveredTracks.length > 0) {
+    if (lateCommittedWorld?.hardLock && deliveredTracks.length > 0 && !contractRebalanceDeliveryGuard) {
       const lateProfile = resolveCulturalProfileForCommitted(lateCommittedWorld);
       const lateNegationForThesis = parsePromptNegationEnforcement(vibe);
       const lateThesis = enforceThesisOpener(
@@ -13827,7 +13836,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         momentPipeline?.canonicalScene?.sceneId ?? null,
       );
     }
-    if (lateCommittedWorld?.hardLock && deliveredTracks.length > 0) {
+    if (lateCommittedWorld?.hardLock && deliveredTracks.length > 0 && !contractRebalanceDeliveryGuard) {
       const enrichForWorldLate = (track: PlaylistTrack) =>
         enrichDeliverableTrack(track, likedIdentityForDelivery.get(track.trackId));
       const purityLate = applyWorldPurityGate(deliveredTracks as PlaylistTrack[], lateCommittedWorld, {
@@ -13902,7 +13911,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         };
       }
     }
-    if (deliveredTracks.length > 1) {
+    if (deliveredTracks.length > 1 && !contractRebalanceDeliveryGuard) {
       const humanCurationFinal = applyHumanCurationSequencing(deliveredTracks as PlaylistTrack[], {
         prompt: vibe,
         preserveThesisOpener: true,
@@ -14004,8 +14013,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       requestedLength,
     });
     const skipLateIntentFidelityCap =
-      postPurityValidatedDepth != null &&
-      postPurityValidatedDepth >= Math.ceil(requestedLength * 0.5);
+      contractRebalanceDeliveryGuard ||
+      (postPurityValidatedDepth != null &&
+      postPurityValidatedDepth >= Math.ceil(requestedLength * 0.5));
     if (
       lateCommittedWorld?.hardLock &&
       !skipLateIntentFidelityCap &&

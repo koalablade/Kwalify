@@ -4358,12 +4358,21 @@ export async function buildPlaylistPipeline<T extends {
     },
   };
   const intentContract = buildIntentContract(opts.vibe);
-  const worldBoundary = resolveWorldBoundary({
+  let worldBoundary = resolveWorldBoundary({
     sceneLock: opts.postScore.sceneLock ?? null,
     sceneAliases: opts.postScore.sceneAliases,
     scenePrediction: opts.postScore.scenePrediction,
     prompt: opts.vibe,
   });
+  if (opts.contractComposition?.deferredWorldGate && worldBoundary.hardLock) {
+    worldBoundary = {
+      ...worldBoundary,
+      hardLock: false,
+      reason: worldBoundary.reason?.startsWith("contract_defer_soft:")
+        ? worldBoundary.reason
+        : `contract_defer_soft:${worldBoundary.reason ?? "world_boundary"}`,
+    };
+  }
   // Hard-lock identity must see the full library, not the hybrid scoring cap.
   const worldScanLibrary =
     opts.worldIdentityLibrary && opts.worldIdentityLibrary.length > 0
@@ -6253,11 +6262,12 @@ export async function buildPlaylistPipeline<T extends {
       contractUniverseSize: opts.contractRetrievalPool?.length ?? null,
       poolSelection: selectedCandidate.candidatePool.diagnostics.contractCompositionPoolSelection ?? null,
       rebalanceSourcePoolSize: contractRebalanceSourcePool.length,
+      contractRebalanceApplied,
       rebalance: rebalanced.diagnostics,
     };
     qualityRecoveryCandidatePool = enrichedPool;
   }
-  if (worldBoundary.active) {
+  if (worldBoundary.active && !contractRebalanceApplied) {
     const purified = hardRejectOffWorldTracks(
       qualityRecoveryCandidatePool.map((track) => enrichWorldIdentity(track)),
       worldBoundary,
@@ -6273,10 +6283,15 @@ export async function buildPlaylistPipeline<T extends {
   }
   const qualityRecoveryDiagnostics: Record<string, unknown> = {
     candidatePoolSize: qualityRecoveryCandidatePool.length,
-    qualityLock: { implemented: true, executed: false },
-    criticRepair: { executed: false },
+    contractRebalanceApplied,
+    qualityLock: { implemented: true, executed: false, skipped: contractRebalanceApplied },
+    criticRepair: { executed: false, skipped: contractRebalanceApplied },
   };
-  if (finalTracksList.length > 0 && qualityRecoveryCandidatePool.length > finalTracksList.length) {
+  if (
+    !contractRebalanceApplied &&
+    finalTracksList.length > 0 &&
+    qualityRecoveryCandidatePool.length > finalTracksList.length
+  ) {
     const qualityLocked = repairPlaylistWithQualityLock(
       finalTracksList,
       qualityRecoveryCandidatePool,
@@ -6290,7 +6305,11 @@ export async function buildPlaylistPipeline<T extends {
       executed: true,
     };
   }
-  if (finalTracksList.length > 0 && qualityRecoveryCandidatePool.length > finalTracksList.length) {
+  if (
+    !contractRebalanceApplied &&
+    finalTracksList.length > 0 &&
+    qualityRecoveryCandidatePool.length > finalTracksList.length
+  ) {
     const criticRepaired = repairPlaylistWithCritic(
       finalTracksList,
       qualityRecoveryCandidatePool,
@@ -6314,6 +6333,7 @@ export async function buildPlaylistPipeline<T extends {
   // energy inversions, and swaps in admissible alternatives from the pool.
   // Shadow: compute + record diagnostics only. Enforce: apply the re-selection.
   if (
+    !contractRebalanceApplied &&
     isHumanExpectationEnabled() &&
     finalTracksList.length > 0 &&
     qualityRecoveryCandidatePool.length > finalTracksList.length
@@ -6417,7 +6437,7 @@ export async function buildPlaylistPipeline<T extends {
   }
 
   // Final world-purity strip after recovery/rerank — never reintroduce off-world fillers.
-  if (worldBoundary.active && finalTracksList.length > 0) {
+  if (worldBoundary.active && finalTracksList.length > 0 && !contractRebalanceApplied) {
     const postRecoveryPurified = hardRejectOffWorldTracks(
       finalTracksList.map((track) => enrichWorldIdentity(track)),
       worldBoundary,

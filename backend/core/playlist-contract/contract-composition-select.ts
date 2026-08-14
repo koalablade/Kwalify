@@ -341,3 +341,12 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
     },
   };
 }
+
+/** True when V41 post-V3 rebalance rewrote the playlist for compound axis coverage. */
+export function contractRebalanceWasApplied(
+  diagnostics: Record<string, unknown> | null | undefined,
+): boolean {
+  if (!diagnostics) return false;
+  const rebalance = diagnostics["rebalance"] as { rebalanced?: boolean } | undefined;
+  return rebalance?.rebalanced === true;
+}

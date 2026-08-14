@@ -9,6 +9,7 @@ import test from "node:test";
 import type { ContractCompositionMeta } from "../core/playlist-contract/contract-composition-types";
 import type { PlaylistContract } from "../core/playlist-contract/types";
 import {
+  contractRebalanceWasApplied,
   marginalContractValue,
   rebalancePlaylistForContractCoverage,
   selectContractCoveragePreservingPool,
@@ -134,6 +135,12 @@ test("rebalancePlaylistForContractCoverage increases intersection coverage", () 
   assert.ok(
     tracks.filter((t) => (t.contractCompositionMeta?.intersectionStrength ?? 0) >= 0.32).length >= 1,
   );
+});
+
+test("contractRebalanceWasApplied detects successful rebalance diagnostics", () => {
+  assert.equal(contractRebalanceWasApplied(null), false);
+  assert.equal(contractRebalanceWasApplied({ rebalance: { skipped: true } }), false);
+  assert.equal(contractRebalanceWasApplied({ rebalance: { rebalanced: true, outputCount: 25 } }), true);
 });
 
 test("rebalancePlaylistForContractCoverage injects missing axis when V3 output is single-sided", () => {
