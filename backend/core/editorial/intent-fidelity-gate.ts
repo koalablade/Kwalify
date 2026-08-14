@@ -47,7 +47,31 @@ export type IntentFidelityResult = {
   worldVerifiedCount: number;
   salvageableTracks: IntentFidelityTrack[];
   honestPartialCap: number;
+  /** Depth cap after fidelity — may exceed 40% stub when most tracks belong. */
+  deliveryCap: number;
 };
+
+/** When most tracks belong, deliver verified depth — not a 40% stub cap. */
+export function resolveFidelityDeliveryCap(opts: {
+  requestedLength: number;
+  verifiedCount: number;
+  trackCount: number;
+  openerPassed: boolean;
+  fidelityScore: number;
+  honestPartialCap: number;
+}): number {
+  const minHonestDepth = Math.ceil(opts.requestedLength * 0.5);
+  const verifiedShare = opts.trackCount > 0 ? opts.verifiedCount / opts.trackCount : 0;
+  if (
+    opts.openerPassed &&
+    opts.verifiedCount >= minHonestDepth &&
+    verifiedShare >= 0.65 &&
+    opts.fidelityScore >= 0.55
+  ) {
+    return Math.min(opts.verifiedCount, opts.requestedLength);
+  }
+  return opts.honestPartialCap;
+}
 
 const GYM_WORLD_IDS = new Set([
   "gym_rock_world",
@@ -204,6 +228,9 @@ export function evaluateIntentFidelity(opts: {
   const honestPartialCap = Math.min(12, Math.max(6, Math.ceil(requestedLength * 0.4)));
 
   if (!committed || tracks.length === 0) {
+    const deliveryCap = tracks.length > 0
+      ? Math.min(tracks.length, requestedLength)
+      : honestPartialCap;
     return {
       passed: tracks.length > 0,
       openerPassed: tracks.length > 0,
@@ -213,8 +240,9 @@ export function evaluateIntentFidelity(opts: {
       bodyFailures: [],
       tailFailures: [],
       worldVerifiedCount: tracks.length,
-      salvageableTracks: tracks,
+      salvageableTracks: tracks.slice(0, deliveryCap),
       honestPartialCap,
+      deliveryCap,
     };
   }
 
@@ -300,9 +328,17 @@ export function evaluateIntentFidelity(opts: {
       samplePassRate >= 0.75 &&
       tailPassRate >= 0.67);
 
+  const deliveryCap = resolveFidelityDeliveryCap({
+    requestedLength,
+    verifiedCount: verified.length,
+    trackCount: tracks.length,
+    openerPassed,
+    fidelityScore,
+    honestPartialCap,
+  });
   const salvageableTracks =
     verified.length >= 3
-      ? verified.slice(0, honestPartialCap)
+      ? verified.slice(0, deliveryCap)
       : verified.length > 0
         ? verified
         : [];
@@ -318,6 +354,7 @@ export function evaluateIntentFidelity(opts: {
     worldVerifiedCount: verified.length,
     salvageableTracks,
     honestPartialCap,
+    deliveryCap,
   };
 }
 
@@ -327,7 +364,7 @@ export function selectIntentFidelityHonestPartialTracks<
   if (!committed?.hardLock) {
     return tracks;
   }
-  const cap = result.honestPartialCap;
+  const cap = result.deliveryCap ?? result.honestPartialCap;
   const verifiedIds = new Set(
     result.salvageableTracks
       .map((t) => t.trackId)

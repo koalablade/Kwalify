@@ -12321,6 +12321,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         },
       };
     }
+    let postPurityValidatedDepth: number | null = null;
     // Terminal Human Quality Gate — save/replay honesty over forced completion.
     {
       const v3PipelineDiag = ((pipeline.scoringDiagnostics as Record<string, unknown> | undefined)?.v3Pipeline as
@@ -12517,9 +12518,13 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (deliveryLossFunnel) {
         deliveryLossFunnel.postWorldProof = delivery.tracks.length;
       }
+      postPurityValidatedDepth = delivery.tracks.length;
       const intentFidelity = worldProof.fidelity;
+      const skipIntentFidelityStrip =
+        postPurityValidatedDepth >= Math.ceil(requestedLength * 0.5);
       if (
         committedWorld?.hardLock &&
+        !skipIntentFidelityStrip &&
         (!worldProof.passed || !intentFidelity.passed) &&
         intentFidelity.salvageableTracks.length >= 3
       ) {
@@ -12623,6 +12628,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         negationViolations: terminalNegationViolations,
         intentFidelityFailed:
           committedWorld?.hardLock === true &&
+          !skipIntentFidelityStrip &&
           (!worldProof.passed || !intentFidelity.passed || !intentFidelity.openerPassed),
         worldProofFailed:
           committedWorld?.hardLock === true && !worldProof.passed,
@@ -12639,6 +12645,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             ? scoreCommittedWorldLanePurity(terminalActiveWorldId, terminalTrackSignals, { prompt: vibe }).ok
             : null,
         coverageLevel: worldCoverageAssessment?.score ?? null,
+        postPurityValidatedDepth,
       });
       finalization = {
         tracks: delivery.tracks as PlaylistTrack[],
@@ -12728,7 +12735,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
       if (
         humanSaveabilityGate?.humanSaveable === false &&
-        delivery.tracks.length > 0
+        delivery.tracks.length > 0 &&
+        !skipIntentFidelityStrip
       ) {
         const curator =
           typeof humanSaveabilityGate.curatorScore === "number"
@@ -13813,10 +13821,14 @@ router.post("/generate", async (req, res): Promise<void> => {
       prompt: vibe,
       requestedLength,
     });
+    const skipLateIntentFidelityCap =
+      postPurityValidatedDepth != null &&
+      postPurityValidatedDepth >= Math.ceil(requestedLength * 0.5);
     if (
       lateCommittedWorld?.hardLock &&
+      !skipLateIntentFidelityCap &&
       (!lateIntentFidelity.passed || !lateIntentFidelity.openerPassed) &&
-      deliveredTracks.length > lateIntentFidelity.honestPartialCap
+      deliveredTracks.length > (lateIntentFidelity.deliveryCap ?? lateIntentFidelity.honestPartialCap)
     ) {
       const salvaged = selectIntentFidelityHonestPartialTracks(
         deliveredTracks as PlaylistTrack[],
@@ -13919,12 +13931,14 @@ router.post("/generate", async (req, res): Promise<void> => {
         activeWorldId: lateActiveWorldId,
         intentFidelityFailed:
           lateCommittedWorld?.hardLock === true &&
+          !skipLateIntentFidelityCap &&
           (!lateIntentFidelity.passed || !lateIntentFidelity.openerPassed),
         committedWorldHardLock: lateCommittedWorld?.hardLock ?? false,
         committedWorldLaneOk:
           lateActiveWorldId && LANE_PURITY_WORLD_IDS.has(lateActiveWorldId)
             ? scoreCommittedWorldLanePurity(lateActiveWorldId, lateTrackSignals, { prompt: vibe }).ok
             : null,
+        postPurityValidatedDepth,
       });
       finalization = {
         tracks: delivery.tracks as PlaylistTrack[],
@@ -13945,15 +13959,20 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
       if (
         lateCommittedWorld?.hardLock &&
-        finalApiTracks.length > lateIntentFidelity.honestPartialCap
+        !skipLateIntentFidelityCap &&
+        finalApiTracks.length > (lateIntentFidelity.deliveryCap ?? lateIntentFidelity.honestPartialCap)
       ) {
-        finalApiTracks = finalApiTracks.slice(0, lateIntentFidelity.honestPartialCap);
+        finalApiTracks = finalApiTracks.slice(
+          0,
+          lateIntentFidelity.deliveryCap ?? lateIntentFidelity.honestPartialCap,
+        );
         deliveredTracks = syncTracksToApiOrder(deliveredTracks, finalApiTracks);
       }
       if (
         lateHqg.action === "honest_partial" &&
         lateHqg.salvageableCount > 0 &&
         finalApiTracks.length > lateHqg.salvageableCount &&
+        !skipLateIntentFidelityCap &&
         (
           lateHqg.reasons.includes("intent_fidelity_failed") ||
           finalApiTracks.length < Math.ceil(requestedLength * 0.85)

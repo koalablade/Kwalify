@@ -57,6 +57,8 @@ export type HumanQualityGateInput = {
   emotionMatchScore?: number | null;
   /** V10 world coverage level from library assessment. */
   coverageLevel?: CoverageLevel | null;
+  /** Track count after world_purity_gate — authority for downstream depth when >= 50% requested. */
+  postPurityValidatedDepth?: number | null;
 };
 
 export type HumanQualityGateResult = {
@@ -260,18 +262,22 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
 
   // Salvageable means we can honestly publish what we have (including mid-stubs 3–5).
   const softDefaultCap = Math.min(12, Math.ceil(requested * 0.4));
-  const downstreamValidatedSoftPlaylist =
-    input.committedWorldHardLock !== true &&
-    worldCoherenceOk &&
-    !input.degradedDelivery &&
+  const minHonestDepth = Math.ceil(requested * 0.5);
+  const purityValidatedDepth =
+    typeof input.postPurityValidatedDepth === "number" &&
+    input.postPurityValidatedDepth >= minHonestDepth;
+  const downstreamValidatedDepth =
+    count >= minHonestDepth &&
     !reasons.includes("seasonal_leakage") &&
-    !reasons.includes("human_save_failed") &&
     !reasons.includes("world_proof_failed") &&
-    count >= Math.ceil(requested * 0.5);
+    (purityValidatedDepth ||
+      (worldCoherenceOk &&
+        !input.degradedDelivery &&
+        !reasons.includes("human_save_failed")));
   const coverageCap =
-    input.coverageLevel && input.committedWorldHardLock
+    input.coverageLevel && input.committedWorldHardLock && !downstreamValidatedDepth
       ? coverageLevelToMaxTracks(input.coverageLevel, requested)
-      : downstreamValidatedSoftPlaylist
+      : downstreamValidatedDepth
         ? Math.min(count, requested)
         : softDefaultCap;
   const salvageableCount = count >= 3 ? Math.min(count, coverageCap) : 0;
@@ -427,7 +433,7 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
     };
   }
   if (
-    reasons.includes("intent_fidelity_failed") ||
+    (reasons.includes("intent_fidelity_failed") && !purityValidatedDepth) ||
     reasons.includes("world_proof_failed") ||
     (input.committedWorldHardLock === true && reasons.includes("world_lane_mash")) ||
     (input.committedWorldHardLock === true && reasons.includes("negation_violation"))

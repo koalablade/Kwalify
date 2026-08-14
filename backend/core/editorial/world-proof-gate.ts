@@ -266,7 +266,8 @@ export function filterTracksByWorldIdentity<T extends IntentFidelityTrack & { tr
     if (score >= SAMPLE_MIN_WORLD_SCORE) kept.push(track);
   }
   if (kept.length >= 3) {
-    return kept.slice(0, result.honestPartialCap);
+    const cap = result.deliveryCap ?? result.honestPartialCap;
+    return kept.slice(0, cap);
   }
   return selectIntentFidelityHonestPartialTracks(tracks, result, committed);
 }
