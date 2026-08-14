@@ -148,6 +148,13 @@ export type OrchestratePlaylistRetrievalOpts<T extends RetrievalTrackInput> = {
   expansionCandidates?: RetrievalTrackInput[];
   /** V10: pre-computed world coverage assessment. */
   worldCoverage?: WorldCoverageAssessment | null;
+  /** V39: contract world gate — use pre-resolved committed world. */
+  committedWorldOverride?: import("../core/committed-world").CommittedWorld | null;
+  /** V40: contract-authoritative retrieval when gate defers. */
+  contractAuthoritative?: {
+    active: boolean;
+    contract: import("../core/playlist-contract/types").PlaylistContract;
+  };
 };
 
 export type OrchestratePlaylistRetrievalResult<T extends RetrievalTrackInput> = {
@@ -282,7 +289,14 @@ function detectLibraryPromptConflict(
 export function analyzeLibraryCapability<T extends RetrievalTrackInput>(
   opts: Pick<
     OrchestratePlaylistRetrievalOpts<T>,
-    "tracks" | "vibe" | "intent" | "emotionProfile" | "classMap" | "requestedLength" | "sonicTasteProfile"
+    | "tracks"
+    | "vibe"
+    | "intent"
+    | "emotionProfile"
+    | "classMap"
+    | "requestedLength"
+    | "sonicTasteProfile"
+    | "committedWorldOverride"
   >,
 ): LibraryCapability {
   const sample = sampleTracks(opts.tracks, CAPABILITY_SAMPLE);
@@ -291,6 +305,7 @@ export function analyzeLibraryCapability<T extends RetrievalTrackInput>(
     opts.intent,
     opts.emotionProfile,
     [],
+    opts.committedWorldOverride,
   );
   const activityProfile = retrievalProfile.activityProfile;
   const limitingFactors: string[] = [];
@@ -713,6 +728,7 @@ export function orchestratePlaylistRetrieval<T extends RetrievalTrackInput>(
     opts.intent,
     opts.emotionProfile,
     [],
+    opts.committedWorldOverride,
   );
   const functionalPrompt =
     !!retrievalProfile.activityProfile &&
@@ -895,6 +911,8 @@ export function orchestratePlaylistRetrieval<T extends RetrievalTrackInput>(
       activeWorldIds,
       expansionCandidates: opts.expansionCandidates,
       worldCoverage: opts.worldCoverage,
+      committedWorldOverride: opts.committedWorldOverride,
+      contractAuthoritative: opts.contractAuthoritative,
       retrievalOverrides: {
         strategyId: strategyPlan.strategy,
         libraryGravityWeight: profileOverride.libraryGravityWeight,

@@ -38,9 +38,12 @@ function trackText(track: ContractRetrievalTrack): string {
 }
 
 function matchesGenreFamily(track: ContractRetrievalTrack, family: string): boolean {
-  const text = trackText(track);
+  const familyNorm = (track.genreFamily ?? "").toLowerCase();
   const norm = family.replace(/_/g, " ");
-  return text.includes(norm) || (track.genreFamily ?? "").toLowerCase().includes(family);
+  if (familyNorm.includes(family) || familyNorm.includes(norm.replace(/ /g, ""))) return true;
+  const genres = track.genres ?? [];
+  if (genres.some((g) => g.toLowerCase().includes(norm))) return true;
+  return false;
 }
 
 function matchesNegation(track: ContractRetrievalTrack, negValue: string, kind: string): boolean {

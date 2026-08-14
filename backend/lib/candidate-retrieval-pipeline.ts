@@ -42,6 +42,7 @@ import {
   resolveCommittedWorld,
   resolveRetrievalWorldIds,
 } from "../core/committed-world";
+import { retrieveContractAuthoritativePool } from "../core/playlist-contract/contract-authoritative-retrieval";
 import {
   detectUkHipHopScene,
   ukHipHopRetrievalBoost,
@@ -209,6 +210,13 @@ export type RetrieveScoringCandidatesOpts<T extends RetrievalTrackInput> = {
   worldCoverage?: WorldCoverageAssessment | null;
   /** V15: enable retrieval funnel trace (auditMode). */
   traceRetrievalFunnel?: boolean;
+  /** V39: pre-resolved committed world from contract world gate (skips re-resolve). */
+  committedWorldOverride?: import("../core/committed-world").CommittedWorld | null;
+  /** V40: contract-authoritative retrieval when world gate deferred. */
+  contractAuthoritative?: {
+    active: boolean;
+    contract: import("../core/playlist-contract/types").PlaylistContract;
+  };
 };
 
 const SCENE_PATTERNS: Array<{ tag: string; pattern: RegExp; weight: number }> = [
@@ -397,13 +405,17 @@ export function buildPromptRetrievalProfile(
   intent: RetrieveScoringCandidatesOpts<RetrievalTrackInput>["intent"],
   emotionProfile: EmotionProfile,
   dominantLibraryFamilies: string[],
+  committedWorldOverride?: import("../core/committed-world").CommittedWorld | null,
 ): RetrievalProfile {
   const activity = classifyRetrievalActivity(vibe, intent);
   const scene = detectSceneTags(vibe);
   const genre = detectGenreExpectations(vibe, intent);
   const activityProfile = resolveActivityProfile(vibe, intent);
   const ukHipHopScene = detectUkHipHopScene(vibe);
-  const committedWorld = resolveCommittedWorld({ prompt: vibe, lockedIntent: intent });
+  const committedWorld =
+    committedWorldOverride !== undefined
+      ? committedWorldOverride
+      : resolveCommittedWorld({ prompt: vibe, lockedIntent: intent });
   const committedWorldId =
     committedWorld?.id ??
     inferWorldIdentityIdsFromPrompt(vibe).find((id) =>
@@ -708,6 +720,28 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
     ? Math.max(240, opts.requestedLength * 12)
     : Math.max(900, opts.requestedLength * 35);
 
+  if (opts.contractAuthoritative?.active && opts.contractAuthoritative.contract) {
+    const v40 = retrieveContractAuthoritativePool({
+      tracks: opts.tracks,
+      contract: opts.contractAuthoritative.contract,
+      classMap: opts.classMap,
+      emotionProfile: opts.emotionProfile,
+      vibe: opts.vibe,
+      broadCap,
+    });
+    return {
+      tracks: v40.tracks,
+      diagnostics: {
+        applied: true,
+        pipeline: "v40_contract_authoritative",
+        inputCount: v40.diagnostics.inputCount,
+        outputCount: v40.diagnostics.outputCount,
+        cap: broadCap,
+        v40: v40.diagnostics,
+      },
+    };
+  }
+
   if (opts.tracks.length <= broadCap && !sceneActive) {
     return {
       tracks: opts.tracks,
@@ -727,6 +761,7 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
     opts.intent,
     opts.emotionProfile,
     dominantFamilies,
+    opts.committedWorldOverride,
   );
   if (opts.retrievalOverrides) {
     const overrides = opts.retrievalOverrides;
@@ -741,10 +776,13 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
   const rejected: RetrievalRejectedCandidate[] = [];
   let eligible: T[] = [];
   const negationProfile = parsePromptNegationEnforcement(opts.vibe);
-  const committedWorld = resolveCommittedWorld({
-    prompt: opts.vibe,
-    lockedIntent: opts.intent,
-  });
+  const committedWorld =
+    opts.committedWorldOverride !== undefined
+      ? opts.committedWorldOverride
+      : resolveCommittedWorld({
+          prompt: opts.vibe,
+          lockedIntent: opts.intent,
+        });
   const musicalHardLock = hasExplicitMusicalHardLock(committedWorld);
   const retrievalWorldIds = resolveRetrievalWorldIds({
     committed: committedWorld,

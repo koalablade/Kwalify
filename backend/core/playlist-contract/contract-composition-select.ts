@@ -1,0 +1,295 @@
+/**
+ * V41 — Coverage-preserving candidate selection and marginal-gain playlist assembly.
+ */
+
+import type { ContractCompositionMeta, ContractCompositionTrack } from "./contract-composition-types";
+import { getContractCompositionMeta, requiredContractDimensions } from "./contract-composition-types";
+import type { PlaylistContract } from "./types";
+import { intersectionThreshold } from "./contract-axis-scoring";
+
+export type ContractCoverageSelectionDiagnostics = {
+  inputCount: number;
+  outputCount: number;
+  requiredDimensions: string[];
+  dimensionCoverage: Record<string, number>;
+  intersectionCandidates: number;
+  selectionPhases: string[];
+};
+
+const MAX_PER_ARTIST = 4;
+
+function artistKey(name: string | null | undefined): string {
+  return (name ?? "").toLowerCase().trim();
+}
+
+function dimensionCoverageCount<T extends ContractCompositionTrack>(
+  tracks: T[],
+  dimension: string,
+): number {
+  return tracks.filter((t) => {
+    const m = getContractCompositionMeta(t);
+    return (m?.axisScores[dimension] ?? 0) >= 0.42;
+  }).length;
+}
+
+/** Marginal value of adding candidate given current playlist coverage. */
+export function marginalContractValue(
+  meta: ContractCompositionMeta | undefined,
+  contract: PlaylistContract,
+  coveredDimensions: Map<string, number>,
+  playlistSize: number,
+): number {
+  if (!meta || !meta.admissible) return -1;
+  let value = meta.contractScore * 0.35 + meta.intersectionStrength * 0.25;
+  const required = requiredContractDimensions(contract);
+  for (const dim of required) {
+    const score = meta.axisScores[dim] ?? 0;
+    if (score < 0.35) continue;
+    const current = coveredDimensions.get(dim) ?? 0;
+    const target = Math.max(2, Math.ceil(playlistSize * 0.15));
+    if (current < target) {
+      value += (1 - current / target) * score * 0.45;
+    } else {
+      value += score * 0.05;
+    }
+  }
+  if (meta.intersectionStrength > 0.35) {
+    const intKey = "__intersection";
+    const intCount = coveredDimensions.get(intKey) ?? 0;
+    const intTarget = Math.max(3, Math.ceil(playlistSize * 0.2));
+    if (intCount < intTarget) value += meta.intersectionStrength * 0.55;
+  }
+  return value;
+}
+
+export function selectContractCoveragePreservingPool<T extends ContractCompositionTrack & {
+  trackId: string;
+  artistName?: string | null;
+}>(
+  tracks: T[],
+  contract: PlaylistContract,
+  limit: number,
+): { tracks: T[]; diagnostics: ContractCoverageSelectionDiagnostics } {
+  const required = requiredContractDimensions(contract);
+  const preserveBoth = contract.tension.filter((t) => t.resolution === "preserve_both");
+  const phases: string[] = [];
+  const admissible = tracks.filter((t) => getContractCompositionMeta(t)?.admissible !== false);
+  const inputCount = tracks.length;
+
+  if (required.length <= 1 || preserveBoth.length === 0) {
+    const ranked = [...admissible].sort(
+      (a, b) => (getContractCompositionMeta(b)?.contractScore ?? 0) - (getContractCompositionMeta(a)?.contractScore ?? 0),
+    );
+    phases.push("single_dimension_rank");
+    return {
+      tracks: pickWithArtistCap(ranked, limit),
+      diagnostics: buildDiagnostics(inputCount, limit, required, pickWithArtistCap(ranked, limit), phases),
+    };
+  }
+
+  const seen = new Set<string>();
+  const out: T[] = [];
+  const artistCounts = new Map<string, number>();
+
+  const tryAdd = (track: T): boolean => {
+    if (seen.has(track.trackId)) return false;
+    const artist = artistKey(track.artistName);
+    if (artist && (artistCounts.get(artist) ?? 0) >= MAX_PER_ARTIST) return false;
+    seen.add(track.trackId);
+    if (artist) artistCounts.set(artist, (artistCounts.get(artist) ?? 0) + 1);
+    out.push(track);
+    return true;
+  };
+
+  const byIntersection = [...admissible]
+    .filter((t) => (getContractCompositionMeta(t)?.intersectionStrength ?? 0) >= intersectionThreshold(preserveBoth[0]!))
+    .sort(
+      (a, b) =>
+        (getContractCompositionMeta(b)?.intersectionStrength ?? 0) -
+        (getContractCompositionMeta(a)?.intersectionStrength ?? 0),
+    );
+  const intersectionQuota = Math.min(Math.floor(limit * 0.28), byIntersection.length);
+  for (const track of byIntersection.slice(0, intersectionQuota)) {
+    tryAdd(track);
+  }
+  phases.push(`intersection:${intersectionQuota}`);
+
+  for (const dim of required) {
+    if (out.length >= limit) break;
+    const dimRanked = [...admissible]
+      .filter((t) => (getContractCompositionMeta(t)?.axisScores[dim] ?? 0) >= 0.42)
+      .sort(
+        (a, b) =>
+          (getContractCompositionMeta(b)?.axisScores[dim] ?? 0) -
+          (getContractCompositionMeta(a)?.axisScores[dim] ?? 0),
+      );
+    const dimQuota = Math.min(Math.floor(limit * 0.22), dimRanked.length);
+    let added = 0;
+    for (const track of dimRanked) {
+      if (added >= dimQuota || out.length >= limit) break;
+      if (tryAdd(track)) added += 1;
+    }
+    phases.push(`axis:${dim}:${added}`);
+  }
+
+  const ranked = [...admissible].sort((a, b) => {
+    const ma = getContractCompositionMeta(a);
+    const mb = getContractCompositionMeta(b);
+    const sa = (ma?.contractScore ?? 0) + (ma?.intersectionStrength ?? 0) * 0.4;
+    const sb = (mb?.contractScore ?? 0) + (mb?.intersectionStrength ?? 0) * 0.4;
+    return sb - sa;
+  });
+  for (const track of ranked) {
+    if (out.length >= limit) break;
+    tryAdd(track);
+  }
+  phases.push("global_fill");
+
+  return {
+    tracks: out.slice(0, limit),
+    diagnostics: buildDiagnostics(inputCount, out.length, required, out, phases),
+  };
+}
+
+function pickWithArtistCap<T extends { trackId: string; artistName?: string | null }>(
+  tracks: T[],
+  limit: number,
+): T[] {
+  const out: T[] = [];
+  const artistCounts = new Map<string, number>();
+  for (const track of tracks) {
+    if (out.length >= limit) break;
+    const artist = artistKey(track.artistName);
+    if (artist && (artistCounts.get(artist) ?? 0) >= MAX_PER_ARTIST) continue;
+    if (artist) artistCounts.set(artist, (artistCounts.get(artist) ?? 0) + 1);
+    out.push(track);
+  }
+  return out;
+}
+
+function buildDiagnostics<T extends ContractCompositionTrack>(
+  inputCount: number,
+  outputCount: number,
+  required: string[],
+  selected: T[],
+  phases: string[],
+): ContractCoverageSelectionDiagnostics {
+  const dimensionCoverage: Record<string, number> = {};
+  for (const dim of required) {
+    dimensionCoverage[dim] = dimensionCoverageCount(selected, dim);
+  }
+  const intersectionCandidates = selected.filter(
+    (t) => (getContractCompositionMeta(t)?.intersectionStrength ?? 0) >= 0.32,
+  ).length;
+  return {
+    inputCount,
+    outputCount,
+    requiredDimensions: required,
+    dimensionCoverage,
+    intersectionCandidates,
+    selectionPhases: phases,
+  };
+}
+
+/** Post-V3 rebalance using marginal contract coverage (set-aware, not quota-fixed). */
+export function rebalancePlaylistForContractCoverage<T extends ContractCompositionTrack & {
+  trackId: string;
+  artistName?: string | null;
+  score?: number | null;
+}>(
+  selected: T[],
+  candidatePool: T[],
+  contract: PlaylistContract,
+  targetLength: number,
+  maxPerArtist: number,
+): { tracks: T[]; diagnostics: Record<string, unknown> } {
+  if (candidatePool.length === 0 || selected.length === 0) {
+    return { tracks: selected, diagnostics: { skipped: true } };
+  }
+  const preserveBoth = contract.tension.some((t) => t.resolution === "preserve_both");
+  if (!preserveBoth && requiredContractDimensions(contract).length <= 1) {
+    return { tracks: selected.slice(0, targetLength), diagnostics: { skipped: "single_dimension" } };
+  }
+
+  const poolById = new Map(candidatePool.map((t) => [t.trackId, t]));
+  const seed = selected.slice(0, Math.min(selected.length, Math.max(3, Math.floor(targetLength * 0.35))));
+  const result: T[] = [];
+  const used = new Set<string>();
+  const artistCounts = new Map<string, number>();
+  const coveredDimensions = new Map<string, number>();
+  coveredDimensions.set("__intersection", 0);
+
+  const register = (track: T) => {
+    const meta = getContractCompositionMeta(track);
+    if (!meta) return;
+    for (const dim of meta.axesActive) {
+      coveredDimensions.set(dim, (coveredDimensions.get(dim) ?? 0) + 1);
+    }
+    if (meta.intersectionStrength >= 0.32) {
+      coveredDimensions.set("__intersection", (coveredDimensions.get("__intersection") ?? 0) + 1);
+    }
+  };
+
+  const canAdd = (track: T): boolean => {
+    const artist = artistKey(track.artistName);
+    if (artist && (artistCounts.get(artist) ?? 0) >= maxPerArtist) return false;
+    return true;
+  };
+
+  const addTrack = (track: T) => {
+    if (used.has(track.trackId)) return false;
+    if (!canAdd(track)) return false;
+    used.add(track.trackId);
+    const artist = artistKey(track.artistName);
+    if (artist) artistCounts.set(artist, (artistCounts.get(artist) ?? 0) + 1);
+    result.push(track);
+    register(track);
+    return true;
+  };
+
+  for (const track of seed) {
+    if (result.length >= targetLength) break;
+    addTrack(poolById.get(track.trackId) ?? track);
+  }
+
+  const remaining = candidatePool.filter((t) => !used.has(t.trackId));
+  while (result.length < targetLength && remaining.length > 0) {
+    let bestIdx = -1;
+    let bestVal = -1;
+    for (let i = 0; i < remaining.length; i += 1) {
+      const track = remaining[i]!;
+      if (!canAdd(track)) continue;
+      const val = marginalContractValue(
+        getContractCompositionMeta(track),
+        contract,
+        coveredDimensions,
+        targetLength,
+      );
+      if (val > bestVal) {
+        bestVal = val;
+        bestIdx = i;
+      }
+    }
+    if (bestIdx < 0 || bestVal < 0) break;
+    const [picked] = remaining.splice(bestIdx, 1);
+    addTrack(picked!);
+  }
+
+  for (const track of selected) {
+    if (result.length >= targetLength) break;
+    addTrack(poolById.get(track.trackId) ?? track);
+  }
+
+  return {
+    tracks: result.slice(0, targetLength),
+    diagnostics: {
+      rebalanced: true,
+      inputSelected: selected.length,
+      outputCount: result.length,
+      dimensionCoverage: Object.fromEntries(
+        requiredContractDimensions(contract).map((d) => [d, coveredDimensions.get(d) ?? 0]),
+      ),
+      intersectionCoverage: coveredDimensions.get("__intersection") ?? 0,
+    },
+  };
+}

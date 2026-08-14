@@ -290,8 +290,19 @@ import { humanExpectationMode } from "../core/expectation/feature-flag";
 import { resolvePlaylistContractContext } from "../core/playlist-contract/shadow";
 import {
   isPlaylistContractRetrievalEnabled,
+  isPlaylistContractShadowEnabled,
   isPlaylistContractValidationEnabled,
+  isPlaylistContractWorldGateEnabled,
+  isPlaylistContractV40Enabled,
+  isPlaylistContractV41Enabled,
+  isPlaylistContractDeferPathEnabled,
+  isPlaylistContractWorldGateEvaluationEnabled,
 } from "../core/playlist-contract/feature-flag";
+import type { ContractCompositionContext } from "../core/playlist-contract/contract-composition-types";
+import {
+  resolveWorldGateContext,
+  softenWorldBoundaryForGate,
+} from "../core/playlist-contract/world-gate-context";
 import { buildPlaylistContract } from "../core/playlist-contract/build-playlist-contract";
 import {
   applyContractAwareRetrievalRerank,
@@ -5728,6 +5739,10 @@ router.post("/generate", async (req, res): Promise<void> => {
     let segmentDiagnostics: Array<{ segmentId: string; label: string; trackIds: string[] }> = [];
     let humanExpectationDiagnostics: Record<string, unknown> | null = null;
     let playlistContractDiagnostics: Record<string, unknown> | null = null;
+    let playlistContractWorldGateDiagnostics: Record<string, unknown> | null = null;
+    let playlistContractV40Diagnostics: Record<string, unknown> | null = null;
+    let playlistContractV41Diagnostics: Record<string, unknown> | null = null;
+    let contractCompositionContext: ContractCompositionContext | undefined;
     let adaptiveReasons: string[] = [];
     req.log.info(
       {
@@ -7061,24 +7076,70 @@ router.post("/generate", async (req, res): Promise<void> => {
     let worldCoverageAssessment: WorldCoverageAssessment | null = null;
     let candidateCoverageTier: CoverageTier | null = null;
     let worldExpansionCandidates: typeof likedSongs = [];
-    const committedWorldPreRetrieval = resolveCommittedWorld({
-      prompt: vibe,
-      lockedIntent,
-    });
-    const contractShadowResult = resolvePlaylistContractContext(
+    const worldGateContext = resolveWorldGateContext(
       {
         prompt: vibe,
         lockedIntent: lockedIntent as LockedIntent,
         decomposedIntent,
         intentState,
       },
-      req.log,
+      isPlaylistContractWorldGateEvaluationEnabled() ? req.log : undefined,
     );
-    if (contractShadowResult) {
+    const contractDeferActive =
+      isPlaylistContractDeferPathEnabled() &&
+      worldGateContext.gateDecision?.deferHardLock === true;
+    let committedWorldPreRetrieval = worldGateContext.effectiveWorld;
+    let contractAuthoritativeForRetrieval: {
+      active: boolean;
+      contract: ReturnType<typeof buildPlaylistContract>;
+    } | undefined;
+    if (contractDeferActive && worldGateContext.gateDecision?.effectiveWorld) {
+      contractAuthoritativeForRetrieval = {
+        active: true,
+        contract: worldGateContext.contract,
+      };
+      committedWorldPreRetrieval = worldGateContext.gateDecision.effectiveWorld;
+      playlistContractV40Diagnostics = {
+        deferHardLock: true,
+        deferReasons: worldGateContext.gateDecision.reasons,
+        retrievalAuthority: "playlist_contract",
+        originalWorld: worldGateContext.gateDecision.originalWorld?.id ?? null,
+      };
+    }
+    if (isPlaylistContractV41Enabled() && contractDeferActive) {
+      contractCompositionContext = {
+        enabled: true,
+        contract: worldGateContext.contract,
+        deferredWorldGate: true,
+      };
+      playlistContractV41Diagnostics = {
+        deferHardLock: true,
+        compositionAuthority: "playlist_contract",
+      };
+    }
+    if (worldGateContext.shadowDiagnostics) {
+      playlistContractDiagnostics = worldGateContext.shadowDiagnostics as unknown as Record<string, unknown>;
+    }
+    if (worldGateContext.diagnostics) {
+      playlistContractWorldGateDiagnostics = worldGateContext.diagnostics as unknown as Record<string, unknown>;
+    }
+    const contractShadowResult =
+      isPlaylistContractShadowEnabled() || isPlaylistContractRetrievalEnabled()
+        ? resolvePlaylistContractContext(
+            {
+              prompt: vibe,
+              lockedIntent: lockedIntent as LockedIntent,
+              decomposedIntent,
+              intentState,
+            },
+            req.log,
+          )
+        : null;
+    if (contractShadowResult && !worldGateContext.diagnostics) {
       playlistContractDiagnostics = contractShadowResult.diagnostics as unknown as Record<string, unknown>;
     }
     const culturalProfilePre = resolveCulturalProfileForCommitted(committedWorldPreRetrieval);
-    if (committedWorldPreRetrieval?.hardLock && culturalProfilePre && !noLibraryMode) {
+    if (committedWorldPreRetrieval?.hardLock && culturalProfilePre && !noLibraryMode && !contractDeferActive) {
       beginRejectionTrace();
       worldCoverageAssessment = assessWorldCoverage(
         committedWorldPreRetrieval,
@@ -7137,7 +7198,18 @@ router.post("/generate", async (req, res): Promise<void> => {
       expansionCandidates:
         worldExpansionCandidates.length > 0 ? worldExpansionCandidates : undefined,
       worldCoverage: worldCoverageAssessment,
+      committedWorldOverride: committedWorldPreRetrieval,
+      contractAuthoritative: contractAuthoritativeForRetrieval,
     });
+
+    if (contractDeferActive && preScoringOrchestration.diagnostics.retrievalDiagnostics) {
+      const rd = preScoringOrchestration.diagnostics.retrievalDiagnostics as Record<string, unknown>;
+      playlistContractV40Diagnostics = {
+        ...(playlistContractV40Diagnostics ?? {}),
+        retrieval: rd.v40 ?? rd,
+        retrievalPoolSize: preScoringOrchestration.tracks.length,
+      };
+    }
 
     if (preScoringOrchestration.failure && !noLibraryMode) {
       setGeneratePhase(generateSessionUserId, requestId, "error");
@@ -7644,6 +7716,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       generationPolicy,
       editorialMemory,
       libraryFingerprint,
+      contractComposition: contractCompositionContext,
       progress: (stage, detail) => {
         if (generationShouldAbort()) return;
         let phaseAccepted = true;
@@ -7708,6 +7781,14 @@ router.post("/generate", async (req, res): Promise<void> => {
     recordGenerationPhaseDuration("v3_pipeline", playlistPipelineTimeMs);
     recordGenerationPhaseDuration("sequencing", playlistPipelineTimeMs);
     recordSpotifyApiMetrics(getSpotifyApiAuditSnapshot());
+    if (playlistContractV41Diagnostics) {
+      const fromPipeline = (pipeline.scoringDiagnostics as Record<string, unknown>).playlistContractV41 as
+        | Record<string, unknown>
+        | undefined;
+      if (fromPipeline) {
+        playlistContractV41Diagnostics = { ...playlistContractV41Diagnostics, ...fromPipeline };
+      }
+    }
 
     type PlaylistTrack = V3MetadataTrack<(typeof likedSongs)[number]> & {
       score: number;
@@ -7746,12 +7827,16 @@ router.post("/generate", async (req, res): Promise<void> => {
     );
     const assignFT = (stage: string, reason: string, next: PlaylistTrack[]): readonly PlaylistTrack[] =>
       delivery.replaceTracks(stage, reason, next);
-    const deliveryWorldBoundary = resolveWorldBoundary({
+    const deliveryWorldBoundaryRaw = resolveWorldBoundary({
       sceneLock: sceneLockStatus,
       sceneAliases,
       scenePrediction: mergedScenePrediction,
       prompt: vibe,
     });
+    const deliveryWorldBoundary = softenWorldBoundaryForGate(
+      deliveryWorldBoundaryRaw,
+      worldGateContext.gateDecision,
+    );
     const likedIdentityForDelivery = new Map(
       likedSongs.map((song) => [
         song.trackId,
@@ -14345,6 +14430,15 @@ router.post("/generate", async (req, res): Promise<void> => {
         playlistConfidence,
         ...(humanExpectationDiagnostics ? { humanExpectation: humanExpectationDiagnostics } : {}),
         ...(playlistContractDiagnostics ? { playlistContract: playlistContractDiagnostics } : {}),
+        ...(playlistContractWorldGateDiagnostics
+          ? { playlistContractWorldGate: playlistContractWorldGateDiagnostics }
+          : {}),
+        ...(playlistContractV40Diagnostics
+          ? { playlistContractV40: playlistContractV40Diagnostics }
+          : {}),
+        ...(playlistContractV41Diagnostics
+          ? { playlistContractV41: playlistContractV41Diagnostics }
+          : {}),
         count: finalApiTracks.length,
         totalTracks: finalApiTracks.length,
         degraded: pipeline.pipelineTrace?.degraded ?? false,

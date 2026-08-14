@@ -3,6 +3,7 @@
  */
 
 import type { CommittedWorld } from "../committed-world";
+import { genreAlignsWithWorld } from "./world-gate";
 import type { ContractDisagreement, PlaylistContract } from "./types";
 
 export function compareContractWithWorld(
@@ -32,6 +33,20 @@ export function compareContractWithWorld(
       severity: "critical",
       detail: "Contract has explicit genre but resolveCommittedWorld returned null",
     });
+  }
+
+  for (const genre of contract.must.genres.filter(
+    (g) => g.confidence >= 0.6 && g.source !== "decomposed_scene" && !g.value.endsWith("-scene"),
+  )) {
+    if (world && worldId && !genreAlignsWithWorld(genre, world)) {
+      disagreements.push({
+        kind: "genre_family_mismatch",
+        contractValue: genre.value,
+        worldValue: worldId,
+        severity: "critical",
+        detail: `MUST genre "${genre.value}" does not align with committed world "${worldId}"`,
+      });
+    }
   }
 
   if (world?.hardLock && !contract.worldHypothesis.hardLock && contract.must.genres.length > 0) {

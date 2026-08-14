@@ -102,6 +102,14 @@ import { V3CandidatePool, v3ParallelCandidatesEnabled, type V3WorkerResult, type
 import type { EcosystemDebug } from "../lib/ecosystem-lock";
 import { detectEraFromYear, estimateEraFromAudio } from "./v2/era-model";
 import { buildLockedIntent, completeLockedIntent, type LockedIntent } from "./v3/intent";
+import type { ContractCompositionContext, ContractCompositionMeta } from "./playlist-contract/contract-composition-types";
+import { buildContractCompositionMeta } from "./playlist-contract/contract-axis-scoring";
+import {
+  rebalancePlaylistForContractCoverage,
+  selectContractCoveragePreservingPool,
+  type ContractCoverageSelectionDiagnostics,
+} from "./playlist-contract/contract-composition-select";
+import type { PlaylistContract } from "./playlist-contract/types";
 import { adaptiveRetrievalThresholds, assessCandidatePoolHealth, buildDominantIntentContract, detectDominantEmotion } from "./dominant-intent-contract";
 import { buildArtistEcosystemGraph, type ArtistEcosystemGraph } from "../lib/artist-ecosystem-graph";
 import { buildSemanticProfileMap } from "../lib/semantic-profile-store";
@@ -283,6 +291,8 @@ export interface BuildPlaylistPipelineOpts<T extends {
   generationPolicy?: GenerationPolicy;
   editorialMemory?: EditorialStructureMemory | null;
   libraryFingerprint?: LibraryFingerprint | null;
+  /** V41: contract-aware composition when world gate defers. */
+  contractComposition?: ContractCompositionContext;
 }
 
 export interface BuildPlaylistPipelineResult<T extends { trackId: string }> {
@@ -1636,6 +1646,41 @@ function capV3IntentReadyPool<T extends {
     cursor += 1;
   }
   return out;
+}
+
+function enrichContractCompositionTracks<T extends {
+  trackId: string;
+  trackName?: string | null;
+  artistName?: string | null;
+  energy: number | null;
+  valence: number | null;
+  danceability?: number | null;
+  acousticness?: number | null;
+  contractCompositionMeta?: ContractCompositionMeta;
+}>(
+  tracks: T[],
+  contract: PlaylistContract,
+  classMap: UserGenreProfile["trackClassifications"],
+): T[] {
+  return tracks.map((track) => {
+    if (track.contractCompositionMeta) return track;
+    const classification = classMap.get(track.trackId) ?? null;
+    const meta = buildContractCompositionMeta(
+      {
+        trackId: track.trackId,
+        trackName: track.trackName ?? null,
+        artistName: track.artistName ?? null,
+        energy: track.energy,
+        valence: track.valence,
+        danceability: track.danceability ?? track.energy,
+        acousticness: track.acousticness ?? null,
+        genreFamily: classification?.genreFamily ?? null,
+      },
+      contract,
+      classification,
+    );
+    return { ...track, contractCompositionMeta: meta };
+  });
 }
 
 function topScoreVariance<T extends { score?: number | null }>(tracks: T[], limit = 32): number {
@@ -3732,6 +3777,7 @@ function buildV3CandidatePool<T extends {
     mode?: "strict" | "balanced" | "chaotic";
     vibe?: string;
     emotionProfile?: EmotionProfile;
+    contractComposition?: ContractCompositionContext;
   } = {},
   logger?: import("pino").Logger,
 ): { tracks: T[]; diagnostics: Record<string, unknown> } {
@@ -3911,7 +3957,21 @@ function buildV3CandidatePool<T extends {
       ? Math.max(500, playlistLength * 16)
       : Math.max(500, playlistLength * 22),
   );
-  const intentReady = capV3IntentReadyPool(rawIntentReady, classMap, intentReadyCap);
+  let contractPoolSelectionDiagnostics: ContractCoverageSelectionDiagnostics | null = null;
+  let intentReady: T[];
+  if (opts.contractComposition?.enabled) {
+    const enriched = enrichContractCompositionTracks(rawIntentReady, opts.contractComposition.contract, classMap);
+    const selected = selectContractCoveragePreservingPool(enriched, opts.contractComposition.contract, intentReadyCap);
+    intentReady = selected.tracks;
+    contractPoolSelectionDiagnostics = selected.diagnostics;
+    forensicPreV3Trace.push(preV3StageTrace(
+      "contract_coverage_preserving_pool",
+      rawIntentReady.length,
+      intentReady.length,
+    ));
+  } else {
+    intentReady = capV3IntentReadyPool(rawIntentReady, classMap, intentReadyCap);
+  }
   forensicPreV3Trace.push(preV3StageTrace(
     "intent readiness filter",
     sorted.length,
@@ -4010,6 +4070,7 @@ function buildV3CandidatePool<T extends {
       forensicPreV3Trace,
       preV3Summary: summary,
       v11Uncollapse: uncollapsed.diagnostics,
+      contractCompositionPoolSelection: contractPoolSelectionDiagnostics,
     },
   };
 }
@@ -5281,6 +5342,7 @@ export async function buildPlaylistPipeline<T extends {
     hasValence: scoring.sorted.filter((track) => track.valence != null).length,
   }, "Spotify feature coverage before V3");
 
+  let contractCompositionPipelineDiagnostics: Record<string, unknown> | null = null;
   let t = Date.now();
   // GUARANTEE:
   // Playlist quality is determined by multi-candidate evaluation.
@@ -5537,6 +5599,7 @@ export async function buildPlaylistPipeline<T extends {
             mode: opts.mode,
             vibe: opts.vibe,
             emotionProfile: opts.emotionProfile,
+            contractComposition: opts.contractComposition,
           },
           opts.pipelineLog,
         );
@@ -6004,6 +6067,33 @@ export async function buildPlaylistPipeline<T extends {
     clusterId: (track as V3MetadataTrack<T>).clusterId ?? genreFamilyForTrack(track, classMap),
     clusterIds: (track as V3MetadataTrack<T>).clusterIds ?? [genreFamilyForTrack(track, classMap)].filter((value): value is string => !!value),
   })) as ScoredLibraryTrack<V3MetadataTrack<T>>[];
+  if (opts.contractComposition?.enabled) {
+    const contract = opts.contractComposition.contract;
+    const enrichedPool = enrichContractCompositionTracks(
+      qualityRecoveryCandidatePool,
+      contract,
+      classMap,
+    ) as ScoredLibraryTrack<V3MetadataTrack<T>>[];
+    const enrichedSelected = enrichContractCompositionTracks(
+      finalTracksList,
+      contract,
+      classMap,
+    );
+    const rebalanced = rebalancePlaylistForContractCoverage(
+      enrichedSelected,
+      enrichedPool,
+      contract,
+      opts.playlistLength,
+      opts.maxPerArtist,
+    );
+    finalTracksList = rebalanced.tracks as V3MetadataTrack<T>[];
+    contractCompositionPipelineDiagnostics = {
+      compositionAuthority: "playlist_contract",
+      poolSelection: selectedCandidate.candidatePool.diagnostics.contractCompositionPoolSelection ?? null,
+      rebalance: rebalanced.diagnostics,
+    };
+    qualityRecoveryCandidatePool = enrichedPool;
+  }
   if (worldBoundary.active) {
     const purified = hardRejectOffWorldTracks(
       qualityRecoveryCandidatePool.map((track) => enrichWorldIdentity(track)),
@@ -6682,6 +6772,9 @@ export async function buildPlaylistPipeline<T extends {
     sorted: scoring.sorted,
     scoringDiagnostics: {
       ...scoring.scoringDiagnostics,
+      ...(contractCompositionPipelineDiagnostics
+        ? { playlistContractV41: contractCompositionPipelineDiagnostics }
+        : {}),
       familyStageFunnel,
       unifiedIntent: unifiedIntentDiagnostics,
       momentMemory: {

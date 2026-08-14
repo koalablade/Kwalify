@@ -18,11 +18,14 @@ See `types.ts` — sections MUST / PREFER / MUST_NOT / CONTEXT / TENSION / UNKNO
 | `honest-partial.ts` | Tension-aware honest partial messaging |
 | `information-loss.ts` | A–M loss classification for forensics |
 | `feature-flag.ts` | `PLAYLIST_CONTRACT_*` env flags |
+| `world-gate.ts` | V39 contract-gated world commitment decision |
+| `world-gate-context.ts` | Resolve contract + apply gate at generation seam |
 
 ## Flags
 
 - `PLAYLIST_CONTRACT_SHADOW=1` — build + log contract disagreements (no output change)
 - `PLAYLIST_CONTRACT_RETRIEVAL=1` — rerank orchestrator pool by contract score
 - `PLAYLIST_CONTRACT_VALIDATION=1` — terminal audit shadow
+- `PLAYLIST_CONTRACT_WORLD_GATE=1` — defer hard world lock when contract disagrees (V39)
 
 V37 path unchanged when all flags off.
