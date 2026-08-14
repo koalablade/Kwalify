@@ -164,3 +164,66 @@ export function contractRetrievalPoolStats(
     mustViolations: scores.filter((s) => s.violations.some((v) => v.startsWith("MUST_NOT"))).length,
   };
 }
+
+export type ContractRetrievalApplyStats = {
+  total: number;
+  admissible: number;
+  demoted: number;
+  topAdmissibleAvgScore: number;
+  reranked: boolean;
+};
+
+export type ContractRetrievalApplyResult<T extends ContractRetrievalTrack> = {
+  tracks: T[];
+  stats: ContractRetrievalApplyStats;
+  poolStats: ReturnType<typeof contractRetrievalPoolStats>;
+};
+
+/**
+ * Rerank orchestrator pool by contract score when PLAYLIST_CONTRACT_RETRIEVAL=1.
+ * Hard MUST_NOT violations sink to tail; pool size preserved (no false-scarcity filter).
+ */
+export function applyContractAwareRetrievalRerank<T extends ContractRetrievalTrack>(
+  tracks: T[],
+  contract: PlaylistContract,
+): ContractRetrievalApplyResult<T> {
+  const poolStats = contractRetrievalPoolStats(tracks, contract);
+  if (tracks.length <= 1) {
+    return {
+      tracks,
+      stats: {
+        total: tracks.length,
+        admissible: poolStats.admissible,
+        demoted: poolStats.mustViolations,
+        topAdmissibleAvgScore: poolStats.avgScore,
+        reranked: false,
+      },
+      poolStats,
+    };
+  }
+
+  const ranked = rankTracksByContract(tracks, contract);
+  const admissible = ranked.filter((t) => t.contractScore.admissible);
+  const inadmissible = ranked.filter((t) => !t.contractScore.admissible);
+  const rerankedTracks = [...admissible, ...inadmissible].map((row) => {
+    const { contractScore: _cs, ...track } = row;
+    return track as unknown as T;
+  });
+
+  const topSlice = admissible.slice(0, Math.min(admissible.length, tracks.length));
+  const topAdmissibleAvgScore = topSlice.length
+    ? topSlice.reduce((sum, t) => sum + t.contractScore.score, 0) / topSlice.length
+    : 0;
+
+  return {
+    tracks: rerankedTracks,
+    stats: {
+      total: tracks.length,
+      admissible: admissible.length,
+      demoted: inadmissible.length,
+      topAdmissibleAvgScore,
+      reranked: true,
+    },
+    poolStats,
+  };
+}

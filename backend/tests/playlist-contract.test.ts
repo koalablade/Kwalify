@@ -13,6 +13,7 @@ import {
   scoreTrackAgainstContract,
   rankTracksByContract,
   contractRetrievalPoolStats,
+  applyContractAwareRetrievalRerank,
 } from "../core/playlist-contract/constraint-aware-retrieval";
 import { auditPlaylistAgainstContract } from "../core/playlist-contract/contract-validator";
 import { deriveHonestPartialFromContract } from "../core/playlist-contract/honest-partial";
@@ -21,7 +22,7 @@ import {
   setPlaylistContractRetrievalEnabled,
   setPlaylistContractValidationMode,
 } from "../core/playlist-contract/feature-flag";
-import { runPlaylistContractShadow } from "../core/playlist-contract/shadow";
+import { runPlaylistContractShadow, resolvePlaylistContractContext } from "../core/playlist-contract/shadow";
 import { classifyFailureFromV37Row } from "../core/playlist-contract/information-loss";
 
 test("buildPlaylistContract preserves tension for sad party bangers", () => {
@@ -119,6 +120,20 @@ test("shadow mode computes when flag on", () => {
   assert.ok(logs.includes("playlist_contract_shadow"));
 });
 
+test("resolvePlaylistContractContext builds contract for retrieval-only flag", () => {
+  setPlaylistContractShadowEnabled(false);
+  setPlaylistContractRetrievalEnabled(true);
+  const logs: string[] = [];
+  const log = {
+    info: (_o: Record<string, unknown>, msg: string) => { logs.push(msg); },
+    warn: () => {},
+  };
+  const result = resolvePlaylistContractContext({ prompt: "melancholy indie" }, log);
+  setPlaylistContractRetrievalEnabled(null);
+  assert.ok(result?.contract);
+  assert.equal(logs.includes("playlist_contract_shadow"), false);
+});
+
 test("information loss classifies sad party bangers earliest loss", () => {
   const trace = classifyFailureFromV37Row({
     id: "V35-12",
@@ -148,4 +163,38 @@ test("contractRetrievalPoolStats summarizes pool", () => {
   const stats = contractRetrievalPoolStats(tracks, contract);
   assert.equal(stats.total, 2);
   assert.ok(stats.admissible >= 0);
+});
+
+test("applyContractAwareRetrievalRerank promotes admissible tracks without shrinking pool", () => {
+  const contract = buildPlaylistContract({ prompt: "sunset beach reggae" });
+  const reggae = {
+    trackId: "r1",
+    trackName: "One Love",
+    artistName: "Bob Marley",
+    genreFamily: "reggae",
+    energy: 0.55,
+  };
+  const rock = {
+    trackId: "r2",
+    trackName: "Rock Song",
+    artistName: "Band",
+    genreFamily: "rock",
+    energy: 0.55,
+  };
+  const christmas = {
+    trackId: "x1",
+    trackName: "Last Christmas",
+    artistName: "Wham!",
+    genreFamily: "pop",
+    energy: 0.5,
+  };
+  const contractChristmas = buildPlaylistContract({ prompt: "cozy winter no christmas" });
+  const applied = applyContractAwareRetrievalRerank([rock, christmas, reggae], contract);
+  assert.equal(applied.tracks.length, 3);
+  assert.equal(applied.tracks[0]!.trackId, "r1");
+  assert.equal(applied.stats.reranked, true);
+
+  const appliedNeg = applyContractAwareRetrievalRerank([christmas, reggae, rock], contractChristmas);
+  assert.equal(appliedNeg.tracks.length, 3);
+  assert.equal(appliedNeg.tracks[appliedNeg.tracks.length - 1]!.trackId, "x1");
 });

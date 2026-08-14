@@ -21,8 +21,8 @@ See `types.ts` — sections MUST / PREFER / MUST_NOT / CONTEXT / TENSION / UNKNO
 
 ## Flags
 
-- `PLAYLIST_CONTRACT_SHADOW=1` — build + log only
-- `PLAYLIST_CONTRACT_RETRIEVAL=1` — retrieval pool stats
+- `PLAYLIST_CONTRACT_SHADOW=1` — build + log contract disagreements (no output change)
+- `PLAYLIST_CONTRACT_RETRIEVAL=1` — rerank orchestrator pool by contract score
 - `PLAYLIST_CONTRACT_VALIDATION=1` — terminal audit shadow
 
 V37 path unchanged when all flags off.

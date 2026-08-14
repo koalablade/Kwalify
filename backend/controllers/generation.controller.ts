@@ -287,13 +287,15 @@ import { isSoftScenePrompt } from "../core/scene-world-layer";
 import { runExpectationShadow } from "../core/expectation/shadow";
 import { runPlaylistExpectation } from "../core/expectation/playlist-evaluation";
 import { humanExpectationMode } from "../core/expectation/feature-flag";
-import { runPlaylistContractShadow } from "../core/playlist-contract/shadow";
+import { resolvePlaylistContractContext } from "../core/playlist-contract/shadow";
 import {
   isPlaylistContractRetrievalEnabled,
   isPlaylistContractValidationEnabled,
 } from "../core/playlist-contract/feature-flag";
 import { buildPlaylistContract } from "../core/playlist-contract/build-playlist-contract";
-import { contractRetrievalPoolStats } from "../core/playlist-contract/constraint-aware-retrieval";
+import {
+  applyContractAwareRetrievalRerank,
+} from "../core/playlist-contract/constraint-aware-retrieval";
 import { auditPlaylistAgainstContract } from "../core/playlist-contract/contract-validator";
 import { deriveHonestPartialFromContract } from "../core/playlist-contract/honest-partial";
 import type { ExpectationTrack } from "../core/expectation/types";
@@ -7063,7 +7065,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       prompt: vibe,
       lockedIntent,
     });
-    const contractShadowResult = runPlaylistContractShadow(
+    const contractShadowResult = resolvePlaylistContractContext(
       {
         prompt: vibe,
         lockedIntent: lockedIntent as LockedIntent,
@@ -7178,8 +7180,39 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
 
+    let orchestratorTracks = preScoringOrchestration.tracks;
+    if (isPlaylistContractRetrievalEnabled() && contractShadowResult) {
+      const contractTracks = orchestratorTracks.map((t) => ({
+        trackId: t.trackId,
+        trackName: t.trackName,
+        artistName: t.artistName,
+        genreFamily: userGenreProfile.trackClassifications.get(t.trackId)?.genreFamily ?? null,
+        energy: t.energy,
+        valence: t.valence,
+        releaseYear: t.releaseYear,
+      }));
+      const applied = applyContractAwareRetrievalRerank(contractTracks, contractShadowResult.contract);
+      const trackById = new Map(orchestratorTracks.map((t) => [t.trackId, t]));
+      orchestratorTracks = applied.tracks
+        .map((t) => trackById.get(t.trackId))
+        .filter((t): t is (typeof orchestratorTracks)[number] => !!t);
+      req.log.info(
+        {
+          playlistContractRetrieval: {
+            ...applied.stats,
+            pool: applied.poolStats,
+          },
+        },
+        "playlist_contract_retrieval_applied",
+      );
+      playlistContractDiagnostics = {
+        ...(playlistContractDiagnostics ?? {}),
+        retrieval: { ...applied.stats, pool: applied.poolStats },
+      };
+    }
+
     const preScoringCandidateShape = {
-      tracks: preScoringOrchestration.tracks,
+      tracks: orchestratorTracks,
       diagnostics: {
         ...(typeof preScoringOrchestration.diagnostics.retrievalDiagnostics === "object"
           ? preScoringOrchestration.diagnostics.retrievalDiagnostics as Record<string, unknown>
@@ -7201,28 +7234,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       deliveryLossFunnel.orchestratorFinal = readOrchestratorFinalFromRetrievalFunnel(retrievalFunnelTrace);
     }
     const retrievalConfidenceResult =
-      culturalProfilePre && preScoringOrchestration.tracks.length > 0
-        ? computeRetrievalConfidence(preScoringOrchestration.tracks, culturalProfilePre)
+      culturalProfilePre && orchestratorTracks.length > 0
+        ? computeRetrievalConfidence(orchestratorTracks, culturalProfilePre)
         : null;
-    if (isPlaylistContractRetrievalEnabled() && contractShadowResult) {
-      const poolStats = contractRetrievalPoolStats(
-        preScoringOrchestration.tracks.map((t) => ({
-          trackId: t.trackId,
-          trackName: t.trackName,
-          artistName: t.artistName,
-          genreFamily: userGenreProfile.trackClassifications.get(t.trackId)?.genreFamily ?? null,
-          energy: t.energy,
-          valence: t.valence,
-          releaseYear: t.releaseYear,
-        })),
-        contractShadowResult.contract,
-      );
-      req.log.info({ playlistContractRetrieval: poolStats }, "playlist_contract_retrieval_shadow");
-      playlistContractDiagnostics = {
-        ...(playlistContractDiagnostics ?? {}),
-        retrieval: poolStats,
-      };
-    }
     const lockedOpenerTrackId = preScoringOrchestration.diagnostics.humanOpener.trackId;
     let curatedOpenerTrackId: string | null = lockedOpenerTrackId ?? null;
     let openingLock: OpeningLock | null = null;
