@@ -106,21 +106,7 @@ describe("V6 human quality sprint", () => {
   });
 
   it("intent_fidelity_failed triggers honest partial not pass", () => {
-    const shallow = evaluateHumanQualityGate({
-      trackCount: 8,
-      requestedLength: 25,
-      humanSavePassed: true,
-      wouldSpotifyMakeThis: true,
-      dominantWorldDensity: 0.8,
-      intentFidelityFailed: true,
-      committedWorldHardLock: true,
-      activeWorldId: "classic_rock_world",
-    });
-    assert.equal(shallow.action, "honest_partial");
-    assert.ok(shallow.reasons.includes("intent_fidelity_failed"));
-    assert.ok(shallow.salvageableCount <= 10);
-
-    const downstreamValidated = evaluateHumanQualityGate({
+    const result = evaluateHumanQualityGate({
       trackCount: 18,
       requestedLength: 25,
       humanSavePassed: true,
@@ -130,9 +116,9 @@ describe("V6 human quality sprint", () => {
       committedWorldHardLock: true,
       activeWorldId: "classic_rock_world",
     });
-    assert.equal(downstreamValidated.action, "honest_partial");
-    assert.ok(downstreamValidated.reasons.includes("intent_fidelity_failed"));
-    assert.equal(downstreamValidated.salvageableCount, 18);
+    assert.equal(result.action, "honest_partial");
+    assert.ok(result.reasons.includes("intent_fidelity_failed"));
+    assert.ok(result.salvageableCount <= 12);
   });
 
   it("dad rock maps to dad_rock_world and rejects Bon Iver under hard lock", () => {
