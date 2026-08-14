@@ -12518,7 +12518,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (deliveryLossFunnel) {
         deliveryLossFunnel.postWorldProof = delivery.tracks.length;
       }
-      postPurityValidatedDepth = delivery.tracks.length;
+      postPurityValidatedDepth = Math.max(
+        delivery.tracks.length,
+        deliveryLossFunnel?.postWorldProof ?? 0,
+        deliveryLossFunnel?.postPurity ?? 0,
+      );
       const intentFidelity = worldProof.fidelity;
       const skipIntentFidelityStrip =
         postPurityValidatedDepth >= Math.ceil(requestedLength * 0.5);
@@ -12653,6 +12657,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           ...finalization.diagnostics,
           humanQualityGate: terminalHqg,
           humanUnderstoodGate: terminalUnderstood,
+          postPurityValidatedDepth,
           ...(v3Hqg ? { humanQualityGateFromV3: v3Hqg } : {}),
         },
       };

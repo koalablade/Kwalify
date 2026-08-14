@@ -7,6 +7,7 @@ import {
   selectIntentFidelityHonestPartialTracks,
 } from "../core/editorial/intent-fidelity-gate";
 import { filterTracksByWorldIdentity } from "../core/editorial/world-proof-gate";
+import { evaluateHumanQualityGate } from "../core/editorial/human-quality-gate";
 
 describe("V37 intent fidelity depth cap", () => {
   it("resolveFidelityDeliveryCap delivers full verified depth when most tracks belong", () => {
@@ -73,5 +74,21 @@ describe("V37 intent fidelity depth cap", () => {
     const salvaged = selectIntentFidelityHonestPartialTracks(tracks, result, committed);
     assert.ok(!salvaged.some((t) => /bon iver/i.test(t.artistName ?? "")));
     assert.ok(salvaged.length <= result.deliveryCap);
+  });
+
+  it("V38: postPurityValidatedDepth prevents terminal HQG 40% collapse", () => {
+    const result = evaluateHumanQualityGate({
+      trackCount: 24,
+      requestedLength: 25,
+      humanSavePassed: true,
+      wouldSpotifyMakeThis: true,
+      dominantWorldDensity: 0.8,
+      committedWorldHardLock: true,
+      intentFidelityFailed: true,
+      degradedDelivery: true,
+      postPurityValidatedDepth: 24,
+    });
+    assert.equal(result.action, "honest_partial");
+    assert.equal(result.salvageableCount, 24);
   });
 });

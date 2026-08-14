@@ -266,8 +266,12 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
   const purityValidatedDepth =
     typeof input.postPurityValidatedDepth === "number" &&
     input.postPurityValidatedDepth >= minHonestDepth;
+  const validatedDepthCap =
+    purityValidatedDepth && typeof input.postPurityValidatedDepth === "number"
+      ? Math.min(requested, input.postPurityValidatedDepth)
+      : null;
   const downstreamValidatedDepth =
-    count >= minHonestDepth &&
+    (count >= minHonestDepth || purityValidatedDepth) &&
     !reasons.includes("seasonal_leakage") &&
     !reasons.includes("world_proof_failed") &&
     (purityValidatedDepth ||
@@ -276,9 +280,13 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
         !reasons.includes("human_save_failed")));
   const coverageCap =
     input.coverageLevel && input.committedWorldHardLock && !downstreamValidatedDepth
-      ? coverageLevelToMaxTracks(input.coverageLevel, requested)
+      ? coverageLevelToMaxTracks(
+          input.coverageLevel,
+          requested,
+          validatedDepthCap ?? undefined,
+        )
       : downstreamValidatedDepth
-        ? Math.min(count, requested)
+        ? Math.min(requested, validatedDepthCap ?? count)
         : softDefaultCap;
   const salvageableCount = count >= 3 ? Math.min(count, coverageCap) : 0;
 
