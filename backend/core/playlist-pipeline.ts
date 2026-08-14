@@ -115,6 +115,8 @@ import {
 } from "./playlist-contract/contract-composition-select";
 import {
   seedContractRetrievalIntoScoredPool,
+  buildContractMetaLookup,
+  mergeContractRetrievalUniverse,
   type ContractRetrievalSeedDiagnostics,
 } from "./playlist-contract/contract-retrieval-scoring-seed";
 import type { PlaylistContract } from "./playlist-contract/types";
@@ -1671,9 +1673,11 @@ function enrichContractCompositionTracks<T extends {
   tracks: T[],
   contract: PlaylistContract,
   classMap: UserGenreProfile["trackClassifications"],
+  metaByTrackId?: Map<string, ContractCompositionMeta>,
 ): T[] {
   return tracks.map((track) => {
-    if (track.contractCompositionMeta) return track;
+    const preserved = metaByTrackId?.get(track.trackId) ?? track.contractCompositionMeta;
+    if (preserved) return { ...track, contractCompositionMeta: preserved };
     const classification = classMap.get(track.trackId) ?? null;
     const meta = buildContractCompositionMeta(
       {
@@ -3788,6 +3792,7 @@ function buildV3CandidatePool<T extends {
     vibe?: string;
     emotionProfile?: EmotionProfile;
     contractComposition?: ContractCompositionContext;
+    contractRetrievalPool?: T[];
   } = {},
   logger?: import("pino").Logger,
 ): { tracks: T[]; diagnostics: Record<string, unknown> } {
@@ -3862,6 +3867,12 @@ function buildV3CandidatePool<T extends {
   const effectiveMinimumCandidateCount = compoundGenreEraActivity
     ? Math.max(8, Math.ceil(playlistLength * 0.55))
     : minimumCandidateCount;
+  const contractUniverse = opts.contractRetrievalPool?.length
+    ? mergeContractRetrievalUniverse(sorted, opts.contractRetrievalPool)
+    : sorted;
+  const contractMetaLookup = buildContractMetaLookup(
+    opts.contractRetrievalPool?.length ? opts.contractRetrievalPool : contractUniverse,
+  );
   forensicPreV3Trace.push(preV3StageTrace("initial scored track count", sorted.length, sorted.length));
   const genreReady = sorted.filter((track) => !!genreFamilyFor(track));
   forensicPreV3Trace.push(preV3StageTrace(
@@ -3926,37 +3937,22 @@ function buildV3CandidatePool<T extends {
     ?? relaxationAttempts.find((attempt) => attempt.candidateCount > 0)
     ?? relaxationAttempts[0];
   let rawIntentReady = selectedRelaxation?.tracks ?? [];
-  if (opts.contractComposition?.deferredWorldGate && opts.contractComposition.contract) {
-    const enrichedForDefer = enrichContractCompositionTracks(
-      sorted,
+  if (opts.contractComposition?.enabled && opts.contractComposition.contract) {
+    const enrichedContract = enrichContractCompositionTracks(
+      contractUniverse,
       opts.contractComposition.contract,
       classMap,
+      contractMetaLookup,
     );
-    const contractReady = enrichedForDefer.filter(
+    const contractAdmissible = enrichedContract.filter(
       (track) => getContractCompositionMeta(track)?.admissible !== false,
     );
-    const deferReady = contractReady.length >= effectiveMinimumCandidateCount
-      ? contractReady
-      : intentLaneReady.length >= effectiveMinimumCandidateCount
-        ? intentLaneReady
-        : laneReady.length >= effectiveMinimumCandidateCount
-          ? laneReady
-          : genreReady.length > 0
-            ? genreReady
-            : sorted;
-    if (contractReady.length >= effectiveMinimumCandidateCount) {
-      rawIntentReady = contractReady as T[];
+    if (contractAdmissible.length > 0) {
+      rawIntentReady = contractAdmissible as T[];
       forensicPreV3Trace.push(preV3StageTrace(
-        "contract_deferred_admissible_pool",
-        sorted.length,
-        contractReady.length,
-      ));
-    } else if (deferReady.length > rawIntentReady.length) {
-      rawIntentReady = deferReady as T[];
-      forensicPreV3Trace.push(preV3StageTrace(
-        "contract_deferred_intent_bypass",
-        sorted.length,
-        deferReady.length,
+        "contract_authoritative_admissible_pool",
+        contractUniverse.length,
+        contractAdmissible.length,
       ));
     }
   }
@@ -4004,7 +4000,12 @@ function buildV3CandidatePool<T extends {
   let contractPoolSelectionDiagnostics: ContractCoverageSelectionDiagnostics | null = null;
   let intentReady: T[];
   if (opts.contractComposition?.enabled) {
-    const enriched = enrichContractCompositionTracks(rawIntentReady, opts.contractComposition.contract, classMap);
+    const enriched = enrichContractCompositionTracks(
+      rawIntentReady,
+      opts.contractComposition.contract,
+      classMap,
+      contractMetaLookup,
+    );
     const selected = selectContractCoveragePreservingPool(enriched, opts.contractComposition.contract, intentReadyCap);
     intentReady = selected.tracks;
     contractPoolSelectionDiagnostics = selected.diagnostics;
@@ -4809,6 +4810,7 @@ export async function buildPlaylistPipeline<T extends {
       deferSource as ScoredLibraryTrack<T>[],
       opts.contractComposition.contract,
       classMap,
+      buildContractMetaLookup(opts.contractRetrievalPool ?? []),
     );
     const contractAdmissible = enrichedDefer.filter(
       (track) => getContractCompositionMeta(track)?.admissible !== false,
@@ -5485,7 +5487,16 @@ export async function buildPlaylistPipeline<T extends {
     V3_SAFETY_INPUT_MAX,
     Math.max(V3_SAFETY_INPUT_MIN, opts.playlistLength * V3_SAFETY_INPUT_PER_TRACK)
   );
-  const v3SafetyInputCap = baseV3SafetyInputCap;
+  const v3SafetyInputCap = opts.contractComposition?.deferredWorldGate
+    ? Math.min(
+      V3_SAFETY_INPUT_MAX,
+      Math.max(
+        baseV3SafetyInputCap,
+        opts.contractRetrievalPool?.length ?? 0,
+        contractGuardedScoredPool.length,
+      ),
+    )
+    : baseV3SafetyInputCap;
   const capV3SafetyPool = (pool: ScoredLibraryTrack<T>[]): ScoredLibraryTrack<T>[] =>
     pool.length > v3SafetyInputCap ? pool.slice(0, v3SafetyInputCap) : pool;
   const mergeV3UniverseInput = (
@@ -5718,6 +5729,7 @@ export async function buildPlaylistPipeline<T extends {
             vibe: opts.vibe,
             emotionProfile: opts.emotionProfile,
             contractComposition: opts.contractComposition,
+            contractRetrievalPool: opts.contractRetrievalPool,
           },
           opts.pipelineLog,
         );
@@ -6209,6 +6221,7 @@ export async function buildPlaylistPipeline<T extends {
       compositionAuthority: "playlist_contract",
       contractDeferredPoolSeeded,
       contractRetrievalSeed: contractRetrievalSeedDiagnostics,
+      contractUniverseSize: opts.contractRetrievalPool?.length ?? null,
       poolSelection: selectedCandidate.candidatePool.diagnostics.contractCompositionPoolSelection ?? null,
       rebalance: rebalanced.diagnostics,
     };

@@ -52,6 +52,8 @@ test("sad party bangers contract pool prefers party-energy over acoustic indie",
   const ids = result.tracks.map((t) => t.trackId);
   assert.notDeepEqual(ids, ["1"]);
   assert.ok(ids.some((id) => id === "2" || id === "4"));
+  const partyMeta = (result.tracks.find((t) => t.trackId === "2") as { contractCompositionMeta?: { axisScores: Record<string, number> } })?.contractCompositionMeta;
+  assert.ok((partyMeta?.axisScores.party_energy ?? 0) >= 0.42);
 });
 
 test("V40 gate evaluation defers without V39 flag", () => {

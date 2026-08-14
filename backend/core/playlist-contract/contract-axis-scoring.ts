@@ -6,7 +6,8 @@ import type { ContractAuthoritativeTrack } from "./contract-authoritative-retrie
 import type { ContractTension, PlaylistContract } from "./types";
 import { scoreTrackAgainstContract } from "./constraint-aware-retrieval";
 
-const ACTIVATION_THRESHOLD = 0.42;
+export const CONTRACT_AXIS_ACTIVATION_THRESHOLD = 0.42;
+const ACTIVATION_THRESHOLD = CONTRACT_AXIS_ACTIVATION_THRESHOLD;
 
 /** Score a named contract dimension using audio + classification, not title tokens alone. */
 export function scoreContractDimension(
@@ -43,9 +44,13 @@ export function scoreContractDimension(
     case "melancholy":
       return valence < 0.42 ? 0.55 + (0.42 - valence) : valence < 0.55 ? 0.35 : 0.1;
     case "party_energy":
-      return energy > 0.68 && dance > 0.55 ? 0.5 + Math.min(0.45, (energy - 0.68) * 1.2) : energy > 0.55 ? 0.25 : 0.08;
+      if (energy > 0.72) return 0.58 + Math.min(0.35, (energy - 0.72) * 1.2);
+      if (energy > 0.68 && dance > 0.5) return 0.48 + Math.min(0.4, (energy - 0.68) * 1.2);
+      if (energy > 0.62 && dance > 0.55) return 0.35 + (energy - 0.62) * 0.4;
+      return energy > 0.55 ? 0.22 : 0.08;
     case "high_energy":
-      return energy > 0.72 ? 0.55 + (energy - 0.72) : energy > 0.58 ? 0.3 : 0.1;
+      if (energy > 0.68) return 0.55 + Math.min(0.45, (energy - 0.68) * 1.5);
+      return energy > 0.55 ? 0.28 : 0.1;
     case "not_cheesy":
       return energy > 0.5 && valence > 0.35 && valence < 0.85 ? 0.65 : 0.25;
     case "low_energy":

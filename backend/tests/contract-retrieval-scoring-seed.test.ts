@@ -7,7 +7,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { ContractCompositionMeta } from "../core/playlist-contract/contract-composition-types";
-import { seedContractRetrievalIntoScoredPool } from "../core/playlist-contract/contract-retrieval-scoring-seed";
+import {
+  buildContractMetaLookup,
+  mergeContractRetrievalUniverse,
+  seedContractRetrievalIntoScoredPool,
+} from "../core/playlist-contract/contract-retrieval-scoring-seed";
 import type { PlaylistContract } from "../core/playlist-contract/types";
 import { capTracksForHybridScoring } from "../core/scoring-engine/scoring-pool-cap";
 import type { ScoredLibraryTrack } from "../core/scoring-engine/types";
@@ -245,4 +249,52 @@ test("seedContractRetrievalIntoScoredPool keeps enriched tracks ahead of emotion
   assert.ok(
     scoring.sorted.filter((t) => (t.contractCompositionMeta?.axisScores.high_energy ?? 0) >= 0.42).length >= 1,
   );
+});
+
+test("mergeContractRetrievalUniverse preserves V40 axis meta on scored shapes", () => {
+  const contract = tensionContract(["party_energy", "melancholy"]);
+  const v40Meta = {
+    contractScore: 0.72,
+    admissible: true,
+    axisScores: { party_energy: 0.82, melancholy: 0.71 },
+    axesActive: ["party_energy", "melancholy"],
+    intersectionStrength: 0.76,
+    mustMatches: [] as string[],
+    preferMatches: [] as string[],
+    violations: [] as string[],
+  };
+  const retrievalTrack: SeedTrack = {
+    trackId: "party-sad-1",
+    trackName: "Party Sad",
+    artistName: "Artist A",
+    albumName: "Album",
+    energy: 0.78,
+    valence: 0.28,
+    danceability: 0.68,
+    tempo: 128,
+    acousticness: 0.12,
+    contractCompositionMeta: v40Meta,
+  };
+  const emotionRanked = scored(
+    {
+      trackId: "party-sad-1",
+      trackName: "Party Sad",
+      artistName: "Artist A",
+      albumName: "Album",
+      energy: 0.78,
+      valence: 0.28,
+      danceability: 0.68,
+      tempo: 128,
+      acousticness: 0.12,
+    },
+    0.12,
+  );
+  delete emotionRanked.contractCompositionMeta;
+
+  const merged = mergeContractRetrievalUniverse([emotionRanked], [retrievalTrack as SeedTrack & typeof emotionRanked]);
+  assert.equal(merged.length, 1);
+  assert.ok((merged[0]?.contractCompositionMeta?.axisScores.party_energy ?? 0) >= 0.42);
+
+  const lookup = buildContractMetaLookup([retrievalTrack]);
+  assert.ok((lookup.get("party-sad-1")?.axisScores.party_energy ?? 0) >= 0.42);
 });

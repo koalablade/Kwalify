@@ -5,16 +5,54 @@
 
 import type { UserGenreProfile } from "../../lib/user-genre-profile";
 import type { ScoredLibraryTrack } from "../scoring-engine/types";
-import { buildContractCompositionMeta } from "./contract-axis-scoring";
+import { buildContractCompositionMeta, CONTRACT_AXIS_ACTIVATION_THRESHOLD } from "./contract-axis-scoring";
 import type { ContractAuthoritativeTrack } from "./contract-authoritative-retrieval";
 import {
   getContractCompositionMeta,
   requiredContractDimensions,
+  type ContractCompositionMeta,
   type ContractCompositionTrack,
 } from "./contract-composition-types";
 import type { PlaylistContract } from "./types";
 
-const ACTIVATION_THRESHOLD = 0.42;
+const ACTIVATION_THRESHOLD = CONTRACT_AXIS_ACTIVATION_THRESHOLD;
+
+/** Lookup table for V40 meta — survives scoring / intent filters that strip fields. */
+export function buildContractMetaLookup(
+  tracks: ContractCompositionTrack[],
+): Map<string, ContractCompositionMeta> {
+  const map = new Map<string, ContractCompositionMeta>();
+  for (const track of tracks) {
+    const meta = getContractCompositionMeta(track);
+    if (meta) map.set(track.trackId, meta);
+  }
+  return map;
+}
+
+/** Prepend contract retrieval universe; preserve axis meta from retrieval onto scored shapes. */
+export function mergeContractRetrievalUniverse<T extends { trackId: string } & ContractCompositionTrack>(
+  primary: T[],
+  retrievalPool: Array<T & ContractCompositionTrack>,
+): T[] {
+  if (retrievalPool.length === 0) return primary;
+  const byId = new Map(primary.map((track) => [track.trackId, track]));
+  const out: T[] = [];
+  const seen = new Set<string>();
+  for (const raw of retrievalPool) {
+    const existing = byId.get(raw.trackId);
+    const meta = getContractCompositionMeta(raw) ?? (existing ? getContractCompositionMeta(existing) : undefined);
+    if (existing) {
+      out.push(meta ? { ...existing, contractCompositionMeta: meta } : existing);
+    } else {
+      out.push(raw as T);
+    }
+    seen.add(raw.trackId);
+  }
+  for (const track of primary) {
+    if (!seen.has(track.trackId)) out.push(track);
+  }
+  return out;
+}
 
 export type ContractRetrievalSeedDiagnostics = {
   retrievalPoolCount: number;

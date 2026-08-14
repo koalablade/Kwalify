@@ -12,7 +12,7 @@ import {
   scoreTrackAgainstContract,
   type ContractRetrievalTrack,
 } from "./constraint-aware-retrieval";
-import { buildContractCompositionMeta } from "./contract-axis-scoring";
+import { buildContractCompositionMeta, CONTRACT_AXIS_ACTIVATION_THRESHOLD, scoreContractDimension } from "./contract-axis-scoring";
 import type { ContractCompositionMeta } from "./contract-composition-types";
 import type { ContractTension, PlaylistContract } from "./types";
 
@@ -106,26 +106,7 @@ function contractGenreExpectations(contract: PlaylistContract): string[] {
 }
 
 function scoreTensionAxis(track: ContractAuthoritativeTrack, axis: string): number {
-  const energy = track.energy ?? 0.5;
-  const valence = track.valence ?? 0.5;
-  switch (axis) {
-    case "melancholy":
-      return valence < 0.42 ? 0.55 + (0.42 - valence) : valence < 0.55 ? 0.35 : 0.1;
-    case "party_energy":
-      return energy > 0.68 && (track.danceability ?? energy) > 0.55
-        ? 0.5 + Math.min(0.45, (energy - 0.68) * 1.2)
-        : energy > 0.55 ? 0.25 : 0.08;
-    case "high_energy":
-      return energy > 0.72 ? 0.55 + (energy - 0.72) : energy > 0.58 ? 0.3 : 0.1;
-    case "not_cheesy":
-      return energy > 0.5 && valence > 0.35 && valence < 0.85 ? 0.65 : 0.25;
-    case "low_energy":
-      return energy < 0.48 ? 0.55 + (0.48 - energy) : energy < 0.58 ? 0.3 : 0.12;
-    case "not_boring":
-      return energy > 0.38 || valence > 0.42 ? 0.55 : 0.15;
-    default:
-      return 0.35;
-  }
+  return scoreContractDimension(track, axis, null);
 }
 
 function scorePreserveBoth(track: ContractAuthoritativeTrack, tension: ContractTension): number {
@@ -169,6 +150,22 @@ function toContractTrack<T extends ContractAuthoritativeTrack>(
     danceability: track.danceability,
     albumName: track.albumName,
   };
+}
+
+function rankAxisTracks<T extends ContractAuthoritativeTrack>(
+  eligible: T[],
+  axis: string,
+  classMap: Map<string, ActivityClassificationInput>,
+): Array<{ track: T; score: number }> {
+  const ranked = eligible
+    .map((track) => ({
+      track,
+      score: scoreTensionAxis(toContractTrack(track, classMap.get(track.trackId) ?? null), axis),
+    }))
+    .sort((a, b) => b.score - a.score);
+  const activated = ranked.filter((row) => row.score >= CONTRACT_AXIS_ACTIVATION_THRESHOLD);
+  const remainder = ranked.filter((row) => row.score < CONTRACT_AXIS_ACTIVATION_THRESHOLD);
+  return [...activated, ...remainder];
 }
 
 export function retrieveContractAuthoritativePool<T extends ContractAuthoritativeTrack>(input: {
@@ -274,18 +271,8 @@ export function retrieveContractAuthoritativePool<T extends ContractAuthoritativ
       const axisPoolSizes: Record<string, number> = { [axisA]: 0, [axisB]: 0 };
       let bothCount = 0;
       const quota = Math.floor(broadCap * 0.32);
-      const axisRankA = [...eligible]
-        .map((track) => ({
-          track,
-          score: scoreTensionAxis(toContractTrack(track, classMap.get(track.trackId) ?? null), axisA),
-        }))
-        .sort((a, b) => b.score - a.score);
-      const axisRankB = [...eligible]
-        .map((track) => ({
-          track,
-          score: scoreTensionAxis(toContractTrack(track, classMap.get(track.trackId) ?? null), axisB),
-        }))
-        .sort((a, b) => b.score - a.score);
+      const axisRankA = rankAxisTracks(eligible, axisA, classMap);
+      const axisRankB = rankAxisTracks(eligible, axisB, classMap);
       const bothRank = scoredRows.filter((r) => r.tensionScore > 0.35);
 
       for (const row of bothRank.slice(0, quota)) {
