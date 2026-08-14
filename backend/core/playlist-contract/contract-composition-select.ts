@@ -203,11 +203,14 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
   targetLength: number,
   maxPerArtist: number,
 ): { tracks: T[]; diagnostics: Record<string, unknown> } {
-  if (candidatePool.length === 0 || selected.length === 0) {
-    return { tracks: selected, diagnostics: { skipped: true } };
+  if (candidatePool.length === 0) {
+    return { tracks: selected, diagnostics: { skipped: true, reason: "empty_pool" } };
   }
   const preserveBothTension = contract.tension.find((t) => t.resolution === "preserve_both");
   const preserveBoth = !!preserveBothTension;
+  if (selected.length === 0 && !preserveBoth) {
+    return { tracks: selected, diagnostics: { skipped: true, reason: "empty_selected" } };
+  }
   if (!preserveBoth && requiredContractDimensions(contract).length <= 1) {
     return { tracks: selected.slice(0, targetLength), diagnostics: { skipped: "single_dimension" } };
   }

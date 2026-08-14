@@ -5839,6 +5839,7 @@ export async function buildPlaylistPipeline<T extends {
         worldVerifiedTracks: worldBoundary.hardLock && worldVerifiedV3Pool.length >= HONEST_PARTIAL_MIN
           ? worldVerifiedV3Pool
           : undefined,
+        deferHumanSaveGateForContractComposition: opts.contractComposition?.enabled === true,
       }
     );
 
@@ -5882,6 +5883,7 @@ export async function buildPlaylistPipeline<T extends {
         artistEcosystemGraph,
         hardWorldLock: worldBoundary.hardLock,
         worldVerifiedTrackIds: worldBoundary.hardLock ? [...worldVerifiedTrackIds] : undefined,
+        deferHumanSaveGateForContractComposition: opts.contractComposition?.enabled === true,
       };
       const tasks = prepared.map((p) => ({
         v3Tracks: p.v3Tracks,
@@ -6869,30 +6871,38 @@ export async function buildPlaylistPipeline<T extends {
     }
   }
 
-  const finalAntiBlandness = repairDuplicateSongIdentities(
-    finalTracksList as Array<T & { trackName?: string | null; artistName?: string | null }>,
-    orderFallbackPool([
-      ...(qualityRecoveryCandidatePool as Array<ScoredLibraryTrack<T>>),
-      ...contractGuardedScoredPool,
-      ...lastResortPool,
-    ]) as Array<T & { trackName?: string | null; artistName?: string | null }>,
-  );
-  if (finalAntiBlandness.diagnostics.replacedCount > 0) {
-    finalTracksList = finalAntiBlandness.tracks as T[];
+  if (!contractRebalanceApplied) {
+    const finalAntiBlandness = repairDuplicateSongIdentities(
+      finalTracksList as Array<T & { trackName?: string | null; artistName?: string | null }>,
+      orderFallbackPool([
+        ...(qualityRecoveryCandidatePool as Array<ScoredLibraryTrack<T>>),
+        ...contractGuardedScoredPool,
+        ...lastResortPool,
+      ]) as Array<T & { trackName?: string | null; artistName?: string | null }>,
+    );
+    if (finalAntiBlandness.diagnostics.replacedCount > 0) {
+      finalTracksList = finalAntiBlandness.tracks as T[];
+    }
+    finalTracksList = guardStructuralDiversity(finalTracksList);
+    // Absolute last purity strip — structural/anti-bland swaps must not reintroduce off-world.
+    if (worldBoundary.active && finalTracksList.length > 0) {
+      finalTracksList = hardRejectOffWorldTracks(
+        finalTracksList.map((track) => enrichWorldIdentity(track)),
+        worldBoundary,
+        classMap,
+      ).kept as V3MetadataTrack<T>[];
+    }
+    qualityRecoveryDiagnostics["antiBlandness"] = {
+      ...finalAntiBlandness.diagnostics,
+      executed: true,
+    };
+  } else {
+    qualityRecoveryDiagnostics["antiBlandness"] = {
+      executed: false,
+      skipped: true,
+      reason: "contract_rebalance_applied",
+    };
   }
-  finalTracksList = guardStructuralDiversity(finalTracksList);
-  // Absolute last purity strip — structural/anti-bland swaps must not reintroduce off-world.
-  if (worldBoundary.active && finalTracksList.length > 0) {
-    finalTracksList = hardRejectOffWorldTracks(
-      finalTracksList.map((track) => enrichWorldIdentity(track)),
-      worldBoundary,
-      classMap,
-    ).kept as V3MetadataTrack<T>[];
-  }
-  qualityRecoveryDiagnostics["antiBlandness"] = {
-    ...finalAntiBlandness.diagnostics,
-    executed: true,
-  };
 
   const controllerOwnedMomentMemory = updateMomentMemory({
     unifiedIntent: memoryAdjustedUnifiedIntent,

@@ -52,7 +52,8 @@ async function main(): Promise<void> {
     const energies = tracks
       .map((t) => (typeof t.energy === "number" ? t.energy : null))
       .filter((e): e is number => e != null);
-    const v41 = (data.generationDiagnostics as Record<string, unknown> | undefined)?.playlistContractV41 as
+    const v41 = (data.playlistContractV41 ??
+      (data.generationDiagnostics as Record<string, unknown> | undefined)?.playlistContractV41) as
       | Record<string, unknown>
       | undefined;
     const rebalance = v41?.rebalance as Record<string, unknown> | undefined;

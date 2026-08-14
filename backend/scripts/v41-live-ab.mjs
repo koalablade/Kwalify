@@ -341,7 +341,11 @@ async function main() {
     }
 
     log("=== ARM B: V41 composition only ===");
-    const spawnedB = await spawnApiServer({ PLAYLIST_CONTRACT_V41: "1" }, creds.token, { reuseIfReady: false });
+    const spawnedB = await spawnApiServer(
+      { PLAYLIST_CONTRACT_V40: "1", PLAYLIST_CONTRACT_V41: "1" },
+      creds.token,
+      { reuseIfReady: false },
+    );
     bServer = spawnedB.server;
     log(`Control (Arm B): ${CONTROL_PROMPT}`);
     const ctrlRes = await generateOne(spawnedB.baseUrl, spawnedB.token, CONTROL_PROMPT, "b-control", "CTRL");

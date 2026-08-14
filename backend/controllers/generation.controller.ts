@@ -7089,35 +7089,49 @@ router.post("/generate", async (req, res): Promise<void> => {
     const contractDeferActive =
       isPlaylistContractDeferPathEnabled() &&
       worldGateContext.gateDecision?.deferHardLock === true;
+    const hasPreserveBothTension = worldGateContext.contract.tension.some(
+      (t) => t.resolution === "preserve_both",
+    );
+    const contractRetrievalPathActive =
+      isPlaylistContractDeferPathEnabled() &&
+      (contractDeferActive || (isPlaylistContractV41Enabled() && hasPreserveBothTension));
+    const contractCompositionPathActive =
+      isPlaylistContractV41Enabled() &&
+      (contractDeferActive || hasPreserveBothTension);
     let committedWorldPreRetrieval = worldGateContext.effectiveWorld;
     let contractAuthoritativeForRetrieval: {
       active: boolean;
       contract: ReturnType<typeof buildPlaylistContract>;
     } | undefined;
-    if (contractDeferActive) {
+    if (contractRetrievalPathActive) {
       contractAuthoritativeForRetrieval = {
         active: true,
         contract: worldGateContext.contract,
       };
-      if (worldGateContext.gateDecision?.effectiveWorld) {
+      if (contractDeferActive && worldGateContext.gateDecision?.effectiveWorld) {
         committedWorldPreRetrieval = worldGateContext.gateDecision.effectiveWorld;
       }
       playlistContractV40Diagnostics = {
-        deferHardLock: true,
-        deferReasons: worldGateContext.gateDecision?.reasons ?? [],
+        deferHardLock: contractDeferActive,
+        deferReasons: contractDeferActive
+          ? (worldGateContext.gateDecision?.reasons ?? [])
+          : ["preserve_both_compound_tension"],
         retrievalAuthority: "playlist_contract",
-        originalWorld: worldGateContext.gateDecision?.originalWorld?.id ?? null,
+        originalWorld: worldGateContext.gateDecision?.originalWorld?.id
+          ?? worldGateContext.rawWorld?.id
+          ?? null,
       };
     }
-    if (isPlaylistContractV41Enabled() && contractDeferActive) {
+    if (contractCompositionPathActive) {
       contractCompositionContext = {
         enabled: true,
         contract: worldGateContext.contract,
-        deferredWorldGate: true,
+        deferredWorldGate: contractDeferActive,
       };
       playlistContractV41Diagnostics = {
-        deferHardLock: true,
+        deferHardLock: contractDeferActive,
         compositionAuthority: "playlist_contract",
+        compoundTension: hasPreserveBothTension,
       };
     }
     if (worldGateContext.shadowDiagnostics) {
@@ -7393,7 +7407,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     let scoringInputSongs = preScoringCandidateShape.tracks;
     const contractRetrievalPoolForPipeline =
-      contractDeferActive ? [...preScoringCandidateShape.tracks] : undefined;
+      contractRetrievalPathActive ? [...preScoringCandidateShape.tracks] : undefined;
     let compoundBlendedPoolDiagnostics = preScoringOrchestration.diagnostics.blendedIntentPool ?? null;
     if (
       !contractDeferActive &&
@@ -12846,7 +12860,18 @@ router.post("/generate", async (req, res): Promise<void> => {
           ...(v3Hqg ? { humanQualityGateFromV3: v3Hqg } : {}),
         },
       };
-      if (terminalHqg.action === "refuse" && terminalUnderstood.action === "refuse") {
+      if (contractRebalanceDeliveryGuard) {
+        finalization = {
+          tracks: delivery.tracks as PlaylistTrack[],
+          diagnostics: {
+            ...finalization.diagnostics,
+            humanQualityGate: terminalHqg,
+            humanUnderstoodGate: terminalUnderstood,
+            contractRebalanceGuardSkippedTerminalHqg: true,
+            ...(v3Hqg ? { humanQualityGateFromV3: v3Hqg } : {}),
+          },
+        };
+      } else if (terminalHqg.action === "refuse" && terminalUnderstood.action === "refuse") {
         // V15: ship honest partial when salvageable tracks exist — never 0 when anchors were found
         if (
           terminalUnderstood.salvageableCount >= 3 ||
@@ -12893,7 +12918,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           stubUnderfill: false,
         });
       }
-      if (terminalHqg.action === "honest_partial") {
+      if (terminalHqg.action === "honest_partial" && !contractRebalanceDeliveryGuard) {
         if (
           terminalHqg.salvageableCount > 0 &&
           delivery.tracks.length > terminalHqg.salvageableCount
@@ -13640,7 +13665,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         lockedIntent.energy === "low" ||
         humanSceneReading.phase === "aftermath" ||
         humanSceneReading.phase === "recovery";
-      if (!allowHolidaySeason || wantsLowEnergy) {
+      if ((!allowHolidaySeason || wantsLowEnergy) && !contractRebalanceDeliveryGuard) {
         let working = finalApiTracks.filter((track) => {
           if (!allowHolidaySeason) {
             const blob = `${track.name ?? ""} ${(track as { album?: string }).album ?? ""} ${(track.genres ?? []).join(" ")}`;
@@ -13772,7 +13797,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     // Absolute last world-purity strip on the API payload (artist/name aliases).
     // Emergency completion / timeout fill / soft-focus can reintroduce blankets
     // after earlier delivery strips.
-    if (deliveryWorldBoundary.active && finalApiTracks.length > 0) {
+    if (deliveryWorldBoundary.active && finalApiTracks.length > 0 && !contractRebalanceDeliveryGuard) {
       const purifiedApi = hardRejectOffWorldTracks(
         finalApiTracks,
         deliveryWorldBoundary,
@@ -14146,7 +14171,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             : {}),
         },
       };
-      if (lateHqg.action === "refuse") {
+      if (lateHqg.action === "refuse" && !contractRebalanceDeliveryGuard) {
         throw new HumanQualityGateError(lateHqg);
       }
       if (

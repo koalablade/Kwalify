@@ -950,6 +950,8 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     worldVerifiedTrackIds?: Set<string>;
     /** Full verified track rows when IDs outlive the scored candidate pool. */
     worldVerifiedTracks?: T[];
+    /** V41: let post-V3 contract rebalance recover instead of refusing stub playlists. */
+    deferHumanSaveGateForContractComposition?: boolean;
   } = {},
 ): Promise<V3PipelineResult<T>> {
   const pipelineStartedAt = Date.now();
@@ -1535,9 +1537,11 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       postIntentFilterCountFinal = retrievedTracks.length;
       noteReliabilityFallback(`hard_lock_verified_thin_stub_${postIntentFilterCountFinal}`);
     } else {
+    const contractCompositionRecovery = opts.deferHumanSaveGateForContractComposition === true;
     const softAftermath =
-      subScenePlan.kind === "soft_electronic_aftermath" ||
-      subScenePlan.kind === "soft_focus_concentration";
+      !contractCompositionRecovery &&
+      (subScenePlan.kind === "soft_electronic_aftermath" ||
+      subScenePlan.kind === "soft_focus_concentration");
     const softEnergyHi = softAftermath
       ? (subScenePlan.energyHi ?? subSceneIntentVector.energyRange[1] ?? 0.62)
       : null;
@@ -1598,6 +1602,13 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         );
         postIntentFilterCountFinal = retrievedTracks.length;
         noteReliabilityFallback(`intent_pool_soft_library_emergency_${postIntentFilterCountFinal}`);
+      } else if (opts.deferHumanSaveGateForContractComposition && tracks.length > 0) {
+        retrievedTracks = tracks.slice(
+          0,
+          Math.max(minimumReturnableTrackCount(targetCount), Math.min(targetCount * 2, tracks.length)),
+        );
+        postIntentFilterCountFinal = retrievedTracks.length;
+        noteReliabilityFallback(`intent_pool_contract_composition_continue_${postIntentFilterCountFinal}`);
       } else {
         const collapseTrace = finalizeExecutionTrace(
           buildIntentCollapseFailureTraceDraft({
@@ -1619,6 +1630,20 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
           collapseTrace,
         );
       }
+    } else if (opts.deferHumanSaveGateForContractComposition && tracks.length > 0) {
+      retrievedTracks = tracks.slice(
+        0,
+        Math.max(minimumReturnableTrackCount(targetCount), Math.min(targetCount * 2, tracks.length)),
+      );
+      postIntentFilterCountFinal = retrievedTracks.length;
+      noteReliabilityFallback(`intent_pool_contract_composition_continue_${postIntentFilterCountFinal}`);
+    } else if (opts.deferHumanSaveGateForContractComposition && tracks.length > 0) {
+      retrievedTracks = tracks.slice(
+        0,
+        Math.max(minimumReturnableTrackCount(targetCount), Math.min(targetCount * 2, tracks.length)),
+      );
+      postIntentFilterCountFinal = retrievedTracks.length;
+      noteReliabilityFallback(`intent_pool_contract_composition_continue_${postIntentFilterCountFinal}`);
     } else {
       const collapseTrace = finalizeExecutionTrace(
         buildIntentCollapseFailureTraceDraft({
@@ -2820,6 +2845,14 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
         hardFailed: true,
         degradedDelivery: true,
         honestPartialCap,
+        honestPartialDelivered: finalTracks.length,
+      };
+    } else if (opts.deferHumanSaveGateForContractComposition) {
+      noteReliabilityFallback("human_save_gate_deferred_for_contract_composition");
+      humanSaveabilityDiagnostics = {
+        ...humanSaveabilityDiagnostics,
+        hardFailed: true,
+        deferredForContractComposition: true,
         honestPartialDelivered: finalTracks.length,
       };
     } else {
