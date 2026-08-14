@@ -8,7 +8,7 @@
 export type V3InputPoolRoutingReason =
   | "hard_lock_verified"
   | "pre_v3_contract_universe_merge"
-  | "contract_deferred_universe"
+  | "contract_composition_universe"
   | "candidate_pool"
   | "contract_guarded_fallback";
 
@@ -16,7 +16,7 @@ export type ResolveV3BuildInputPoolParams<T extends { trackId: string }> = {
   hardLockVerifiedCandidatePool: T[] | null;
   preV3WorldSamplingApplied: boolean;
   retrievalSafetyExpanded: boolean;
-  contractDeferredWorldGate?: boolean;
+  contractCompositionEnabled?: boolean;
   contractGuardedScoredPool: T[];
   safetyRetrievalPool: T[];
   candidatePool: T[];
@@ -36,7 +36,7 @@ export function resolveV3BuildInputPool<T extends { trackId: string }>(
     hardLockVerifiedCandidatePool,
     preV3WorldSamplingApplied,
     retrievalSafetyExpanded,
-    contractDeferredWorldGate,
+    contractCompositionEnabled,
     contractGuardedScoredPool,
     safetyRetrievalPool,
     candidatePool,
@@ -65,10 +65,10 @@ export function resolveV3BuildInputPool<T extends { trackId: string }>(
     };
   }
 
-  if (contractDeferredWorldGate && contractGuardedScoredPool.length > 0) {
+  if (contractCompositionEnabled && contractGuardedScoredPool.length > 0) {
     return {
       inputPool: capContractPool(contractGuardedScoredPool),
-      routingReason: "contract_deferred_universe",
+      routingReason: "contract_composition_universe",
     };
   }
 

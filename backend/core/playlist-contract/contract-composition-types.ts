@@ -24,6 +24,13 @@ export type ContractCompositionContext = {
   deferredWorldGate: boolean;
 };
 
+/** V41 authority active — compound preserve_both and/or deferred world gate. */
+export function contractCompositionAuthorityActive(
+  ctx: ContractCompositionContext | undefined,
+): boolean {
+  return ctx?.enabled === true;
+}
+
 export type ContractCompositionTrack = {
   trackId: string;
   contractCompositionMeta?: ContractCompositionMeta;

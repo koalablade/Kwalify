@@ -1637,13 +1637,6 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       );
       postIntentFilterCountFinal = retrievedTracks.length;
       noteReliabilityFallback(`intent_pool_contract_composition_continue_${postIntentFilterCountFinal}`);
-    } else if (opts.deferHumanSaveGateForContractComposition && tracks.length > 0) {
-      retrievedTracks = tracks.slice(
-        0,
-        Math.max(minimumReturnableTrackCount(targetCount), Math.min(targetCount * 2, tracks.length)),
-      );
-      postIntentFilterCountFinal = retrievedTracks.length;
-      noteReliabilityFallback(`intent_pool_contract_composition_continue_${postIntentFilterCountFinal}`);
     } else {
       const collapseTrace = finalizeExecutionTrace(
         buildIntentCollapseFailureTraceDraft({
@@ -3107,7 +3100,17 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     committedWorldHardLock: committedWorld?.hardLock ?? false,
   });
   if (humanQualityGate.action === "refuse") {
-    throw new HumanQualityGateError(humanQualityGate);
+    if (opts.deferHumanSaveGateForContractComposition) {
+      noteReliabilityFallback("human_quality_gate_deferred_for_contract_composition");
+      humanSaveabilityDiagnostics = {
+        ...humanSaveabilityDiagnostics,
+        humanQualityGateDeferredForContractComposition: true,
+        humanQualityGateWouldRefuse: true,
+        humanQualityGateReasons: humanQualityGate.reasons,
+      };
+    } else {
+      throw new HumanQualityGateError(humanQualityGate);
+    }
   }
   if (
     committedWorld?.hardLock === true &&

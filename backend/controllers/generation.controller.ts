@@ -7108,9 +7108,12 @@ router.post("/generate", async (req, res): Promise<void> => {
         active: true,
         contract: worldGateContext.contract,
       };
-      if (contractDeferActive && worldGateContext.gateDecision?.effectiveWorld) {
-        committedWorldPreRetrieval = worldGateContext.gateDecision.effectiveWorld;
-      }
+    if (
+      (contractDeferActive || contractCompositionPathActive) &&
+      worldGateContext.gateDecision?.effectiveWorld
+    ) {
+      committedWorldPreRetrieval = worldGateContext.gateDecision.effectiveWorld;
+    }
       playlistContractV40Diagnostics = {
         deferHardLock: contractDeferActive,
         deferReasons: contractDeferActive
@@ -7219,7 +7222,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       contractAuthoritative: contractAuthoritativeForRetrieval,
     });
 
-    if (contractDeferActive && preScoringOrchestration.diagnostics.retrievalDiagnostics) {
+    if (contractRetrievalPathActive && preScoringOrchestration.diagnostics.retrievalDiagnostics) {
       const rd = preScoringOrchestration.diagnostics.retrievalDiagnostics as Record<string, unknown>;
       playlistContractV40Diagnostics = {
         ...(playlistContractV40Diagnostics ?? {}),
@@ -7410,7 +7413,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       contractRetrievalPathActive ? [...preScoringCandidateShape.tracks] : undefined;
     let compoundBlendedPoolDiagnostics = preScoringOrchestration.diagnostics.blendedIntentPool ?? null;
     if (
-      !contractDeferActive &&
+      !contractRetrievalPathActive &&
       !noLibraryMode &&
       likedSongs.length > 0 &&
       validCandidateSupply &&

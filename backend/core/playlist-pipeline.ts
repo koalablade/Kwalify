@@ -103,6 +103,7 @@ import type { EcosystemDebug } from "../lib/ecosystem-lock";
 import { detectEraFromYear, estimateEraFromAudio } from "./v2/era-model";
 import { buildLockedIntent, completeLockedIntent, type LockedIntent } from "./v3/intent";
 import {
+  contractCompositionAuthorityActive,
   getContractCompositionMeta,
   type ContractCompositionContext,
   type ContractCompositionMeta,
@@ -4180,6 +4181,7 @@ export async function buildPlaylistPipeline<T extends {
   opts: BuildPlaylistPipelineOpts<T>
 ): Promise<BuildPlaylistPipelineResult<T>> {
   const pipelineStartedAt = Date.now();
+  const contractAuthorityActive = contractCompositionAuthorityActive(opts.contractComposition);
   const pipelineTrace = opts.pipelineTrace ?? createPipelineTrace(opts.requestId);
   const timingMs: Record<string, number> = {
     scoring: 0,
@@ -4241,7 +4243,7 @@ export async function buildPlaylistPipeline<T extends {
         discoveryBoostScale: policy?.discoveryBoost,
         mainstreamSuppressionScale: policy?.mainstreamSuppression,
       },
-      preserveContractRetrievalPool: opts.contractComposition?.deferredWorldGate === true,
+      preserveContractRetrievalPool: contractAuthorityActive,
     });
   } finally {
     endScoringProfile?.();
@@ -4251,7 +4253,8 @@ export async function buildPlaylistPipeline<T extends {
 
   let contractRetrievalSeedDiagnostics: ContractRetrievalSeedDiagnostics | null = null;
   if (
-    opts.contractComposition?.deferredWorldGate &&
+    contractAuthorityActive &&
+    opts.contractComposition?.contract &&
     opts.contractRetrievalPool &&
     opts.contractRetrievalPool.length > 0
   ) {
@@ -4364,7 +4367,7 @@ export async function buildPlaylistPipeline<T extends {
     scenePrediction: opts.postScore.scenePrediction,
     prompt: opts.vibe,
   });
-  if (opts.contractComposition?.deferredWorldGate && worldBoundary.hardLock) {
+  if (contractAuthorityActive && worldBoundary.hardLock) {
     worldBoundary = {
       ...worldBoundary,
       hardLock: false,
@@ -4798,7 +4801,7 @@ export async function buildPlaylistPipeline<T extends {
     : intentScopedPool;
   const contractDeferredPoolSeeded =
     contractRetrievalSeedDiagnostics != null && contractRetrievalSeedDiagnostics.admissibleCount > 0;
-  if (opts.contractComposition?.deferredWorldGate) {
+  if (contractAuthorityActive && opts.contractComposition?.contract) {
     const deferCap = Math.min(
       Math.max(minSafePreRankingPool * 4, Math.min(400, opts.playlistLength * 14)),
       400,
@@ -4847,12 +4850,12 @@ export async function buildPlaylistPipeline<T extends {
     });
   }
   let preV3WorldSamplingDiagnostics: PreV3WorldSamplingDiagnostics | null = null;
-  const preV3WorldSampling = opts.contractComposition?.deferredWorldGate
+  const preV3WorldSampling = contractAuthorityActive
     ? {
         pool: contractGuardedScoredPool,
         diagnostics: {
           applied: false,
-          reason: "contract_deferred_world_gate",
+          reason: "contract_composition_authority",
           committedWorldId: null,
           beforeCount: contractGuardedScoredPool.length,
           afterCount: contractGuardedScoredPool.length,
@@ -5499,7 +5502,7 @@ export async function buildPlaylistPipeline<T extends {
     V3_SAFETY_INPUT_MAX,
     Math.max(V3_SAFETY_INPUT_MIN, opts.playlistLength * V3_SAFETY_INPUT_PER_TRACK)
   );
-  const v3SafetyInputCap = opts.contractComposition?.deferredWorldGate
+  const v3SafetyInputCap = contractAuthorityActive
     ? Math.min(
       V3_SAFETY_INPUT_MAX,
       Math.max(
@@ -5714,7 +5717,7 @@ export async function buildPlaylistPipeline<T extends {
       hardLockVerifiedCandidatePool: hardLockVerifiedCandidatePool as unknown as Array<T & { trackId: string }> | null,
       preV3WorldSamplingApplied: preV3WorldSamplingDiagnostics?.applied === true,
       retrievalSafetyExpanded,
-      contractDeferredWorldGate: opts.contractComposition?.deferredWorldGate === true,
+      contractCompositionEnabled: contractAuthorityActive,
       contractGuardedScoredPool: contractGuardedScoredPool as unknown as Array<T & { trackId: string }>,
       safetyRetrievalPool: safetyRetrievalPool as unknown as Array<T & { trackId: string }>,
       candidatePool: candidate.pool as unknown as Array<T & { trackId: string }>,
@@ -6219,9 +6222,13 @@ export async function buildPlaylistPipeline<T extends {
   // to the existing candidate pool and never re-enter retrieval, scoring, or V3.
   let finalTracksList = v3.finalTracks as V3MetadataTrack<T>[];
   let contractRebalanceApplied = false;
+  const contractCoverageForRebalance =
+    (selectedCandidate.candidatePool.contractCoveragePool?.length ?? 0) > 0
+      ? selectedCandidate.candidatePool.contractCoveragePool
+      : opts.contractRetrievalPool;
   const contractRebalanceSourcePool = opts.contractComposition?.enabled
     ? mergeContractCompositionRebalancePool(
-        selectedCandidate.candidatePool.contractCoveragePool as unknown as Array<
+        contractCoverageForRebalance as unknown as Array<
           T & { genrePrimary?: string; releaseYear?: number | null }
         >,
         selectedCandidate.inputPool,
@@ -6257,6 +6264,24 @@ export async function buildPlaylistPipeline<T extends {
     );
     finalTracksList = rebalanced.tracks as V3MetadataTrack<T>[];
     contractRebalanceApplied = rebalanced.diagnostics.rebalanced === true;
+    qualityRecoveryCandidatePool = enrichedPool;
+    let rebalanceDiagnostics: Record<string, unknown> = rebalanced.diagnostics;
+    let poolOnlyRecovery = false;
+    if (finalTracksList.length === 0 && enrichedPool.length > 0) {
+      const poolOnly = rebalancePlaylistForContractCoverage(
+        [],
+        enrichedPool,
+        contract,
+        opts.playlistLength,
+        opts.maxPerArtist,
+      );
+      if (poolOnly.tracks.length > 0) {
+        finalTracksList = poolOnly.tracks as V3MetadataTrack<T>[];
+        contractRebalanceApplied = poolOnly.diagnostics.rebalanced === true;
+        rebalanceDiagnostics = poolOnly.diagnostics;
+        poolOnlyRecovery = true;
+      }
+    }
     contractCompositionPipelineDiagnostics = {
       compositionAuthority: "playlist_contract",
       contractDeferredPoolSeeded,
@@ -6265,9 +6290,9 @@ export async function buildPlaylistPipeline<T extends {
       poolSelection: selectedCandidate.candidatePool.diagnostics.contractCompositionPoolSelection ?? null,
       rebalanceSourcePoolSize: contractRebalanceSourcePool.length,
       contractRebalanceApplied,
-      rebalance: rebalanced.diagnostics,
+      poolOnlyRecovery,
+      rebalance: rebalanceDiagnostics,
     };
-    qualityRecoveryCandidatePool = enrichedPool;
   }
   if (worldBoundary.active && !contractRebalanceApplied) {
     const purified = hardRejectOffWorldTracks(
