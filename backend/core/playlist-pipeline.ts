@@ -102,7 +102,11 @@ import { V3CandidatePool, v3ParallelCandidatesEnabled, type V3WorkerResult, type
 import type { EcosystemDebug } from "../lib/ecosystem-lock";
 import { detectEraFromYear, estimateEraFromAudio } from "./v2/era-model";
 import { buildLockedIntent, completeLockedIntent, type LockedIntent } from "./v3/intent";
-import type { ContractCompositionContext, ContractCompositionMeta } from "./playlist-contract/contract-composition-types";
+import {
+  getContractCompositionMeta,
+  type ContractCompositionContext,
+  type ContractCompositionMeta,
+} from "./playlist-contract/contract-composition-types";
 import { buildContractCompositionMeta } from "./playlist-contract/contract-axis-scoring";
 import {
   rebalancePlaylistForContractCoverage,
@@ -3916,6 +3920,23 @@ function buildV3CandidatePool<T extends {
     ?? relaxationAttempts.find((attempt) => attempt.candidateCount > 0)
     ?? relaxationAttempts[0];
   let rawIntentReady = selectedRelaxation?.tracks ?? [];
+  if (opts.contractComposition?.deferredWorldGate) {
+    const deferReady = intentLaneReady.length >= effectiveMinimumCandidateCount
+      ? intentLaneReady
+      : laneReady.length >= effectiveMinimumCandidateCount
+        ? laneReady
+        : genreReady.length > 0
+          ? genreReady
+          : sorted;
+    if (deferReady.length > rawIntentReady.length) {
+      rawIntentReady = deferReady;
+      forensicPreV3Trace.push(preV3StageTrace(
+        "contract_deferred_intent_bypass",
+        sorted.length,
+        deferReady.length,
+      ));
+    }
+  }
   let blendedRescueApplied = false;
   if (
     rawIntentReady.length < effectiveMinimumCandidateCount &&
@@ -4720,6 +4741,45 @@ export async function buildPlaylistPipeline<T extends {
             ? familyFallbackEvidencePool
             : intentScopedPool
     : intentScopedPool;
+  let contractDeferredPoolSeeded = false;
+  if (opts.contractComposition?.deferredWorldGate) {
+    const contract = opts.contractComposition.contract;
+    const scoredWithMeta = (scoring.sorted as ScoredLibraryTrack<T>[]).map((track) => {
+      if (getContractCompositionMeta(track)) return track;
+      const classification = classMap.get(track.trackId) ?? null;
+      const meta = buildContractCompositionMeta(
+        {
+          trackId: track.trackId,
+          trackName: track.trackName ?? null,
+          artistName: track.artistName ?? null,
+          energy: track.energy ?? null,
+          valence: track.valence ?? null,
+          danceability: track.danceability ?? null,
+          genreFamily: classification?.genreFamily ?? (track as { genreFamily?: string | null }).genreFamily ?? null,
+          releaseYear: (track as { releaseYear?: number | null }).releaseYear ?? null,
+        },
+        contract,
+        classification,
+      );
+      return { ...track, contractCompositionMeta: meta };
+    });
+    const contractAdmissible = scoredWithMeta.filter(
+      (track) => getContractCompositionMeta(track)?.admissible !== false,
+    );
+    if (contractAdmissible.length > 0) {
+      const seenDeferred = new Set<string>();
+      const deferCap = Math.min(
+        contractAdmissible.length,
+        Math.max(minSafePreRankingPool * 4, Math.min(400, opts.playlistLength * 14)),
+      );
+      contractGuardedScoredPool = [...contractAdmissible, ...contractGuardedScoredPool].filter((track) => {
+        if (seenDeferred.has(track.trackId)) return false;
+        seenDeferred.add(track.trackId);
+        return true;
+      }).slice(0, deferCap);
+      contractDeferredPoolSeeded = true;
+    }
+  }
   if (
     intentContract.primarySubgenre &&
     subgenreEvidencePool.length > 0 &&
@@ -4733,19 +4793,36 @@ export async function buildPlaylistPipeline<T extends {
     });
   }
   let preV3WorldSamplingDiagnostics: PreV3WorldSamplingDiagnostics | null = null;
-  const preV3WorldSampling = applyMusicalWorldPreV3Sampling({
-    prompt: opts.vibe,
-    lockedIntent: unifiedIntentContext.lockedIntent,
-    currentPool: contractGuardedScoredPool,
-    retrievalPool: pooledCandidates,
-    libraryPool: worldScanLibrary as T[],
-    classMap,
-    worldBoundary,
-    minTarget: minSafePreRankingPool,
-    maxTarget: Math.min(300, Math.max(minSafePreRankingPool, opts.playlistLength * 8)),
-    contractEvidenceCount: contractEvidencePool.length,
-    enrich: enrichWorldIdentity,
-  });
+  const preV3WorldSampling = opts.contractComposition?.deferredWorldGate
+    ? {
+        pool: contractGuardedScoredPool,
+        diagnostics: {
+          applied: false,
+          reason: "contract_deferred_world_gate",
+          committedWorldId: null,
+          beforeCount: contractGuardedScoredPool.length,
+          afterCount: contractGuardedScoredPool.length,
+          worldQualifiedFromRetrieval: 0,
+          worldQualifiedFromLibrary: 0,
+          minTarget: minSafePreRankingPool,
+          maxTarget: Math.min(300, Math.max(minSafePreRankingPool, opts.playlistLength * 8)),
+          contractEvidenceCount: contractEvidencePool.length,
+          retrievalPoolCount: pooledCandidates.length,
+        } satisfies PreV3WorldSamplingDiagnostics,
+      }
+    : applyMusicalWorldPreV3Sampling({
+        prompt: opts.vibe,
+        lockedIntent: unifiedIntentContext.lockedIntent,
+        currentPool: contractGuardedScoredPool,
+        retrievalPool: pooledCandidates,
+        libraryPool: worldScanLibrary as T[],
+        classMap,
+        worldBoundary,
+        minTarget: minSafePreRankingPool,
+        maxTarget: Math.min(300, Math.max(minSafePreRankingPool, opts.playlistLength * 8)),
+        contractEvidenceCount: contractEvidencePool.length,
+        enrich: enrichWorldIdentity,
+      });
   if (preV3WorldSampling.diagnostics.applied) {
     contractGuardedScoredPool = preV3WorldSampling.pool as ScoredLibraryTrack<T>[];
     preV3WorldSamplingDiagnostics = preV3WorldSampling.diagnostics;
@@ -5558,6 +5635,7 @@ export async function buildPlaylistPipeline<T extends {
       hardLockVerifiedCandidatePool: hardLockVerifiedCandidatePool as unknown as Array<T & { trackId: string }> | null,
       preV3WorldSamplingApplied: preV3WorldSamplingDiagnostics?.applied === true,
       retrievalSafetyExpanded,
+      contractDeferredWorldGate: opts.contractComposition?.deferredWorldGate === true,
       contractGuardedScoredPool: contractGuardedScoredPool as unknown as Array<T & { trackId: string }>,
       safetyRetrievalPool: safetyRetrievalPool as unknown as Array<T & { trackId: string }>,
       candidatePool: candidate.pool as unknown as Array<T & { trackId: string }>,
@@ -6089,6 +6167,7 @@ export async function buildPlaylistPipeline<T extends {
     finalTracksList = rebalanced.tracks as V3MetadataTrack<T>[];
     contractCompositionPipelineDiagnostics = {
       compositionAuthority: "playlist_contract",
+      contractDeferredPoolSeeded,
       poolSelection: selectedCandidate.candidatePool.diagnostics.contractCompositionPoolSelection ?? null,
       rebalance: rebalanced.diagnostics,
     };

@@ -299,4 +299,22 @@ describe("v29 v3 input pool routing", () => {
     assert.ok(resolved.inputPool.length > safetyPool.length);
     assert.ok(resolved.inputPool.length >= 35);
   });
+
+  it("routes contract-deferred world gate to expanded contractGuardedScoredPool", () => {
+    const contractPool = [{ trackId: "a" }, { trackId: "b" }, { trackId: "c" }];
+    const safetyPool = [{ trackId: "x" }];
+    const resolved = resolveV3BuildInputPool({
+      hardLockVerifiedCandidatePool: null,
+      preV3WorldSamplingApplied: false,
+      retrievalSafetyExpanded: true,
+      contractDeferredWorldGate: true,
+      contractGuardedScoredPool: contractPool,
+      safetyRetrievalPool: safetyPool,
+      candidatePool: safetyPool,
+      capContractPool: (pool) => pool,
+      mergeUniverse: (primary, secondary) => mergeUniverse(primary, secondary),
+    });
+    assert.equal(resolved.routingReason, "contract_deferred_universe");
+    assert.equal(resolved.inputPool.length, 3);
+  });
 });
