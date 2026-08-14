@@ -287,6 +287,15 @@ import { isSoftScenePrompt } from "../core/scene-world-layer";
 import { runExpectationShadow } from "../core/expectation/shadow";
 import { runPlaylistExpectation } from "../core/expectation/playlist-evaluation";
 import { humanExpectationMode } from "../core/expectation/feature-flag";
+import { runPlaylistContractShadow } from "../core/playlist-contract/shadow";
+import {
+  isPlaylistContractRetrievalEnabled,
+  isPlaylistContractValidationEnabled,
+} from "../core/playlist-contract/feature-flag";
+import { buildPlaylistContract } from "../core/playlist-contract/build-playlist-contract";
+import { contractRetrievalPoolStats } from "../core/playlist-contract/constraint-aware-retrieval";
+import { auditPlaylistAgainstContract } from "../core/playlist-contract/contract-validator";
+import { deriveHonestPartialFromContract } from "../core/playlist-contract/honest-partial";
 import type { ExpectationTrack } from "../core/expectation/types";
 import { persistGenerationSignal } from "../lib/generation-signals";
 import { loadEditorialMemory, recordEditorialMemory } from "../core/editorial/editorial-memory";
@@ -5716,6 +5725,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     let compilePlan: CompilePlanDSL | null = null;
     let segmentDiagnostics: Array<{ segmentId: string; label: string; trackIds: string[] }> = [];
     let humanExpectationDiagnostics: Record<string, unknown> | null = null;
+    let playlistContractDiagnostics: Record<string, unknown> | null = null;
     let adaptiveReasons: string[] = [];
     req.log.info(
       {
@@ -7053,6 +7063,18 @@ router.post("/generate", async (req, res): Promise<void> => {
       prompt: vibe,
       lockedIntent,
     });
+    const contractShadowResult = runPlaylistContractShadow(
+      {
+        prompt: vibe,
+        lockedIntent: lockedIntent as LockedIntent,
+        decomposedIntent,
+        intentState,
+      },
+      req.log,
+    );
+    if (contractShadowResult) {
+      playlistContractDiagnostics = contractShadowResult.diagnostics as unknown as Record<string, unknown>;
+    }
     const culturalProfilePre = resolveCulturalProfileForCommitted(committedWorldPreRetrieval);
     if (committedWorldPreRetrieval?.hardLock && culturalProfilePre && !noLibraryMode) {
       beginRejectionTrace();
@@ -7182,6 +7204,25 @@ router.post("/generate", async (req, res): Promise<void> => {
       culturalProfilePre && preScoringOrchestration.tracks.length > 0
         ? computeRetrievalConfidence(preScoringOrchestration.tracks, culturalProfilePre)
         : null;
+    if (isPlaylistContractRetrievalEnabled() && contractShadowResult) {
+      const poolStats = contractRetrievalPoolStats(
+        preScoringOrchestration.tracks.map((t) => ({
+          trackId: t.trackId,
+          trackName: t.trackName,
+          artistName: t.artistName,
+          genreFamily: userGenreProfile.trackClassifications.get(t.trackId)?.genreFamily ?? null,
+          energy: t.energy,
+          valence: t.valence,
+          releaseYear: t.releaseYear,
+        })),
+        contractShadowResult.contract,
+      );
+      req.log.info({ playlistContractRetrieval: poolStats }, "playlist_contract_retrieval_shadow");
+      playlistContractDiagnostics = {
+        ...(playlistContractDiagnostics ?? {}),
+        retrieval: poolStats,
+      };
+    }
     const lockedOpenerTrackId = preScoringOrchestration.diagnostics.humanOpener.trackId;
     let curatedOpenerTrackId: string | null = lockedOpenerTrackId ?? null;
     let openingLock: OpeningLock | null = null;
@@ -12647,6 +12688,42 @@ router.post("/generate", async (req, res): Promise<void> => {
         coverageLevel: worldCoverageAssessment?.score ?? null,
         postPurityValidatedDepth,
       });
+      if (isPlaylistContractValidationEnabled()) {
+        const contractForValidation = buildPlaylistContract({
+          prompt: vibe,
+          lockedIntent: lockedIntent as LockedIntent,
+          decomposedIntent,
+          intentState,
+          committedWorld,
+        });
+        const contractAudit = auditPlaylistAgainstContract(
+          delivery.tracks.map((t) => ({
+            trackId: t.trackId,
+            trackName: t.trackName,
+            artistName: t.artistName,
+            genreFamily: userGenreProfile.trackClassifications.get(t.trackId)?.genreFamily ?? null,
+            energy: t.energy,
+            valence: t.valence,
+            releaseYear: t.releaseYear,
+          })),
+          contractForValidation,
+          requestedLength,
+        );
+        const honestPartial = deriveHonestPartialFromContract(
+          contractForValidation,
+          contractAudit,
+          requestedLength,
+          delivery.tracks.length,
+        );
+        req.log.info(
+          { playlistContractValidation: { audit: contractAudit, honestPartial } },
+          "playlist_contract_validation_shadow",
+        );
+        playlistContractDiagnostics = {
+          ...(playlistContractDiagnostics ?? {}),
+          validation: { audit: contractAudit, honestPartial },
+        };
+      }
       finalization = {
         tracks: delivery.tracks as PlaylistTrack[],
         diagnostics: {
@@ -14253,6 +14330,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         noLibrarySpotify: noLibrarySpotifyDiagnostics,
         playlistConfidence,
         ...(humanExpectationDiagnostics ? { humanExpectation: humanExpectationDiagnostics } : {}),
+        ...(playlistContractDiagnostics ? { playlistContract: playlistContractDiagnostics } : {}),
         count: finalApiTracks.length,
         totalTracks: finalApiTracks.length,
         degraded: pipeline.pipelineTrace?.degraded ?? false,
