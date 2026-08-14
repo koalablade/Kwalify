@@ -222,7 +222,7 @@
   "devDependencies": {
     "drizzle-kit": "^0.31.10",
     "local-ssl-proxy": "^2.0.5",
-    "typescript": "^5.9.3"
+    "typescript": "^7.0.2"
   },
   "overrides": {
     "form-data": "4.0.6",
