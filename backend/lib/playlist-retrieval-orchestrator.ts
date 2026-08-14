@@ -750,6 +750,7 @@ export function orchestratePlaylistRetrieval<T extends RetrievalTrackInput>(
   let blendedPoolApplied = false;
 
   const attemptBlendedRescue = (): boolean => {
+    if (opts.contractAuthoritative?.active) return false;
     if (opts.noLibraryMode || blendedPoolApplied) return false;
     const rescue = tryBlendedIntentPoolRescue(opts, sonicTasteProfile, minRequired);
     if (!rescue) return false;
@@ -764,6 +765,7 @@ export function orchestratePlaylistRetrieval<T extends RetrievalTrackInput>(
   if (
     !opts.noLibraryMode &&
     opts.tracks.length > 0 &&
+    !opts.contractAuthoritative?.active &&
     isCompoundPromptIntent(opts.intent as LockedIntent) &&
     strictSupplyStarved(validCandidateSupply.strictValidCount, opts.requestedLength)
   ) {
@@ -922,6 +924,7 @@ export function orchestratePlaylistRetrieval<T extends RetrievalTrackInput>(
     });
 
     candidateSufficiency = evaluateCandidateSufficiency(retrievalResult.tracks, opts);
+    if (opts.contractAuthoritative?.active) break;
     if (candidateSufficiency.score >= sufficiencyMin) break;
     if (opts.noLibraryMode) break;
   }
@@ -952,7 +955,7 @@ export function orchestratePlaylistRetrieval<T extends RetrievalTrackInput>(
     confidenceBlocksRetrieval = false;
   }
 
-  if (!opts.noLibraryMode && confidenceBlocksRetrieval) {
+  if (!opts.noLibraryMode && confidenceBlocksRetrieval && !opts.contractAuthoritative?.active) {
     if (attemptBlendedRescue()) {
       retrievalAttempts += 1;
       const profileOverride = applyStrategyQuotas(retrievalProfile, strategyPlan);
@@ -964,6 +967,8 @@ export function orchestratePlaylistRetrieval<T extends RetrievalTrackInput>(
         activeWorldIds,
         expansionCandidates: opts.expansionCandidates,
         worldCoverage: opts.worldCoverage,
+        committedWorldOverride: opts.committedWorldOverride,
+        contractAuthoritative: opts.contractAuthoritative,
         retrievalOverrides: {
           strategyId: strategyPlan.strategy,
           libraryGravityWeight: profileOverride.libraryGravityWeight,

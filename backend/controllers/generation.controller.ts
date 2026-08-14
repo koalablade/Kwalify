@@ -7093,17 +7093,19 @@ router.post("/generate", async (req, res): Promise<void> => {
       active: boolean;
       contract: ReturnType<typeof buildPlaylistContract>;
     } | undefined;
-    if (contractDeferActive && worldGateContext.gateDecision?.effectiveWorld) {
+    if (contractDeferActive) {
       contractAuthoritativeForRetrieval = {
         active: true,
         contract: worldGateContext.contract,
       };
-      committedWorldPreRetrieval = worldGateContext.gateDecision.effectiveWorld;
+      if (worldGateContext.gateDecision?.effectiveWorld) {
+        committedWorldPreRetrieval = worldGateContext.gateDecision.effectiveWorld;
+      }
       playlistContractV40Diagnostics = {
         deferHardLock: true,
-        deferReasons: worldGateContext.gateDecision.reasons,
+        deferReasons: worldGateContext.gateDecision?.reasons ?? [],
         retrievalAuthority: "playlist_contract",
-        originalWorld: worldGateContext.gateDecision.originalWorld?.id ?? null,
+        originalWorld: worldGateContext.gateDecision?.originalWorld?.id ?? null,
       };
     }
     if (isPlaylistContractV41Enabled() && contractDeferActive) {
@@ -7389,8 +7391,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
     let scoringInputSongs = preScoringCandidateShape.tracks;
+    const contractRetrievalPoolForPipeline =
+      contractDeferActive ? [...preScoringCandidateShape.tracks] : undefined;
     let compoundBlendedPoolDiagnostics = preScoringOrchestration.diagnostics.blendedIntentPool ?? null;
     if (
+      !contractDeferActive &&
       !noLibraryMode &&
       likedSongs.length > 0 &&
       validCandidateSupply &&
@@ -7717,6 +7722,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       editorialMemory,
       libraryFingerprint,
       contractComposition: contractCompositionContext,
+      contractRetrievalPool: contractRetrievalPoolForPipeline,
       progress: (stage, detail) => {
         if (generationShouldAbort()) return;
         let phaseAccepted = true;

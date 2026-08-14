@@ -248,6 +248,8 @@ export function capTracksForHybridScoring<T extends {
       vector: SemanticSceneVector;
       sceneConfidence: number;
     };
+    /** Contract defer: retrieval pool already contract-shaped — do not emotion-trim. */
+    preserveContractRetrievalPool?: boolean;
   }
 ): {
   pool: T[];
@@ -261,6 +263,19 @@ export function capTracksForHybridScoring<T extends {
 } {
   const originalCount = tracks.length;
   const libSize = opts.librarySize ?? originalCount;
+
+  if (opts.preserveContractRetrievalPool && originalCount <= 450) {
+    return {
+      pool: tracks,
+      originalCount,
+      poolCapped: false,
+      candidateCount: originalCount,
+      preFilterRejectedCount: 0,
+      adjacencyLevelUsed: 0,
+      intentPreservedCount: originalCount,
+    };
+  }
+
   let max =
     opts.maxTracks ??
     resolveHybridPoolCap(libSize, {

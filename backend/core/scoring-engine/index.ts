@@ -280,6 +280,8 @@ export interface RunScoringPipelineOpts<T extends {
 
   /** Multi-dimensional semantic moment fingerprint — additive scoring weight */
   semanticMomentFingerprint?: import("../../lib/world-understanding/moment-representation").SemanticMomentFingerprint | null;
+  /** When true, hybrid pool cap preserves contract-bounded retrieval without emotion-rank trimming. */
+  preserveContractRetrievalPool?: boolean;
 }
 
 
@@ -377,6 +379,7 @@ export function runScoringPipeline<T extends {
     ecosystemPreFilter: earlySemanticResolution.vector
       ? { vector: earlySemanticResolution.vector, sceneConfidence: earlySemanticResolution.confidence }
       : undefined,
+    preserveContractRetrievalPool: opts.preserveContractRetrievalPool,
   });
 
   logScoringStage(log, "Candidate pool capped", t, {

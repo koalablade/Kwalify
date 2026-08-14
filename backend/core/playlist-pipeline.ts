@@ -113,6 +113,10 @@ import {
   selectContractCoveragePreservingPool,
   type ContractCoverageSelectionDiagnostics,
 } from "./playlist-contract/contract-composition-select";
+import {
+  seedContractRetrievalIntoScoredPool,
+  type ContractRetrievalSeedDiagnostics,
+} from "./playlist-contract/contract-retrieval-scoring-seed";
 import type { PlaylistContract } from "./playlist-contract/types";
 import { adaptiveRetrievalThresholds, assessCandidatePoolHealth, buildDominantIntentContract, detectDominantEmotion } from "./dominant-intent-contract";
 import { buildArtistEcosystemGraph, type ArtistEcosystemGraph } from "../lib/artist-ecosystem-graph";
@@ -297,6 +301,8 @@ export interface BuildPlaylistPipelineOpts<T extends {
   libraryFingerprint?: LibraryFingerprint | null;
   /** V41: contract-aware composition when world gate defers. */
   contractComposition?: ContractCompositionContext;
+  /** V41: contract-authoritative retrieval output (preserved before scoring-shape overrides). */
+  contractRetrievalPool?: Array<T & { trackId: string }>;
 }
 
 export interface BuildPlaylistPipelineResult<T extends { trackId: string }> {
@@ -3920,16 +3926,33 @@ function buildV3CandidatePool<T extends {
     ?? relaxationAttempts.find((attempt) => attempt.candidateCount > 0)
     ?? relaxationAttempts[0];
   let rawIntentReady = selectedRelaxation?.tracks ?? [];
-  if (opts.contractComposition?.deferredWorldGate) {
-    const deferReady = intentLaneReady.length >= effectiveMinimumCandidateCount
-      ? intentLaneReady
-      : laneReady.length >= effectiveMinimumCandidateCount
-        ? laneReady
-        : genreReady.length > 0
-          ? genreReady
-          : sorted;
-    if (deferReady.length > rawIntentReady.length) {
-      rawIntentReady = deferReady;
+  if (opts.contractComposition?.deferredWorldGate && opts.contractComposition.contract) {
+    const enrichedForDefer = enrichContractCompositionTracks(
+      sorted,
+      opts.contractComposition.contract,
+      classMap,
+    );
+    const contractReady = enrichedForDefer.filter(
+      (track) => getContractCompositionMeta(track)?.admissible !== false,
+    );
+    const deferReady = contractReady.length >= effectiveMinimumCandidateCount
+      ? contractReady
+      : intentLaneReady.length >= effectiveMinimumCandidateCount
+        ? intentLaneReady
+        : laneReady.length >= effectiveMinimumCandidateCount
+          ? laneReady
+          : genreReady.length > 0
+            ? genreReady
+            : sorted;
+    if (contractReady.length >= effectiveMinimumCandidateCount) {
+      rawIntentReady = contractReady as T[];
+      forensicPreV3Trace.push(preV3StageTrace(
+        "contract_deferred_admissible_pool",
+        sorted.length,
+        contractReady.length,
+      ));
+    } else if (deferReady.length > rawIntentReady.length) {
+      rawIntentReady = deferReady as T[];
       forensicPreV3Trace.push(preV3StageTrace(
         "contract_deferred_intent_bypass",
         sorted.length,
@@ -4214,12 +4237,31 @@ export async function buildPlaylistPipeline<T extends {
         discoveryBoostScale: policy?.discoveryBoost,
         mainstreamSuppressionScale: policy?.mainstreamSuppression,
       },
+      preserveContractRetrievalPool: opts.contractComposition?.deferredWorldGate === true,
     });
   } finally {
     endScoringProfile?.();
   }
   recordTiming("scoring", stageStartedAt);
   if (opts.shouldAbort?.()) abortPipeline("scoring");
+
+  let contractRetrievalSeedDiagnostics: ContractRetrievalSeedDiagnostics | null = null;
+  if (
+    opts.contractComposition?.deferredWorldGate &&
+    opts.contractRetrievalPool &&
+    opts.contractRetrievalPool.length > 0
+  ) {
+    contractRetrievalSeedDiagnostics = seedContractRetrievalIntoScoredPool(
+      scoring,
+      opts.contractRetrievalPool,
+      opts.contractComposition.contract,
+      opts.userGenreProfile.trackClassifications,
+    );
+    opts.pipelineLog?.info(
+      { contractRetrievalSeed: contractRetrievalSeedDiagnostics },
+      "contract_retrieval_seeded_into_scoring",
+    );
+  }
 
   if (scoring.sorted.length === 0 && opts.likedSongs.length > 0) {
     const fallbackScored = opts.likedSongs.map((track) => ({
@@ -4741,43 +4783,41 @@ export async function buildPlaylistPipeline<T extends {
             ? familyFallbackEvidencePool
             : intentScopedPool
     : intentScopedPool;
-  let contractDeferredPoolSeeded = false;
+  const contractDeferredPoolSeeded =
+    contractRetrievalSeedDiagnostics != null && contractRetrievalSeedDiagnostics.admissibleCount > 0;
   if (opts.contractComposition?.deferredWorldGate) {
-    const contract = opts.contractComposition.contract;
-    const scoredWithMeta = (scoring.sorted as ScoredLibraryTrack<T>[]).map((track) => {
-      if (getContractCompositionMeta(track)) return track;
-      const classification = classMap.get(track.trackId) ?? null;
-      const meta = buildContractCompositionMeta(
-        {
-          trackId: track.trackId,
-          trackName: track.trackName ?? null,
-          artistName: track.artistName ?? null,
-          energy: track.energy ?? null,
-          valence: track.valence ?? null,
-          danceability: track.danceability ?? null,
-          genreFamily: classification?.genreFamily ?? (track as { genreFamily?: string | null }).genreFamily ?? null,
-          releaseYear: (track as { releaseYear?: number | null }).releaseYear ?? null,
-        },
-        contract,
-        classification,
-      );
-      return { ...track, contractCompositionMeta: meta };
-    });
-    const contractAdmissible = scoredWithMeta.filter(
+    const deferCap = Math.min(
+      Math.max(minSafePreRankingPool * 4, Math.min(400, opts.playlistLength * 14)),
+      400,
+    );
+    const scoredById = new Map(
+      (scoring.sorted as ScoredLibraryTrack<T>[]).map((track) => [track.trackId, track]),
+    );
+    const deferSource =
+      opts.contractRetrievalPool && opts.contractRetrievalPool.length > 0
+        ? opts.contractRetrievalPool.map((raw) => {
+            const scored = scoredById.get(raw.trackId);
+            if (!scored) return raw as ScoredLibraryTrack<T>;
+            return {
+              ...scored,
+              contractCompositionMeta:
+                getContractCompositionMeta(raw) ?? getContractCompositionMeta(scored),
+            };
+          })
+        : (scoring.sorted as ScoredLibraryTrack<T>[]);
+    const enrichedDefer = enrichContractCompositionTracks(
+      deferSource as ScoredLibraryTrack<T>[],
+      opts.contractComposition.contract,
+      classMap,
+    );
+    const contractAdmissible = enrichedDefer.filter(
       (track) => getContractCompositionMeta(track)?.admissible !== false,
     );
     if (contractAdmissible.length > 0) {
-      const seenDeferred = new Set<string>();
-      const deferCap = Math.min(
-        contractAdmissible.length,
-        Math.max(minSafePreRankingPool * 4, Math.min(400, opts.playlistLength * 14)),
+      contractGuardedScoredPool = contractAdmissible.slice(
+        0,
+        Math.min(contractAdmissible.length, deferCap),
       );
-      contractGuardedScoredPool = [...contractAdmissible, ...contractGuardedScoredPool].filter((track) => {
-        if (seenDeferred.has(track.trackId)) return false;
-        seenDeferred.add(track.trackId);
-        return true;
-      }).slice(0, deferCap);
-      contractDeferredPoolSeeded = true;
     }
   }
   if (
@@ -6168,6 +6208,7 @@ export async function buildPlaylistPipeline<T extends {
     contractCompositionPipelineDiagnostics = {
       compositionAuthority: "playlist_contract",
       contractDeferredPoolSeeded,
+      contractRetrievalSeed: contractRetrievalSeedDiagnostics,
       poolSelection: selectedCandidate.candidatePool.diagnostics.contractCompositionPoolSelection ?? null,
       rebalance: rebalanced.diagnostics,
     };
