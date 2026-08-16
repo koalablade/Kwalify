@@ -14204,6 +14204,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (
         lateCommittedWorld?.hardLock &&
         !skipLateIntentFidelityCap &&
+        !contractRebalanceDeliveryGuard &&
         finalApiTracks.length > (lateIntentFidelity.deliveryCap ?? lateIntentFidelity.honestPartialCap)
       ) {
         finalApiTracks = finalApiTracks.slice(

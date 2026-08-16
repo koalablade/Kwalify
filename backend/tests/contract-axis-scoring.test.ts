@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { isSemanticSpamTrack, scoreContractDimension } from "../core/playlist-contract/contract-axis-scoring";
+import { requiredContractDimensions } from "../core/playlist-contract/contract-composition-types";
 
 test("V44 not_cheesy penalizes novelty/spam titles over raw energy", () => {
   const technoSpam = {
@@ -97,4 +98,22 @@ test("V51 must:era:90s scores release years in decade", () => {
     scoreContractDimension(nineties, "must:era:90s", { genreFamily: "indie" }) >
       scoreContractDimension(modern, "must:era:90s", { genreFamily: "indie" }),
   );
+});
+
+test("V51 must:era is scored but not a hard rebalance quota dimension", () => {
+  const dims = requiredContractDimensions({
+    tension: [],
+    must: {
+      genres: [{ value: "indie_general", confidence: 0.8 }],
+      eras: [{ value: "90s", confidence: 0.8 }],
+      activities: [],
+    },
+    prefer: {
+      energy: [{ value: "medium", confidence: 0.7 }],
+      moods: [],
+      scenes: [],
+    },
+  } as unknown as import("../core/playlist-contract/types").PlaylistContract);
+  assert.ok(dims.includes("must:indie_general"));
+  assert.ok(!dims.includes("must:era:90s"), `era must not be required quota dim: ${dims.join(",")}`);
 });
