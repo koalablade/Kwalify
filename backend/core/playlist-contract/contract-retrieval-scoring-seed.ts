@@ -152,7 +152,15 @@ export function seedContractRetrievalIntoScoredPool<T extends {
     }
     metaAttached += 1;
     if (!meta.admissible) continue;
-    if (preserveBoth && !passesCompoundRetrievalEligibility(meta, contract, { relaxed: true })) {
+    if (preserveBoth && !passesCompoundRetrievalEligibility(meta, contract, {
+      relaxed: true,
+      track: {
+        trackName: raw.trackName ?? null,
+        artistName: raw.artistName ?? null,
+        genreFamily: classMap.get(raw.trackId)?.genreFamily ?? null,
+        genrePrimary: classMap.get(raw.trackId)?.genrePrimary ?? null,
+      },
+    })) {
       compoundFiltered += 1;
       continue;
     }

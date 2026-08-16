@@ -5,6 +5,7 @@
 
 import type { ContractCompositionMeta } from "./contract-composition-types";
 import { CONTRACT_AXIS_ACTIVATION_THRESHOLD } from "./contract-axis-scoring";
+import { compoundEmotionalBangerAntiPatternPenalty } from "./contract-semantic-moment";
 import type { ContractTension, PlaylistContract } from "./types";
 
 const ACTIVATION = CONTRACT_AXIS_ACTIVATION_THRESHOLD;
@@ -25,11 +26,16 @@ export function compoundPartnerFloor(partnerAxis: string): number {
 export function passesCompoundRetrievalEligibility(
   meta: ContractCompositionMeta | undefined,
   contract: PlaylistContract,
-  opts?: { relaxed?: boolean },
+  opts?: { relaxed?: boolean; track?: { trackName?: string | null; artistName?: string | null; genreFamily?: string | null; genrePrimary?: string | null } },
 ): boolean {
   if (!meta?.admissible) return false;
   const preserveBoth = contract.tension.filter((t) => t.resolution === "preserve_both");
   if (preserveBoth.length === 0) return true;
+
+  if (opts?.track) {
+    const antiPattern = compoundEmotionalBangerAntiPatternPenalty(opts.track, contract);
+    if (antiPattern >= 0.45) return false;
+  }
 
   const minIntersection = opts?.relaxed ? 0.24 : 0.28;
   for (const tension of preserveBoth) {

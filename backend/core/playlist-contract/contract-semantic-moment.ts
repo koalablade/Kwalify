@@ -26,6 +26,31 @@ function textSpamPenalty(text: string): number {
   return 0;
 }
 
+/** Penalise genre families that violate sad-party / emotional-banger compound geometry. */
+export function compoundEmotionalBangerAntiPatternPenalty(
+  track: { trackName?: string | null; artistName?: string | null; genreFamily?: string | null; genrePrimary?: string | null },
+  contract: { tension: Array<{ axes: string[]; description?: string }> },
+): number {
+  const sadParty = contract.tension.some(
+    (t) =>
+      t.axes.includes("melancholy") &&
+      t.axes.includes("party_energy") &&
+      /sad|party|banger|melanchol|danceable|dark.*dance/i.test(t.description ?? ""),
+  );
+  if (!sadParty) return 0;
+  const blob = `${track.genreFamily ?? ""} ${track.genrePrimary ?? ""} ${track.trackName ?? ""} ${track.artistName ?? ""}`.toLowerCase();
+  if (/\b(?:metal|hardcore|death\s+metal|black\s+metal|drill|phonk|brostep|hardstyle)\b/.test(blob)) {
+    return 0.62;
+  }
+  if (/\b(?:classic\s+rock|arena\s+rock|heavy\s+metal|iron\s+maiden|black\s+sabbath|led\s+zeppelin)\b/.test(blob)) {
+    return 0.48;
+  }
+  if (/\b(?:drill|grime|uk\s+rap|road\s+rap)\b/.test(blob)) {
+    return 0.52;
+  }
+  return textSpamPenalty(blob);
+}
+
 /** Harmonic mean — both axes must contribute; stricter than geometric mean alone. */
 export function harmonicAxisIntersection(a: number, b: number): number {
   if (a <= 0 || b <= 0) return 0;

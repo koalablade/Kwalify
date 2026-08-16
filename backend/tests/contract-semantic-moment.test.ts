@@ -153,3 +153,39 @@ test("V47 techno spam still fails compound eligibility for sad party bangers", (
   );
   assert.equal(passesCompoundRetrievalEligibility(spamMeta, contract), false);
 });
+
+test("V48 sad party bangers rejects metal and drill anti-patterns", () => {
+  const contract = buildPlaylistContract({ prompt: "sad party bangers" });
+  const metalMeta = buildContractCompositionMeta(
+    {
+      trackId: "1",
+      trackName: "Iron Man",
+      artistName: "Black Sabbath",
+      energy: 0.72,
+      valence: 0.35,
+      danceability: 0.48,
+      genreFamily: "metal",
+    },
+    contract,
+    { genreFamily: "metal", genrePrimary: "heavy metal" },
+  );
+  const drillMeta = buildContractCompositionMeta(
+    {
+      trackId: "2",
+      trackName: "Body (Remix)",
+      artistName: "Tion Wayne",
+      energy: 0.78,
+      valence: 0.42,
+      danceability: 0.72,
+      genreFamily: "hip_hop",
+    },
+    contract,
+    { genreFamily: "hip_hop", genrePrimary: "uk drill" },
+  );
+  assert.equal(passesCompoundRetrievalEligibility(metalMeta, contract, {
+    track: { trackName: "Iron Man", artistName: "Black Sabbath", genreFamily: "metal", genrePrimary: "heavy metal" },
+  }), false);
+  assert.equal(passesCompoundRetrievalEligibility(drillMeta, contract, {
+    track: { trackName: "Body (Remix)", artistName: "Tion Wayne", genreFamily: "hip_hop", genrePrimary: "uk drill" },
+  }), false);
+});

@@ -849,8 +849,10 @@ const NIGHT_DRIVE_IDENTITY: WorldIdentityProfile = {
     /\b(?:the\s+national|war\s+on\s+drugs|m83|chromatics|kavinsky|the\s+midnight|tame\s+impala|beach\s+house|radiohead)\b/i,
   ],
   rejectAny: [
-    /\b(?:metal|hardcore|trap\b|drill\b|country|bluegrass|arena\s+rock|classic\s+rock)\b/i,
-    /\b(?:queen\b(?!\s+of\s+the\s+stone)|led\s+zeppelin|ac\/?dc|guns\s+n'?\s*roses|bon\s+jovi|def\s+leppard|dmx\b|travis\s+scott)\b/i,
+    /\b(?:metal|hardcore|trap\b|drill\b|country|bluegrass|arena\s+rock|classic\s+rock|reggae|dancehall|hip[-\s]?hop|rap\b|moomba?hton)\b/i,
+    /\b(?:french\s+montana|mungo'?s?\s+hi\s+fi|dmx\b|50\s+cent|central\s+cee|tion\s+wayne|arrdee)\b/i,
+    /\b(?:miku|vocaloid|jump\s+up|brostep|hardstyle)\b/i,
+    /\b(?:queen\b(?!\s+of\s+the\s+stone)|led\s+zeppelin|ac\/?dc|guns\s+n'?\s*roses|bon\s+jovi|def\s+leppard|travis\s+scott)\b/i,
     /\b(?:bon\s+iver|clairo|noah\s+kahan|dayglow|gregory\s+alan\s+isakov|badbadnotgood|sufjan\s+stevens)\b/i,
   ],
   energy: { min: 0.28, max: 0.72 },

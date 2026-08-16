@@ -9,6 +9,7 @@ import { scoreTrackAgainstContract } from "./constraint-aware-retrieval";
 import {
   blendAxisWithSemanticMoment,
   buildTrackSemanticProfileForContract,
+  compoundEmotionalBangerAntiPatternPenalty,
   compoundIntersectionStrength,
   contrastiveNegationPenalty,
   isEmotionalBangerAudioProfile,
@@ -210,6 +211,16 @@ export function buildContractCompositionMeta(
       intersectionStrength,
       compoundIntersectionStrength(a, b, { emotionalBanger }),
     );
+  }
+
+  const antiPattern = compoundEmotionalBangerAntiPatternPenalty(track, contract);
+  if (antiPattern > 0) {
+    intersectionStrength = Math.max(0, intersectionStrength - antiPattern);
+    for (const key of ["melancholy", "party_energy"]) {
+      if (axisScores[key] != null) {
+        axisScores[key] = Math.max(0.06, axisScores[key]! - antiPattern * 0.35);
+      }
+    }
   }
 
   const axesActive = Object.entries(axisScores)

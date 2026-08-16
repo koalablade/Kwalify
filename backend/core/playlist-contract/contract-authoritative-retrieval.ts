@@ -361,7 +361,14 @@ export function retrieveContractAuthoritativePool<T extends ContractAuthoritativ
       const classification = classMap.get(row.track.trackId) ?? null;
       const ct = toContractTrack(row.track, classification);
       const meta = buildContractCompositionMeta(ct, contract, classification);
-      if (!passesCompoundRetrievalEligibility(meta, contract)) continue;
+      if (!passesCompoundRetrievalEligibility(meta, contract, {
+        track: {
+          trackName: ct.trackName,
+          artistName: ct.artistName,
+          genreFamily: classification?.genreFamily ?? null,
+          genrePrimary: classification?.genrePrimary ?? null,
+        },
+      })) continue;
       seen.add(row.track.trackId);
       merged.push(row.track);
     }

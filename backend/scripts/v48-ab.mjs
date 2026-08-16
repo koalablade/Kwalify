@@ -38,7 +38,7 @@ const COMPOUND_PROBES = [
   { id: "V48-C08", category: "compound", prompt: "warm and melancholic" },
   { id: "V48-C09", category: "compound", prompt: "emotional but upbeat" },
   { id: "V48-C10", category: "compound", prompt: "aggressive but controlled" },
-  { id: "V48-C11", category: "compound", prompt: "something nostalgic for driving" },
+  { id: "V48-C11", category: "compound", prompt: "nostalgic driving" },
   { id: "V48-C12", category: "compound", prompt: "90s indie road trip nostalgia" },
 ];
 
@@ -303,18 +303,35 @@ async function generateOne(baseUrl, token, prompt, arm, id) {
   }
 }
 
-async function runArm(arm, sha, prompts, baseUrl, token, evaluateHumanCurationScore) {
+async function runArm(arm, sha, prompts, baseUrl, token, evaluateHumanCurationScore, spawnServer) {
   const rows = [];
+  let activeBaseUrl = baseUrl;
+  let activeToken = token;
   for (const spec of prompts) {
     log(`[${arm}@${sha.slice(0, 7)}] [${spec.id}] ${spec.prompt}`);
-    try {
-      const { httpStatus, data } = await generateOne(baseUrl, token, spec.prompt, arm, spec.id);
-      const row = extractRow(spec, httpStatus, data, arm, sha, evaluateHumanCurationScore);
-      rows.push(row);
-      log(`  → del=${row.delivered} proxy=${row.humanCuratorProxy} score=${row.humanScore.totalScore} spam=${row.spamHits} misfits=${row.obviousMisfits.length}`);
-    } catch (err) {
-      rows.push({ id: spec.id, prompt: spec.prompt, arm, sha, error: String(err.message ?? err), humanCuratorProxy: "weak", delivered: 0 });
-      log(`  ERROR: ${err.message ?? err}`);
+    let lastErr = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const { httpStatus, data } = await generateOne(activeBaseUrl, activeToken, spec.prompt, arm, spec.id);
+        const row = extractRow(spec, httpStatus, data, arm, sha, evaluateHumanCurationScore);
+        rows.push(row);
+        log(`  → del=${row.delivered} proxy=${row.humanCuratorProxy} score=${row.humanScore.totalScore} spam=${row.spamHits} misfits=${row.obviousMisfits.length}`);
+        lastErr = null;
+        break;
+      } catch (err) {
+        lastErr = err;
+        log(`  ERROR (attempt ${attempt + 1}/3): ${err.message ?? err}`);
+        if (attempt < 2 && spawnServer) {
+          log("  Restarting API server after fetch failure...");
+          const respawned = await spawnServer();
+          activeBaseUrl = respawned.baseUrl;
+          activeToken = respawned.token;
+          await new Promise((r) => setTimeout(r, 4000));
+        }
+      }
+    }
+    if (lastErr) {
+      rows.push({ id: spec.id, prompt: spec.prompt, arm, sha, error: String(lastErr.message ?? lastErr), humanCuratorProxy: "weak", delivered: 0 });
     }
     await new Promise((r) => setTimeout(r, DELAY_MS));
   }
@@ -477,14 +494,24 @@ async function main() {
     buildAt(baselineWorktree, `baseline@${baselineSha.slice(0, 7)}`);
     log("=== BASELINE ARM ===");
     const spawnedA = await spawnApiServer(baselineWorktree, {}, creds.token);
-    baselineRows = await runArm("baseline", baselineSha, prompts, spawnedA.baseUrl, spawnedA.token, evaluateHumanCurationScore);
+    const respawnBaseline = async () => {
+      if (spawnedA.server) spawnedA.server.kill("SIGTERM");
+      await new Promise((r) => setTimeout(r, 2000));
+      return spawnApiServer(baselineWorktree, {}, creds.token);
+    };
+    baselineRows = await runArm("baseline", baselineSha, prompts, spawnedA.baseUrl, spawnedA.token, evaluateHumanCurationScore, respawnBaseline);
     if (spawnedA.server) spawnedA.server.kill("SIGTERM");
     await new Promise((r) => setTimeout(r, 4000));
   }
 
   log("=== CANDIDATE ARM ===");
   const spawnedB = await spawnApiServer(ROOT, {}, creds.token);
-  const candidateRows = await runArm("candidate", candidateSha, prompts, spawnedB.baseUrl, spawnedB.token, evaluateHumanCurationScore);
+  const respawnCandidate = async () => {
+    if (spawnedB.server) spawnedB.server.kill("SIGTERM");
+    await new Promise((r) => setTimeout(r, 2000));
+    return spawnApiServer(ROOT, {}, creds.token);
+  };
+  const candidateRows = await runArm("candidate", candidateSha, prompts, spawnedB.baseUrl, spawnedB.token, evaluateHumanCurationScore, respawnCandidate);
   if (spawnedB.server) spawnedB.server.kill("SIGTERM");
 
   const baseByPrompt = Object.fromEntries(baselineRows.map((r) => [r.prompt, r]));

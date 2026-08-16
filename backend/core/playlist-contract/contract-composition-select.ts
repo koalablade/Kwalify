@@ -191,7 +191,15 @@ export function selectContractCoveragePreservingPool<T extends ContractCompositi
     if (out.length >= limit) break;
     if (preserveBoth.length > 0) {
       const meta = getContractCompositionMeta(track);
-      if (meta && !passesCompoundRetrievalEligibility(meta, contract, { relaxed: true })) continue;
+      if (meta && !passesCompoundRetrievalEligibility(meta, contract, {
+        relaxed: true,
+        track: {
+          trackName: (track as { trackName?: string | null }).trackName ?? null,
+          artistName: track.artistName ?? null,
+          genreFamily: (track as { genreFamily?: string | null }).genreFamily ?? null,
+          genrePrimary: (track as { genrePrimary?: string | null }).genrePrimary ?? null,
+        },
+      })) continue;
     }
     tryAdd(track);
   }
@@ -407,7 +415,15 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
     for (const track of tailCandidates) {
       if (result.length >= targetLength) break;
       const meta = getContractCompositionMeta(track);
-      if (preserveBoth && meta && !passesCompoundRetrievalEligibility(meta, contract, { relaxed: true })) {
+      if (preserveBoth && meta && !passesCompoundRetrievalEligibility(meta, contract, {
+        relaxed: true,
+        track: {
+          trackName: (track as { trackName?: string | null }).trackName ?? null,
+          artistName: track.artistName ?? null,
+          genreFamily: (track as { genreFamily?: string | null }).genreFamily ?? null,
+          genrePrimary: (track as { genrePrimary?: string | null }).genrePrimary ?? null,
+        },
+      })) {
         continue;
       }
       addTrack(track);
@@ -420,10 +436,19 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
       .sort((a, b) => {
         const ma = getContractCompositionMeta(a);
         const mb = getContractCompositionMeta(b);
+        const trackOpts = (t: T) => ({
+          relaxed: true as const,
+          track: {
+            trackName: (t as { trackName?: string | null }).trackName ?? null,
+            artistName: t.artistName ?? null,
+            genreFamily: (t as { genreFamily?: string | null }).genreFamily ?? null,
+            genrePrimary: (t as { genrePrimary?: string | null }).genrePrimary ?? null,
+          },
+        });
         const aCompound =
-          preserveBoth && ma && passesCompoundRetrievalEligibility(ma, contract, { relaxed: true }) ? 1 : 0;
+          preserveBoth && ma && passesCompoundRetrievalEligibility(ma, contract, trackOpts(a)) ? 1 : 0;
         const bCompound =
-          preserveBoth && mb && passesCompoundRetrievalEligibility(mb, contract, { relaxed: true }) ? 1 : 0;
+          preserveBoth && mb && passesCompoundRetrievalEligibility(mb, contract, trackOpts(b)) ? 1 : 0;
         if (bCompound !== aCompound) return bCompound - aCompound;
         return compareCompoundIntent(a, b, contract);
       });
