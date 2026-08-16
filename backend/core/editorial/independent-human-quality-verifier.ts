@@ -188,7 +188,15 @@ export function parsePromptExpectation(prompt: string): PromptExpectation {
     compoundAxes.push({ positive: "high_energy", negative: undefined, label: "aggressive but controlled" });
   }
   if (/\bwarm\b/.test(lower) && /\bmelanchol/.test(lower)) {
-    compoundAxes.push({ positive: "melancholy", negative: undefined, label: "warm and melancholic" });
+    compoundAxes.push({ positive: "melancholy", negative: "low_energy", label: "warm and melancholic" });
+  }
+  if (/\brelaxed\b/.test(lower) && /\binteresting\b/.test(lower)) {
+    compoundAxes.push({ positive: "low_energy", negative: "not_boring", label: "relaxed but interesting" });
+  }
+  if (/\bnostalgic\b/.test(lower) && /\bdriv/.test(lower)) {
+    momentTags.push("nostalgic", "road-trip");
+    activityTags.push("driving");
+    atmosphereTags.push("reflective", "nostalgic");
   }
 
   if (/\b(?:late night|night drive|midnight|3\s?am|2\s?am)\b/.test(lower)) {
@@ -257,9 +265,27 @@ function tagOverlap(trackTags: string[], expected: string[]): number {
   return hits / expected.length;
 }
 
+function audioDrivingSignal(t: VerifierTrackInput): number {
+  const e = t.energy ?? 0.5;
+  const v = t.valence ?? 0.5;
+  if (e >= 0.42 && e <= 0.82 && v >= 0.22 && v <= 0.72) return 0.74;
+  if (e >= 0.35 && e <= 0.88) return 0.56;
+  return 0.32;
+}
+
+function audioNostalgicSignal(t: VerifierTrackInput, profile: TrackSemanticProfile): number {
+  const year = t.releaseYear ?? null;
+  const narrative = profile.musicSemantic?.narrativeTags ?? [];
+  let score = narrative.some((tag) => /nostalg|retro|throwback|memory/.test(tag)) ? 0.68 : 0.42;
+  if (year != null && year <= 2005) score = Math.max(score, 0.72);
+  else if (year != null && year <= 2012) score = Math.max(score, 0.58);
+  return score;
+}
+
 function semanticMomentFit(
   profile: TrackSemanticProfile,
   expectation: PromptExpectation,
+  track: VerifierTrackInput,
 ): number {
   const sceneTags = [
     ...profile.scene.places,
@@ -278,7 +304,14 @@ function semanticMomentFit(
   ]);
   const musicNarrative = profile.musicSemantic?.narrativeTags ?? [];
   const narrativeOverlap = tagOverlap(musicNarrative, expectation.atmosphereTags);
-  return Math.min(1, momentOverlap * 0.7 + narrativeOverlap * 0.3);
+  let score = momentOverlap * 0.7 + narrativeOverlap * 0.3;
+  if (expectation.activityTags.includes("driving")) {
+    score = Math.max(score, audioDrivingSignal(track) * 0.82);
+  }
+  if (expectation.momentTags.includes("nostalgic")) {
+    score = Math.max(score, audioNostalgicSignal(track, profile) * 0.78);
+  }
+  return Math.min(1, score);
 }
 
 function audioMelancholySignal(t: VerifierTrackInput): number {
@@ -338,14 +371,26 @@ function axisSignal(axis: string, t: VerifierTrackInput, profile: TrackSemanticP
   }
 }
 
+function compoundPartnerAxis(axes: { positive: string; negative?: string; label: string }): string {
+  if (axes.negative) return axes.negative;
+  const label = axes.label.toLowerCase();
+  if (/\bdanceable\b|\bdance\b/.test(label)) return "party_energy";
+  if (/\bwarm\b/.test(label) && /\bmelanchol/.test(label)) return "low_energy";
+  if (/\bemotional\b/.test(label) && /\bupbeat\b/.test(label)) return "party_energy";
+  if (/\bdark\b/.test(label)) return "party_energy";
+  if (/\baggressive\b/.test(label)) return "high_energy";
+  return axes.positive === "melancholy" ? "low_energy" : "melancholy";
+}
+
 /** Independent compound intersection — harmonic mean of semantic+audio axis signals. */
 function independentCompoundIntersection(
   t: VerifierTrackInput,
   profile: TrackSemanticProfile,
-  axes: { positive: string; negative?: string },
+  axes: { positive: string; negative?: string; label: string },
 ): number {
   const a = axisSignal(axes.positive, t, profile);
-  const b = axes.negative ? axisSignal(axes.negative, t, profile) : audioPartySignal(t);
+  const partner = compoundPartnerAxis(axes);
+  const b = axisSignal(partner, t, profile);
   if (a <= 0 || b <= 0) return 0;
   return (2 * a * b) / (a + b);
 }
@@ -563,7 +608,7 @@ export function verifyIndependentHumanQuality(
 
   const trackVerdicts: VerifierTrackVerdict[] = tracks.map((t, i) => {
     const profile = buildSemanticProfile(t);
-    const semanticFit = semanticMomentFit(profile, expectation);
+    const semanticFit = semanticMomentFit(profile, expectation, t);
     const worldFit = scoreIndependentWorldFit(t, expectation, profile);
     const spamSuspect = detectSpamSuspect(t);
     const compoundWeakness = compoundAxis

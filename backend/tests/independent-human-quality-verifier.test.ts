@@ -72,6 +72,32 @@ describe("independent human quality verifier", () => {
     assert.ok(result.roiFailures.some((r) => r.code === "artist_clustering"));
   });
 
+  it("marks warm and melancholic without false party-axis collapse", () => {
+    const result = verifyIndependentHumanQuality("warm and melancholic", [
+      { artistName: "Bon Iver", trackName: "Holocene", energy: 0.38, valence: 0.32, danceability: 0.42 },
+      { artistName: "Iron & Wine", trackName: "Naked As We Came", energy: 0.35, valence: 0.38, danceability: 0.38 },
+      { artistName: "Phoebe Bridgers", trackName: "Motion Sickness", energy: 0.52, valence: 0.35, danceability: 0.48 },
+      { artistName: "The National", trackName: "Bloodbuzz Ohio", energy: 0.58, valence: 0.28, danceability: 0.42 },
+      { artistName: "Fleet Foxes", trackName: "White Winter Hymnal", energy: 0.42, valence: 0.4, danceability: 0.35 },
+    ]);
+    const misfitCount = result.tracks.filter((t) => t.flag === "misfit").length;
+    assert.ok(misfitCount <= 2, `expected <=2 misfits, got ${misfitCount}`);
+    assert.ok(result.playlistVerdict !== "weak");
+  });
+
+  it("accepts driving playlists on nostalgic driving via audio driving signal", () => {
+    const result = verifyIndependentHumanQuality("nostalgic driving", [
+      { artistName: "The War on Drugs", trackName: "Red Eyes", energy: 0.68, valence: 0.42, danceability: 0.52, releaseYear: 2014 },
+      { artistName: "M83", trackName: "Midnight City", energy: 0.72, valence: 0.45, danceability: 0.58, releaseYear: 2011 },
+      { artistName: "Arcade Fire", trackName: "The Suburbs", energy: 0.62, valence: 0.38, danceability: 0.48, releaseYear: 2010 },
+      { artistName: "Phoenix", trackName: "1901", energy: 0.74, valence: 0.55, danceability: 0.62, releaseYear: 2009 },
+      { artistName: "Two Door Cinema Club", trackName: "What You Know", energy: 0.78, valence: 0.58, danceability: 0.68, releaseYear: 2010 },
+    ]);
+    const misfitCount = result.tracks.filter((t) => t.flag === "misfit").length;
+    assert.ok(misfitCount <= 2, `expected <=2 misfits, got ${misfitCount}`);
+    assert.ok(result.playlistVerdict !== "weak");
+  });
+
   it("returns weak for empty playlist", () => {
     const result = verifyIndependentHumanQuality("late night drive", []);
     assert.equal(result.trackCount, 0);
