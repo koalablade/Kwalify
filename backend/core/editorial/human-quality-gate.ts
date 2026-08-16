@@ -59,6 +59,8 @@ export type HumanQualityGateInput = {
   coverageLevel?: CoverageLevel | null;
   /** Track count after world_purity_gate — authority for downstream depth when >= 50% requested. */
   postPurityValidatedDepth?: number | null;
+  /** Tracks passing world identity on hard-lock prompts — caps honest partial when fidelity fails. */
+  worldVerifiedCount?: number | null;
 };
 
 export type HumanQualityGateResult = {
@@ -282,7 +284,15 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
       : downstreamValidatedDepth
         ? Math.min(count, requested)
         : softDefaultCap;
-  const salvageableCount = count >= 3 ? Math.min(count, coverageCap) : 0;
+  let salvageableCount = count >= 3 ? Math.min(count, coverageCap) : 0;
+  const worldVerifiedCount =
+    typeof input.worldVerifiedCount === "number" ? Math.max(0, input.worldVerifiedCount) : null;
+  if (
+    (input.intentFidelityFailed === true || input.worldProofFailed === true) &&
+    worldVerifiedCount != null
+  ) {
+    salvageableCount = Math.min(salvageableCount, worldVerifiedCount);
+  }
 
   let wouldSaveConfidence = 0.55;
   if (wouldSpotify === true) wouldSaveConfidence += 0.22;

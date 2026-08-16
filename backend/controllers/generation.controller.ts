@@ -12817,6 +12817,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             : null,
         coverageLevel: worldCoverageAssessment?.score ?? null,
         postPurityValidatedDepth,
+        worldVerifiedCount: intentFidelity.worldVerifiedCount,
       });
       if (isPlaylistContractValidationEnabled()) {
         const contractForValidation = buildPlaylistContract({
@@ -14159,6 +14160,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             ? scoreCommittedWorldLanePurity(lateActiveWorldId, lateTrackSignals, { prompt: vibe }).ok
             : null,
         postPurityValidatedDepth,
+        worldVerifiedCount: lateIntentFidelity.worldVerifiedCount,
       });
       finalization = {
         tracks: delivery.tracks as PlaylistTrack[],

@@ -140,10 +140,11 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
     worldId: "social_kitchen_world",
     sceneId: "PARTY_SOCIAL_NIGHT",
     label: "cooking / kitchen / soft social",
-    priority: 9,
+    priority: 11,
     patterns: [
       /\b(?:cooking dinner|dinner with friends|music for cooking|kitchen party|house party ending|people leaving|soft and intimate|party but make it soft)\b/i,
       /\b(?:crying in the club|tasteful|dinner party)\b/i,
+      /\bparty\b/i,
     ],
   },
   {

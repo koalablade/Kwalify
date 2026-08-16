@@ -79,6 +79,21 @@ describe("human-quality-gate", () => {
     assert.notEqual(cliffed.salvageableCount, 5);
   });
 
+  it("refuses off-world salvage when intent fidelity fails with zero verified tracks", () => {
+    const result = evaluateHumanQualityGate({
+      trackCount: 5,
+      requestedLength: 25,
+      committedWorldHardLock: true,
+      intentFidelityFailed: true,
+      worldProofFailed: true,
+      worldVerifiedCount: 0,
+      wouldSpotifyMakeThis: false,
+      dominantWorldDensity: 0.3,
+    });
+    assert.equal(result.action, "refuse");
+    assert.equal(result.salvageableCount, 0);
+  });
+
   it("passes healthy playlists", () => {
     const result = evaluateHumanQualityGate({
       trackCount: 28,
