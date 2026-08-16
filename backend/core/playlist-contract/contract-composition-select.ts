@@ -7,6 +7,7 @@ import type { ContractCompositionMeta, ContractCompositionTrack } from "./contra
 import { getContractCompositionMeta, requiredContractDimensions } from "./contract-composition-types";
 import type { PlaylistContract } from "./types";
 import { CONTRACT_AXIS_ACTIVATION_THRESHOLD, intersectionThreshold } from "./contract-axis-scoring";
+import { passesCompoundRetrievalEligibility } from "./contract-compound-eligibility";
 
 export type ContractCoverageSelectionDiagnostics = {
   inputCount: number;
@@ -187,6 +188,10 @@ export function selectContractCoveragePreservingPool<T extends ContractCompositi
   const ranked = [...admissible].sort((a, b) => compareCompoundIntent(a, b, contract));
   for (const track of ranked) {
     if (out.length >= limit) break;
+    if (preserveBoth.length > 0) {
+      const meta = getContractCompositionMeta(track);
+      if (meta && !passesCompoundRetrievalEligibility(meta, contract, { relaxed: true })) continue;
+    }
     tryAdd(track);
   }
   phases.push("global_fill");
@@ -382,6 +387,10 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
     tailCandidates.sort((a, b) => compareCompoundIntent(a, b, contract));
     for (const track of tailCandidates) {
       if (result.length >= targetLength) break;
+      const meta = getContractCompositionMeta(track);
+      if (preserveBoth && meta && !passesCompoundRetrievalEligibility(meta, contract, { relaxed: true })) {
+        continue;
+      }
       addTrack(track);
     }
   }

@@ -68,12 +68,43 @@ function detectTensions(
     });
   }
 
+  const partyNotCheesy =
+    /\bparty\b/.test(lower) && /\bnot\s+cheesy\b|\bwithout\s+cheesy\b|\bno\s+cheesy\b/.test(lower);
+  if (partyNotCheesy && !tensions.some((t) => t.axes.includes("not_cheesy"))) {
+    tensions.push({
+      axes: ["party_energy", "not_cheesy"],
+      description: "party but not cheesy",
+      resolution: "preserve_both",
+    });
+  }
+
   const chilledNotBoring =
     /\bchill/.test(lower) && /\bnot\s+boring\b/.test(lower);
   if (chilledNotBoring) {
     tensions.push({
       axes: ["low_energy", "not_boring"],
       description: "chilled but not boring",
+      resolution: "preserve_both",
+    });
+  }
+
+  const darkButDanceable =
+    /\bdark\b/.test(lower) && /\bdanceable\b|\bdance\b/.test(lower);
+  if (darkButDanceable) {
+    tensions.push({
+      axes: ["melancholy", "party_energy"],
+      description: "dark but danceable",
+      resolution: "preserve_both",
+    });
+  }
+
+  const upbeatMelancholic =
+    (/\bupbeat\b|\bhappy\b/.test(lower) && /\bmelanchol|\bsad\b/.test(lower)) ||
+    (/\bindie\b/.test(lower) && /\bmelanchol|\bsad\b/.test(lower) && /\bupbeat\b|\benergetic\b/.test(lower));
+  if (upbeatMelancholic && !tensions.some((t) => t.axes[0] === "melancholy" && t.axes[1] === "high_energy")) {
+    tensions.push({
+      axes: ["melancholy", "high_energy"],
+      description: "upbeat melancholic contrast",
       resolution: "preserve_both",
     });
   }

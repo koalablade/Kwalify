@@ -7,6 +7,7 @@ import type { UserGenreProfile } from "../../lib/user-genre-profile";
 import type { ScoredLibraryTrack } from "../scoring-engine/types";
 import { buildContractCompositionMeta, CONTRACT_AXIS_ACTIVATION_THRESHOLD } from "./contract-axis-scoring";
 import { computeCompoundIntentScore } from "./contract-composition-select";
+import { passesCompoundRetrievalEligibility } from "./contract-compound-eligibility";
 import type { ContractAuthoritativeTrack } from "./contract-authoritative-retrieval";
 import {
   getContractCompositionMeta,
@@ -149,6 +150,8 @@ export function seedContractRetrievalIntoScoredPool<T extends {
     }
     metaAttached += 1;
     if (!meta.admissible) continue;
+    const preserveBoth = contract.tension.some((t) => t.resolution === "preserve_both");
+    if (preserveBoth && !passesCompoundRetrievalEligibility(meta, contract, { relaxed: true })) continue;
 
     const compound = computeCompoundIntentScore(meta, contract);
     const contractRank = compound * 0.68 + meta.contractScore * 0.18 + meta.intersectionStrength * 0.14;

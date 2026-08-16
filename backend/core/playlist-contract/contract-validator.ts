@@ -5,6 +5,8 @@
 
 import type { ContractRetrievalTrack } from "./constraint-aware-retrieval";
 import { scoreTrackAgainstContract } from "./constraint-aware-retrieval";
+import { buildContractCompositionMeta } from "./contract-axis-scoring";
+import { assessCompoundFeasibility } from "./contract-compound-eligibility";
 import type { PlaylistContract } from "./types";
 
 export type ContractViolationSummary = {
@@ -50,8 +52,24 @@ export function auditPlaylistAgainstContract(
   }
 
   const unsatisfiable: string[] = [];
-  if (contract.tension.length > 0) {
-    for (const t of contract.tension) {
+  const preserveBoth = contract.tension.filter((t) => t.resolution === "preserve_both");
+  if (preserveBoth.length > 0 && tracks.length > 0) {
+    const metas = tracks.map((track) =>
+      buildContractCompositionMeta(track, contract, {
+        genreFamily: track.genreFamily ?? null,
+        genrePrimary: track.genreFamily ?? null,
+      }),
+    );
+    const feasibility = assessCompoundFeasibility(metas, contract, requestedLength);
+    if (!feasibility.satisfiable && !feasibility.gracefulDegradation) {
+      for (const t of preserveBoth) {
+        unsatisfiable.push(`Unresolved tension: ${t.description}`);
+      }
+    } else if (!feasibility.satisfiable && feasibility.gracefulDegradation) {
+      unsatisfiable.push(`Imperfect compound fit: ${preserveBoth.map((t) => t.description).join("; ")}`);
+    }
+  } else if (preserveBoth.length > 0 && tracks.length === 0) {
+    for (const t of preserveBoth) {
       unsatisfiable.push(`Unresolved tension: ${t.description}`);
     }
   }
@@ -66,7 +84,18 @@ export function auditPlaylistAgainstContract(
   const honestPartial = !pass || unsatisfiable.length > 0;
 
   let deliveredCap: number | null = null;
-  if (honestPartial && contract.tension.length > 0) {
+  if (honestPartial && preserveBoth.length > 0) {
+    const metas = tracks.map((track) =>
+      buildContractCompositionMeta(track, contract, {
+        genreFamily: track.genreFamily ?? null,
+        genrePrimary: track.genreFamily ?? null,
+      }),
+    );
+    const feasibility = assessCompoundFeasibility(metas, contract, requestedLength);
+    deliveredCap = feasibility.gracefulDegradation
+      ? Math.min(requestedLength, Math.max(feasibility.minHonestDelivery, 3))
+      : Math.min(12, Math.ceil(requestedLength * 0.4));
+  } else if (honestPartial && contract.tension.length > 0) {
     deliveredCap = Math.min(12, Math.ceil(requestedLength * 0.4));
   } else if (mustViolationCount > 0) {
     deliveredCap = Math.max(0, tracks.length - trackViolations.length);

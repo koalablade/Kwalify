@@ -25,8 +25,8 @@ function trackTextForAxis(
     .toLowerCase();
 }
 
-/** V44 — semantic cheesy/novelty penalty from track text (not audio alone). */
-function cheesySemanticPenalty(text: string): number {
+/** V44/V45 — semantic spam/novelty penalty from track text (not audio alone). */
+export function semanticSpamPenalty(text: string): number {
   if (/\bcheesy|cheesey|novelty|eurovision|kidz bop|gummy bear|party all the time\b/.test(text)) {
     return 0.55;
   }
@@ -34,6 +34,10 @@ function cheesySemanticPenalty(text: string): number {
     return 0.38;
   }
   return 0;
+}
+
+function cheesySemanticPenalty(text: string): number {
+  return semanticSpamPenalty(text);
 }
 
 /** Score a named contract dimension using audio + classification, not title tokens alone. */
@@ -69,8 +73,14 @@ export function scoreContractDimension(
   }
 
   switch (dimensionId) {
-    case "melancholy":
-      return valence < 0.42 ? 0.55 + (0.42 - valence) : valence < 0.55 ? 0.35 : 0.1;
+    case "melancholy": {
+      if (valence >= 0.55) return valence < 0.65 ? 0.15 : 0.1;
+      const emotionalBase = valence < 0.42 ? 0.55 + (0.42 - valence) : 0.35;
+      // High-energy club production is aggression/spam, not emotional melancholy.
+      const energyDampen = energy > 0.72 ? Math.min(0.45, (energy - 0.72) * 1.35) : 0;
+      const spamPenalty = semanticSpamPenalty(text) * 0.62;
+      return Math.max(0.08, emotionalBase - energyDampen - spamPenalty);
+    }
     case "party_energy":
       if (energy > 0.72) return 0.58 + Math.min(0.35, (energy - 0.72) * 1.2);
       if (energy > 0.68 && dance > 0.5) return 0.48 + Math.min(0.4, (energy - 0.68) * 1.2);

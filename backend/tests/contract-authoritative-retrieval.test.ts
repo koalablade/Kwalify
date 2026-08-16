@@ -16,7 +16,7 @@ import {
 import { resolveWorldGateContext } from "../core/playlist-contract/world-gate-context";
 import { evaluateWorldGate } from "../core/playlist-contract/world-gate";
 
-test("sad party bangers contract pool prefers party-energy over acoustic indie", () => {
+test("sad party bangers contract pool prefers compound fit over acoustic-only or party-only", () => {
   const prompt = "sad party bangers";
   const world = resolveCommittedWorld({ prompt });
   const contract = buildPlaylistContract({ prompt, committedWorld: world });
@@ -24,7 +24,8 @@ test("sad party bangers contract pool prefers party-energy over acoustic indie",
     { trackId: "1", trackName: "Glue Song", artistName: "beabadoobee", energy: 0.4, valence: 0.35, genreFamily: "indie" },
     { trackId: "2", trackName: "Levels", artistName: "Avicii", energy: 0.88, valence: 0.55, genreFamily: "electronic", danceability: 0.75 },
     { trackId: "3", trackName: "Someone Like You", artistName: "Adele", energy: 0.35, valence: 0.2, genreFamily: "pop" },
-    { trackId: "4", trackName: "Titanium", artistName: "David Guetta", energy: 0.78, valence: 0.6, genreFamily: "electronic", danceability: 0.72 },
+    { trackId: "4", trackName: "Midnight City", artistName: "M83", energy: 0.75, valence: 0.35, genreFamily: "electronic", danceability: 0.62 },
+    { trackId: "5", trackName: "TECHNO - VIP", artistName: "ZAPRAVKA", energy: 0.92, valence: 0.38, genreFamily: "electronic", danceability: 0.82 },
   ];
   const classMap = new Map(
     tracks.map((t) => [
@@ -50,10 +51,9 @@ test("sad party bangers contract pool prefers party-energy over acoustic indie",
   assert.equal(result.diagnostics.contractAuthorityUsed, true);
   assert.ok(result.diagnostics.tensionPreservation.length > 0);
   const ids = result.tracks.map((t) => t.trackId);
-  assert.notDeepEqual(ids, ["1"]);
-  assert.ok(ids.some((id) => id === "2" || id === "4"));
-  const partyMeta = (result.tracks.find((t) => t.trackId === "2") as { contractCompositionMeta?: { axisScores: Record<string, number> } })?.contractCompositionMeta;
-  assert.ok((partyMeta?.axisScores.party_energy ?? 0) >= 0.42);
+  assert.notEqual(ids[0], "5", "techno VIP spam should not lead pool");
+  assert.ok(ids.includes("4"), "compound sad-party fit (M83) should surface");
+  assert.ok(!ids.includes("5"), "techno VIP should not enter compound-eligible pool");
 });
 
 test("V44 compound retrieval pool prefers both-axis fit over single-axis energy spam", () => {

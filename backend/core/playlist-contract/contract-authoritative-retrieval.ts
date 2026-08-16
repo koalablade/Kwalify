@@ -13,6 +13,7 @@ import {
   type ContractRetrievalTrack,
 } from "./constraint-aware-retrieval";
 import { buildContractCompositionMeta, CONTRACT_AXIS_ACTIVATION_THRESHOLD, scoreContractDimension } from "./contract-axis-scoring";
+import { compoundPartnerFloor, passesCompoundRetrievalEligibility } from "./contract-compound-eligibility";
 import { computeCompoundIntentScore } from "./contract-composition-select";
 import type { ContractCompositionMeta } from "./contract-composition-types";
 import type { ContractTension, PlaylistContract } from "./types";
@@ -176,7 +177,7 @@ function rankCompoundAxisTracks<T extends ContractAuthoritativeTrack>(
   partnerAxis: string,
   contract: PlaylistContract,
   classMap: Map<string, ActivityClassificationInput>,
-  partnerFloor = CONTRACT_AXIS_ACTIVATION_THRESHOLD * 0.82,
+  partnerFloor = compoundPartnerFloor(partnerAxis),
 ): Array<{ track: T; score: number; compound: number }> {
   return eligible
     .map((track) => {
@@ -356,6 +357,10 @@ export function retrieveContractAuthoritativePool<T extends ContractAuthoritativ
     for (const row of scoredRows) {
       if (merged.length >= broadCap) break;
       if (seen.has(row.track.trackId)) continue;
+      const classification = classMap.get(row.track.trackId) ?? null;
+      const ct = toContractTrack(row.track, classification);
+      const meta = buildContractCompositionMeta(ct, contract, classification);
+      if (!passesCompoundRetrievalEligibility(meta, contract)) continue;
       seen.add(row.track.trackId);
       merged.push(row.track);
     }
