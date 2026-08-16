@@ -374,7 +374,17 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
         bestIdx = i;
       }
     }
-    if (bestIdx < 0 || bestVal < 0) break;
+    if (bestIdx < 0 || bestVal < 0) {
+      if (result.length >= targetLength) break;
+      const stallPick = remaining
+        .filter((t) => canAdd(t))
+        .sort((a, b) => compareCompoundIntent(a, b, contract))[0];
+      if (!stallPick) break;
+      const stallIdx = remaining.indexOf(stallPick);
+      remaining.splice(stallIdx, 1);
+      addTrack(stallPick);
+      continue;
+    }
     const [picked] = remaining.splice(bestIdx, 1);
     addTrack(picked!);
   }
@@ -400,6 +410,16 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
       if (preserveBoth && meta && !passesCompoundRetrievalEligibility(meta, contract, { relaxed: true })) {
         continue;
       }
+      addTrack(track);
+    }
+  }
+
+  if (result.length < targetLength) {
+    const honestFill = [...candidatePool]
+      .filter((t) => getContractCompositionMeta(t)?.admissible !== false)
+      .sort((a, b) => compareCompoundIntent(a, b, contract));
+    for (const track of honestFill) {
+      if (result.length >= targetLength) break;
       addTrack(track);
     }
   }

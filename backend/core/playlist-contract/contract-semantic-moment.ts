@@ -77,12 +77,10 @@ const AXIS_SEMANTIC_SPECS: Record<string, AxisSemanticSpec> = {
   not_cheesy: {
     narrativeTags: ["melancholy-thread", "nocturnal-narrative"],
     unwantedConcepts: ["warehouse-rave"],
-    unwantedNarrative: ["momentum"],
   },
   not_boring: {
     narrativeTags: ["melancholy-thread", "tension-build", "nocturnal-narrative", "momentum"],
     emotionalMovement: ["pulse", "evolving", "arc"],
-    unwantedAtmospheres: ["hypnotic"],
     unwantedNarrative: ["steady-flow"],
   },
 };
@@ -171,7 +169,8 @@ export function scoreSemanticAxisEvidence(
 
   if (dimensionId.startsWith("not_")) {
     score = Math.max(score, 0.35 * (1 - unwanted));
-    score -= unwanted * 0.42;
+    if (dimensionId === "not_cheesy") score -= unwanted * 0.22;
+    else score -= unwanted * 0.35;
   } else {
     score -= unwanted * 0.38;
   }
@@ -255,8 +254,13 @@ export function blendAxisWithSemanticMoment(
   const hasSemanticSignal = semanticScore >= 0.28;
   const hasUnwantedSignal = unwantedPole >= 0.5;
 
-  if (hasUnwantedSignal) {
-    const penalty = isContrastive ? unwantedPole * 0.42 : unwantedPole * 0.28;
+  if (hasUnwantedSignal && isContrastive) {
+    const penalty = unwantedPole * 0.28;
+    return Math.max(0.06, audioScore - penalty);
+  }
+
+  if (hasUnwantedSignal && !isContrastive) {
+    const penalty = unwantedPole * 0.22;
     return Math.max(0.06, audioScore - penalty);
   }
 
