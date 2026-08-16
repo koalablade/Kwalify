@@ -30,7 +30,7 @@ test("vague lifestyle prompts auto-commit one everyday world", () => {
     ["driving home after work", "evening_drive_world"],
     ["nostalgic driving", "evening_drive_world"],
     ["cozy Sunday morning", "sunday_chill_world"],
-    ["late night drive", "night_drive_world"],
+    ["late night drive", "evening_drive_world"],
   ];
   for (const [prompt, world] of cases) {
     const c = resolveVagueWorldCommit(prompt, { tier: "low", promptConfidenceScore: 0.25 });
