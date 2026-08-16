@@ -173,6 +173,7 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
     priority: 8,
     patterns: [
       /\b(?:background music while i clean|clean the flat|hyperpop chaos for cleaning|upbeat stuff for a morning walk)\b/i,
+      /\b(?:background music|music in the background)\b/i,
     ],
   },
   {
@@ -201,7 +202,7 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
     priority: 14,
     patterns: [
       /\b(?:long drive|road trip|driving home|drive home|after work.*driv|motorway|headlights|road trip through|wales rainy|90s car stereo|windows down|lonely city walk|walk at 1am|golden hour walk)\b/i,
-      /\b(?:evening drive|sunset drive|late night drive|late.?night.*\bdriv)\b/i,
+      /\b(?:evening drive|sunset drive|late night drive|late.?night.*\bdriv|something for driving|music for driving|driving music)\b/i,
     ],
   },
   {

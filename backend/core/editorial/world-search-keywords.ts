@@ -4,6 +4,20 @@
 
 const PROMPT_WORLD_KEYWORDS: Array<{ pattern: RegExp; keywords: string[] }> = [
   {
+    pattern: /\b(?:late\s+night\s+drive|long\s+drive|evening\s+drive|sunset\s+drive|something\s+for\s+driving)\b/i,
+    keywords: [
+      "night drive",
+      "cinematic",
+      "indie",
+      "dream pop",
+      "synth",
+      "the war on drugs",
+      "khruangbin",
+      "cigarettes after sex",
+      "post punk",
+    ],
+  },
+  {
     pattern: /\b(?:motorway|highway|empty\s+road|windscreen|midnight\s+rain)\b/i,
     keywords: [
       "night drive",
@@ -91,6 +105,19 @@ const PROMPT_WORLD_KEYWORDS: Array<{ pattern: RegExp; keywords: string[] }> = [
 ];
 
 const WORLD_ID_KEYWORDS: Record<string, string[]> = {
+  evening_drive_world: [
+    "night drive",
+    "indie",
+    "dream pop",
+    "cinematic",
+    "the war on drugs",
+    "khruangbin",
+    "cigarettes after sex",
+    "tame impala",
+    "post punk",
+    "synth",
+  ],
+  road_trip_singalong_world: ["road trip", "indie", "classic rock", "singalong", "windows down"],
   rainy_motorway_world: ["night drive", "cinematic", "synth", "new wave", "dream pop", "post punk", "ambient"],
   "80s_night_drive_world": ["new wave", "synth pop", "post punk", "darkwave", "synth"],
   gym_rock_world: ["metal", "hard rock", "industrial", "punk", "nu metal"],

@@ -221,6 +221,18 @@ export function selectContractCoveragePreservingPool<T extends ContractCompositi
   if (out.length < limit) {
     for (const track of ranked) {
       if (out.length >= limit) break;
+      if (preserveBoth.length > 0) {
+        const meta = getContractCompositionMeta(track);
+        if (meta && !passesCompoundRetrievalEligibility(meta, contract, {
+          relaxed: true,
+          track: {
+            trackName: (track as { trackName?: string | null }).trackName ?? null,
+            artistName: track.artistName ?? null,
+            genreFamily: (track as { genreFamily?: string | null }).genreFamily ?? null,
+            genrePrimary: (track as { genrePrimary?: string | null }).genrePrimary ?? null,
+          },
+        })) continue;
+      }
       tryAdd(track);
     }
     phases.push(`honest_tail:${out.length}`);
@@ -327,6 +339,9 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
 
   const addTrack = (track: T) => {
     if (used.has(track.trackId)) return false;
+    if (isCompositionSpamTrack(track as ContractCompositionTrack & { trackName?: string | null; artistName?: string | null })) {
+      return false;
+    }
     if (!canAdd(track)) return false;
     used.add(track.trackId);
     const artist = artistKey(track.artistName);
