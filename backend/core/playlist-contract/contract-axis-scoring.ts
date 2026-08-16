@@ -11,6 +11,7 @@ import {
   buildTrackSemanticProfileForContract,
   compoundIntersectionStrength,
   contrastiveNegationPenalty,
+  isEmotionalBangerAudioProfile,
   scoreSemanticAxisEvidence,
   scoreUnwantedPoleForAxis,
 } from "./contract-semantic-moment";
@@ -100,16 +101,26 @@ export function scoreContractDimension(
         break;
       }
       const emotionalBase = valence < 0.42 ? 0.55 + (0.42 - valence) : 0.35;
-      const energyDampen = energy > 0.72 ? Math.min(0.45, (energy - 0.72) * 1.35) : 0;
+      const emotionalBanger = isEmotionalBangerAudioProfile(energy, valence, dance);
+      const energyDampen = emotionalBanger
+        ? (energy > 0.84 ? Math.min(0.1, (energy - 0.84) * 0.4) : 0)
+        : energy > 0.72
+          ? Math.min(0.45, (energy - 0.72) * 1.35)
+          : 0;
       audioScore = Math.max(0.08, emotionalBase - energyDampen - spamPenalty * 0.62);
+      if (emotionalBanger && !spamPenalty) audioScore = Math.min(0.82, audioScore + 0.08);
       break;
     }
-    case "party_energy":
+    case "party_energy": {
+      const emotionalBanger = isEmotionalBangerAudioProfile(energy, valence, dance);
       if (energy > 0.72) audioScore = 0.58 + Math.min(0.35, (energy - 0.72) * 1.2);
       else if (energy > 0.68 && dance > 0.5) audioScore = 0.48 + Math.min(0.4, (energy - 0.68) * 1.2);
       else if (energy > 0.62 && dance > 0.55) audioScore = 0.35 + (energy - 0.62) * 0.4;
-      else audioScore = energy > 0.55 ? 0.22 : 0.08;
+      else if (emotionalBanger && energy > 0.58 && dance > 0.46) {
+        audioScore = 0.38 + (energy - 0.58) * 0.55 + (dance - 0.46) * 0.35;
+      } else audioScore = energy > 0.55 ? 0.22 : 0.08;
       break;
+    }
     case "high_energy":
       audioScore = energy > 0.68 ? 0.55 + Math.min(0.45, (energy - 0.68) * 1.5) : energy > 0.55 ? 0.28 : 0.1;
       break;
@@ -185,12 +196,20 @@ export function buildContractCompositionMeta(
 
   const preserveBoth = contract.tension.filter((t) => t.resolution === "preserve_both");
   let intersectionStrength = 0;
+  const emotionalBanger = isEmotionalBangerAudioProfile(
+    track.energy ?? 0.5,
+    track.valence ?? 0.5,
+    track.danceability ?? track.energy ?? 0.5,
+  );
   for (const t of preserveBoth) {
     const a = axisScores[t.axes[0]] ?? scoreContractDimension(track, t.axes[0], classification, semanticProfile);
     const b = axisScores[t.axes[1]] ?? scoreContractDimension(track, t.axes[1], classification, semanticProfile);
     axisScores[t.axes[0]] = a;
     axisScores[t.axes[1]] = b;
-    intersectionStrength = Math.max(intersectionStrength, compoundIntersectionStrength(a, b));
+    intersectionStrength = Math.max(
+      intersectionStrength,
+      compoundIntersectionStrength(a, b, { emotionalBanger }),
+    );
   }
 
   const axesActive = Object.entries(axisScores)

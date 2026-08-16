@@ -417,7 +417,16 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
   if (result.length < targetLength) {
     const honestFill = [...candidatePool]
       .filter((t) => getContractCompositionMeta(t)?.admissible !== false)
-      .sort((a, b) => compareCompoundIntent(a, b, contract));
+      .sort((a, b) => {
+        const ma = getContractCompositionMeta(a);
+        const mb = getContractCompositionMeta(b);
+        const aCompound =
+          preserveBoth && ma && passesCompoundRetrievalEligibility(ma, contract, { relaxed: true }) ? 1 : 0;
+        const bCompound =
+          preserveBoth && mb && passesCompoundRetrievalEligibility(mb, contract, { relaxed: true }) ? 1 : 0;
+        if (bCompound !== aCompound) return bCompound - aCompound;
+        return compareCompoundIntent(a, b, contract);
+      });
     for (const track of honestFill) {
       if (result.length >= targetLength) break;
       addTrack(track);

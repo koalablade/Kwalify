@@ -7,6 +7,15 @@ import { enrichTrackSemanticProfile, type EnrichmentTrackInput } from "../../lib
 import type { TrackSemanticProfile } from "../../lib/track-semantic-types";
 import type { ContractAuthoritativeTrack } from "./contract-authoritative-retrieval";
 
+/** Low-valence, danceable, high-motion tracks — sad party bangers, not techno spam. */
+export function isEmotionalBangerAudioProfile(
+  energy: number,
+  valence: number,
+  danceability: number,
+): boolean {
+  return valence < 0.48 && energy > 0.6 && danceability > 0.46;
+}
+
 function textSpamPenalty(text: string): number {
   if (/\bcheesy|cheesey|novelty|eurovision|kidz bop|gummy bear|party all the time\b/.test(text)) {
     return 0.55;
@@ -24,12 +33,20 @@ export function harmonicAxisIntersection(a: number, b: number): number {
 }
 
 /** Compound intersection: geometric when balanced; shifts toward harmonic when imbalanced. */
-export function compoundIntersectionStrength(a: number, b: number): number {
+export function compoundIntersectionStrength(
+  a: number,
+  b: number,
+  opts?: { emotionalBanger?: boolean },
+): number {
   const geometric = Math.sqrt(Math.max(0, a) * Math.max(0, b));
   const weak = Math.min(a, b);
   const strong = Math.max(a, b);
   const imbalance = strong > 0 ? (strong - weak) / strong : 0;
   const harmonic = harmonicAxisIntersection(a, b);
+  // Sad bangers legitimately skew party_energy > melancholy — don't over-penalise imbalance.
+  if (opts?.emotionalBanger && weak >= 0.3 && strong >= 0.38) {
+    return geometric * (1 - imbalance * 0.22) + harmonic * (imbalance * 0.22);
+  }
   return geometric * (1 - imbalance * 0.58) + harmonic * (imbalance * 0.58);
 }
 
@@ -50,18 +67,18 @@ type AxisSemanticSpec = {
 
 const AXIS_SEMANTIC_SPECS: Record<string, AxisSemanticSpec> = {
   melancholy: {
-    atmospheres: ["melancholic", "reflective", "lonely", "foreboding"],
-    themes: ["loss", "regret"],
-    narrativeTags: ["melancholy-thread", "emotional-weight"],
+    atmospheres: ["melancholic", "reflective", "lonely", "foreboding", "bittersweet"],
+    themes: ["loss", "regret", "longing"],
+    narrativeTags: ["melancholy-thread", "emotional-weight", "bittersweet-arc"],
     unwantedAtmospheres: ["euphoric"],
   },
   party_energy: {
-    atmospheres: ["euphoric", "danceable"],
-    themes: ["party"],
+    atmospheres: ["euphoric", "danceable", "bittersweet"],
+    themes: ["party", "celebration"],
     activities: ["dancing"],
     culturalContextTags: ["club-scene", "high-motion-scene"],
-    narrativeTags: ["momentum"],
-    emotionalMovement: ["pulse"],
+    narrativeTags: ["momentum", "emotional-release"],
+    emotionalMovement: ["pulse", "arc"],
   },
   high_energy: {
     culturalContextTags: ["high-motion-scene"],
@@ -178,20 +195,36 @@ export function scoreSemanticAxisEvidence(
   if (dimensionId === "melancholy") {
     const hasMelancholySignal =
       tagsInclude(profile.scene.atmospheres, "melancholic") ||
-      tagsInclude(profile.musicSemantic.narrativeTags, "melancholy-thread");
+      tagsInclude(profile.scene.atmospheres, "bittersweet") ||
+      tagsInclude(profile.musicSemantic.narrativeTags, "melancholy-thread") ||
+      tagsInclude(profile.musicSemantic.narrativeTags, "bittersweet-arc");
     const clubOnly =
       tagsInclude(profile.musicSemantic.culturalContextTags, "club-scene") &&
       !hasMelancholySignal &&
       !tagsInclude(profile.scene.atmospheres, "reflective");
     if (clubOnly) score = Math.max(0, score - 0.22);
+    const ms = profile.musicSemantic;
+    const emotionalBangerMotion =
+      (ms.emotionalMovement === "pulse" || ms.emotionalMovement === "arc") &&
+      (tagsInclude(profile.scene.atmospheres, "danceable") ||
+        tagsInclude(ms.narrativeTags, "emotional-release"));
+    if (emotionalBangerMotion && hasMelancholySignal) score = Math.min(0.92, score + 0.14);
   }
 
   if (dimensionId === "party_energy") {
+    const hasMelancholyPartner =
+      tagsInclude(profile.scene.atmospheres, "melancholic") ||
+      tagsInclude(profile.scene.atmospheres, "bittersweet") ||
+      tagsInclude(profile.musicSemantic.narrativeTags, "melancholy-thread");
     const pulseOnly =
       profile.musicSemantic.emotionalMovement === "pulse" &&
       !tagsInclude(profile.scene.atmospheres, "euphoric") &&
-      !tagsInclude(profile.themes, "party");
+      !tagsInclude(profile.themes, "party") &&
+      !hasMelancholyPartner;
     if (pulseOnly) score *= 0.72;
+    if (hasMelancholyPartner && tagsInclude(profile.scene.atmospheres, "danceable")) {
+      score = Math.min(0.92, score + 0.12);
+    }
   }
 
   return Math.max(0, Math.min(0.95, score));

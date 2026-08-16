@@ -13,6 +13,7 @@ import { passesCompoundRetrievalEligibility } from "../core/playlist-contract/co
 import {
   compoundIntersectionStrength,
   harmonicAxisIntersection,
+  isEmotionalBangerAudioProfile,
 } from "../core/playlist-contract/contract-semantic-moment";
 
 test("V46 harmonic intersection penalizes single-axis dominance", () => {
@@ -108,4 +109,47 @@ test("V46 chilled but not boring prefers interesting low-energy over flat ambien
     scoreContractDimension(interesting, "not_boring", { genreFamily: "indie" }) >
       scoreContractDimension(flat, "not_boring", { genreFamily: "ambient" }),
   );
+});
+
+test("V47 emotional banger profile activates both melancholy and party_energy", () => {
+  const contract = buildPlaylistContract({ prompt: "sad party bangers" });
+  const kidCudi = {
+    trackId: "1",
+    trackName: "Pursuit Of Happiness",
+    artistName: "Kid Cudi",
+    energy: 0.68,
+    valence: 0.32,
+    danceability: 0.55,
+    genreFamily: "hip_hop",
+  };
+  const meta = buildContractCompositionMeta(kidCudi, contract, {
+    genreFamily: "hip_hop",
+    genrePrimary: "hip_hop",
+  });
+  assert.ok(
+    (meta.axisScores.party_energy ?? 0) >= 0.42,
+    `party_energy ${meta.axisScores.party_energy} should activate`,
+  );
+  assert.ok(
+    passesCompoundRetrievalEligibility(meta, contract),
+    "emotional banger should pass compound eligibility",
+  );
+});
+
+test("V47 techno spam still fails compound eligibility for sad party bangers", () => {
+  const contract = buildPlaylistContract({ prompt: "sad party bangers" });
+  const spamMeta = buildContractCompositionMeta(
+    {
+      trackId: "1",
+      trackName: "TECHNO - VIP",
+      artistName: "ZAPRAVKA",
+      energy: 0.92,
+      valence: 0.38,
+      danceability: 0.82,
+      genreFamily: "electronic",
+    },
+    contract,
+    { genreFamily: "electronic", genrePrimary: "electronic" },
+  );
+  assert.equal(passesCompoundRetrievalEligibility(spamMeta, contract), false);
 });
