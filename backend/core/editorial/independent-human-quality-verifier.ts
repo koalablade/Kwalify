@@ -246,11 +246,13 @@ export function parsePromptExpectation(prompt: string): PromptExpectation {
   }
 
   let worldHint: string | null = null;
-  if (/\bdad rock\b/.test(lower)) worldHint = "classic_rock_world";
+  if (/\bdad rock\b/.test(lower)) worldHint = "dad_rock_world";
   else if (/\bpop punk\b/.test(lower)) worldHint = "pop_punk_world";
   else if (/\breggae\b/.test(lower)) worldHint = "reggae_world";
-  else if (/\b(?:90s indie|indie road trip)\b/.test(lower)) worldHint = "90s_indie_world";
-  else if (/\b(?:late night drive|night drive)\b/.test(lower)) worldHint = "80s_night_drive_world";
+  else if (/\b(?:late night drive|night drive|long drive|road trip|something for driving)\b/.test(lower)) {
+    worldHint = "night_drive_world";
+  }
+  else if (/\b(?:rainy sunday|rainy day)\b/.test(lower)) worldHint = "rainy_drive_world";
 
   return { compoundAxes, negations, momentTags, activityTags, atmosphereTags, worldHint, promptLower: lower };
 }
