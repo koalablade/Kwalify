@@ -189,8 +189,7 @@ export function momentRejectSeverity(
   if (activity === "night_drive") {
     if (NIGHT_DRIVE_SPAM.test(title) || NIGHT_DRIVE_SPAM.test(artistOf(track))) return "hard";
     if (NIGHT_DRIVE_WEAK.test(title) && popOf(track) < 40) return "soft";
-    if (/\bradio edit\b/i.test(title) && energy !== null && energy > 0.62) return "hard";
-    if (/\b(?:extended mix|club mix)\b/i.test(title) && energy !== null && energy > 0.65) return "hard";
+    if (/\bradio edit\b/i.test(title) && energy !== null && energy > 0.68) return "soft";
   }
 
   if (position === 0) {

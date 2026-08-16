@@ -310,7 +310,7 @@ import {
 } from "../core/playlist-contract/constraint-aware-retrieval";
 import { auditPlaylistAgainstContract } from "../core/playlist-contract/contract-validator";
 import { deriveHonestPartialFromContract } from "../core/playlist-contract/honest-partial";
-import { stripSemanticSpamTracks } from "../core/playlist-contract/contract-axis-scoring";
+import { driveMomentContextPenalty, stripSemanticSpamTracks } from "../core/playlist-contract/contract-axis-scoring";
 import type { ExpectationTrack } from "../core/expectation/types";
 import { persistGenerationSignal } from "../lib/generation-signals";
 import { loadEditorialMemory, recordEditorialMemory } from "../core/editorial/editorial-memory";
@@ -14270,7 +14270,18 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
     // Response-only spam strip — pipeline frozen; human curation/refill can reintroduce title spam.
     if (deliveredTracks.length > 0) {
-      const cleanedDelivered = stripSemanticSpamTracks(deliveredTracks) as PlaylistTrack[];
+      let cleanedDelivered = stripSemanticSpamTracks(deliveredTracks) as PlaylistTrack[];
+      const driveContextStripped = cleanedDelivered.filter(
+        (track) =>
+          driveMomentContextPenalty(vibe, {
+            trackName: track.trackName ?? null,
+            artistName: track.artistName ?? null,
+            energy: track.energy ?? null,
+          }) < 0.45,
+      ) as PlaylistTrack[];
+      if (driveContextStripped.length < cleanedDelivered.length) {
+        cleanedDelivered = driveContextStripped;
+      }
       if (cleanedDelivered.length < deliveredTracks.length) {
         const removed = deliveredTracks.length - cleanedDelivered.length;
         deliveredTracks = cleanedDelivered;

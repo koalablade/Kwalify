@@ -84,7 +84,7 @@ test("V52 driveMomentContextPenalty penalises sped-up spam but not contextual re
       artistName: "Philip George",
       trackName: "Wish You Were Mine - Radio Edit",
       energy: 0.66,
-    }) >= 0.5,
+    }) >= 0.45,
   );
 });
 

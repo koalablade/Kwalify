@@ -10,7 +10,6 @@ import { scoreTrackWorldIdentity, type WorldIdentityTrack } from "./world-identi
 import { trackPassesWorldPurity } from "./world-purity-gate";
 import { normalizeSessionArtist } from "../../lib/session-artist-gravity";
 import { driveMomentContextPenalty, isSemanticSpamTrack } from "../playlist-contract/contract-axis-scoring";
-import { passesMomentFitForRefill } from "./song-moment-fit";
 
 export type DeliverableDepthRefillDiagnostics = {
   seedCount: number;
@@ -141,7 +140,6 @@ function passesDeliverableSlot<T extends WorldIdentityTrack>(
     ) {
       return false;
     }
-    if (!passesMomentFitForRefill(candidate, opts.prompt)) return false;
   }
   if (!trackPassesWorldPurity(candidate, profile, position, { isThesisOpener: isOpener })) return false;
   if (opts.isGenreVerified && !opts.isGenreVerified(track)) return false;

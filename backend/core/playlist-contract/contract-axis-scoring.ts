@@ -69,8 +69,8 @@ export function driveMomentContextPenalty(
     return 0.55;
   }
   if (/\b(?:d&b|drum and bass|jump up|hardstyle|brostep)\b/.test(text)) return 0.35;
-  if (/\bradio edit\b/.test(text) && energy > 0.62) return 0.52;
-  if (/\b(?:extended mix|club mix)\b/.test(text) && energy > 0.65) return 0.45;
+  if (/\bradio edit\b/.test(text) && energy > 0.62) return 0.46;
+  if (/\b(?:extended mix|club mix)\b/.test(text) && energy > 0.65) return 0.38;
   if (/\b(?:war on drugs|m83|chromatics|kavinsky|the midnight|beach house|cigarettes after sex|khruangbin|tame impala|radiohead|the national)\b/.test(text)) {
     return -0.08;
   }
