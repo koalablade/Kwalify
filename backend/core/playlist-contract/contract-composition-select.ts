@@ -6,7 +6,12 @@
 import type { ContractCompositionMeta, ContractCompositionTrack } from "./contract-composition-types";
 import { getContractCompositionMeta, requiredContractDimensions } from "./contract-composition-types";
 import type { PlaylistContract } from "./types";
-import { CONTRACT_AXIS_ACTIVATION_THRESHOLD, intersectionThreshold, semanticSpamPenalty } from "./contract-axis-scoring";
+import {
+  CONTRACT_AXIS_ACTIVATION_THRESHOLD,
+  intersectionThreshold,
+  isSemanticSpamTrack,
+  semanticSpamPenalty,
+} from "./contract-axis-scoring";
 import { compoundIntersectionStrength } from "./contract-semantic-moment";
 import { passesCompoundRetrievalEligibility } from "./contract-compound-eligibility";
 
@@ -29,7 +34,7 @@ function trackTextSpamPenalty(track: { trackName?: string | null; artistName?: s
 function isCompositionSpamTrack(
   track: ContractCompositionTrack & { trackName?: string | null; artistName?: string | null },
 ): boolean {
-  return trackTextSpamPenalty(track) >= 0.35;
+  return isSemanticSpamTrack(track);
 }
 
 function artistKey(name: string | null | undefined): string {

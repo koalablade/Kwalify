@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { scoreContractDimension } from "../core/playlist-contract/contract-axis-scoring";
+import { isSemanticSpamTrack, scoreContractDimension } from "../core/playlist-contract/contract-axis-scoring";
 
 test("V44 not_cheesy penalizes novelty/spam titles over raw energy", () => {
   const technoSpam = {
@@ -55,4 +55,13 @@ test("V44 not_boring rejects flat low-interest tracks", () => {
     scoreContractDimension(interesting, "not_boring", { genreFamily: "indie" }) >
       scoreContractDimension(flat, "not_boring", { genreFamily: "ambient" }),
   );
+});
+
+test("V50 isSemanticSpamTrack catches sp33d and sped-up title spam", () => {
+  assert.equal(isSemanticSpamTrack({ artistName: "BLVTH", trackName: "NOBODYNOONE - BLVTH ON SP33D REMIX" }), true);
+  assert.equal(
+    isSemanticSpamTrack({ artistName: "DJ Fronteo", trackName: "Mary On A Cross (Sped Up) - Remix" }),
+    true,
+  );
+  assert.equal(isSemanticSpamTrack({ artistName: "The War on Drugs", trackName: "Red Eyes" }), false);
 });

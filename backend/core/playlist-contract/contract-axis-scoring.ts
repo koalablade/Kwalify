@@ -45,10 +45,23 @@ export function semanticSpamPenalty(text: string): number {
   if (/\bstorm\s+queen\b|\blook right through\b.*\b(?:edit|vip|mix)\b/.test(text)) {
     return 0.42;
   }
-  if (/\bsped up|slowed \+ reverb|phonk|stutter techno|tiktok|vip mix|club mix|\bvip\b|on sp33d|sp33d|\btechno\b.*\bremix\b/.test(text)) {
+  if (
+    /\bsped up|speed up|speedup|nightcore|slowed \+ reverb|phonk|stutter techno|tiktok|vip mix|club mix|\bvip\b|on sp33d|sp33d|hardstyle|brostep|\btechno\b.*\bremix\b/.test(
+      text,
+    )
+  ) {
     return 0.38;
   }
   return 0;
+}
+
+/** Universal title/artist spam gate — shared by contract composition and final delivery. */
+export function isSemanticSpamTrack(track: {
+  trackName?: string | null;
+  artistName?: string | null;
+}): boolean {
+  const text = `${track.artistName ?? ""} ${track.trackName ?? ""}`.toLowerCase();
+  return semanticSpamPenalty(text) >= 0.35;
 }
 
 function cheesySemanticPenalty(text: string): number {

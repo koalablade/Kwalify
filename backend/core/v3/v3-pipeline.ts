@@ -45,6 +45,7 @@ import {
   HumanQualityGateError,
   type HumanQualityGateResult,
 } from "../editorial/human-quality-gate";
+import { isSemanticSpamTrack } from "../playlist-contract/contract-axis-scoring";
 import { inferWorldIdentityIdsFromPrompt } from "../editorial/world-identity-gate";
 import { resolveCommittedWorld } from "../committed-world";
 import {
@@ -3055,6 +3056,16 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     ) {
       finalTracks = humanCuration.tracks as typeof finalTracks;
     }
+  }
+  const spamFiltered = finalTracks.filter(
+    (track) =>
+      !isSemanticSpamTrack({
+        trackName: track.trackName,
+        artistName: track.artistName,
+      }),
+  );
+  if (spamFiltered.length < finalTracks.length) {
+    finalTracks = spamFiltered as typeof finalTracks;
   }
   const worldProof = evaluateWorldProof({
     tracks: finalTracks.map((t) => ({
