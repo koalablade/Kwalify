@@ -14271,7 +14271,20 @@ router.post("/generate", async (req, res): Promise<void> => {
     // Response-only spam strip — pipeline frozen; human curation/refill can reintroduce title spam.
     if (deliveredTracks.length > 0) {
       let cleanedDelivered = stripSemanticSpamTracks(deliveredTracks) as PlaylistTrack[];
-      const driveContextStripped = cleanedDelivered.filter(
+      const driveRanked = [...cleanedDelivered].sort(
+        (a, b) =>
+          driveMomentContextPenalty(vibe, {
+            trackName: a.trackName ?? null,
+            artistName: a.artistName ?? null,
+            energy: a.energy ?? null,
+          }) -
+          driveMomentContextPenalty(vibe, {
+            trackName: b.trackName ?? null,
+            artistName: b.artistName ?? null,
+            energy: b.energy ?? null,
+          }),
+      );
+      const driveContextStripped = driveRanked.filter(
         (track) =>
           driveMomentContextPenalty(vibe, {
             trackName: track.trackName ?? null,
@@ -14279,7 +14292,10 @@ router.post("/generate", async (req, res): Promise<void> => {
             energy: track.energy ?? null,
           }) < 0.45,
       ) as PlaylistTrack[];
-      if (driveContextStripped.length < cleanedDelivered.length) {
+      if (
+        driveContextStripped.length >= HONEST_PARTIAL_MIN &&
+        driveContextStripped.length < cleanedDelivered.length
+      ) {
         cleanedDelivered = driveContextStripped;
       }
       if (cleanedDelivered.length < deliveredTracks.length) {
