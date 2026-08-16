@@ -65,6 +65,20 @@ describe("human-quality-gate", () => {
     assert.ok(result.userMessage);
   });
 
+  it("post-purity validated depth prevents VERY_LOW cliff to 5", () => {
+    const cliffed = evaluateHumanQualityGate({
+      trackCount: 8,
+      requestedLength: 25,
+      committedWorldHardLock: true,
+      coverageLevel: "VERY_LOW",
+      postPurityValidatedDepth: 20,
+      wouldSpotifyMakeThis: true,
+      dominantWorldDensity: 0.72,
+    });
+    assert.ok(cliffed.salvageableCount >= 8, "should not cliff 8 valid tracks down to 5");
+    assert.notEqual(cliffed.salvageableCount, 5);
+  });
+
   it("passes healthy playlists", () => {
     const result = evaluateHumanQualityGate({
       trackCount: 28,

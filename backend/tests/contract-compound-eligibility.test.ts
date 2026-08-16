@@ -24,6 +24,19 @@ test("buildPlaylistContract detects party but not cheesy tension", () => {
   );
 });
 
+test("buildPlaylistContract detects party but restrained tension", () => {
+  const contract = buildPlaylistContract({ prompt: "party but restrained" });
+  assert.ok(
+    contract.tension.some(
+      (t) =>
+        t.axes.includes("party_energy") &&
+        t.axes.includes("not_cheesy") &&
+        t.resolution === "preserve_both",
+    ),
+    "party+restrained preserve_both tension required",
+  );
+});
+
 test("melancholy dampens high-energy techno spam without blocking credible sad bangers", () => {
   const technoSpam = {
     trackId: "1",

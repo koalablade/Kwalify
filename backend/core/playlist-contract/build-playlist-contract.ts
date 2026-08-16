@@ -141,7 +141,7 @@ function detectTensions(
   }
 
   const partyRestrained =
-    (/\bparty\b/.test(lower) && /\b(?:restrain|controlled|understated)\b/.test(lower)) ||
+    (/\bparty\b/.test(lower) && /\b(?:restrain(?:ed)?|controlled|understated)\b/.test(lower)) ||
     lower.includes("party+restrained");
   if (partyRestrained && !tensions.some((t) => t.axes.includes("party_energy"))) {
     tensions.push({

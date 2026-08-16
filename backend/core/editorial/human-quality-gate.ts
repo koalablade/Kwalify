@@ -274,9 +274,11 @@ export function evaluateHumanQualityGate(input: HumanQualityGateInput): HumanQua
       (worldCoherenceOk &&
         !input.degradedDelivery &&
         !reasons.includes("human_save_failed")));
+  const validatedDepth =
+    typeof input.postPurityValidatedDepth === "number" ? input.postPurityValidatedDepth : undefined;
   const coverageCap =
     input.coverageLevel && input.committedWorldHardLock && !downstreamValidatedDepth
-      ? coverageLevelToMaxTracks(input.coverageLevel, requested)
+      ? coverageLevelToMaxTracks(input.coverageLevel, requested, validatedDepth)
       : downstreamValidatedDepth
         ? Math.min(count, requested)
         : softDefaultCap;
