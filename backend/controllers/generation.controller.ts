@@ -12567,7 +12567,19 @@ router.post("/generate", async (req, res): Promise<void> => {
         if (sequenced !== thesisResult.tracks) {
           assignFT("world_sequencer", "world-aware sequencing", sequenced);
         }
-        const purityEarly = applyWorldPurityGate(delivery.tracks as PlaylistTrack[], committedWorld, {
+        const purityEarly = contractRebalanceDeliveryGuard
+          ? {
+              tracks: delivery.tracks as PlaylistTrack[],
+              removed: 0,
+              honestPartial: false,
+              wouldStillBelieve: true,
+              removedReasons: [] as string[],
+              checkpointFailures: [] as string[],
+              coverageMessage: null,
+              deliveryMessage: null,
+              subFunnel: undefined,
+            }
+          : applyWorldPurityGate(delivery.tracks as PlaylistTrack[], committedWorld, {
           prompt: vibe,
           requestedLength,
           coverageLevel: worldCoverageAssessment?.score ?? null,
@@ -12581,14 +12593,18 @@ router.post("/generate", async (req, res): Promise<void> => {
           isGenreVerified: strictGenreEvidenceDiagnostics?.active ? isGenreEvidenceVerified : undefined,
           enrichTrack: enrichForWorld,
         });
-        if (puritySubFunnel) {
+        if (!contractRebalanceDeliveryGuard && puritySubFunnel && purityEarly.subFunnel) {
           mergePuritySubFunnelFromGate(
             puritySubFunnel,
             purityEarly.subFunnel,
             hardRejectOffWorldSinceV3Composed,
           );
         }
-        if (purityEarly.tracks.length > 0 && (purityEarly.removed > 0 || purityEarly.honestPartial)) {
+        if (
+          !contractRebalanceDeliveryGuard &&
+          purityEarly.tracks.length > 0 &&
+          (purityEarly.removed > 0 || purityEarly.honestPartial)
+        ) {
           assignFT("world_purity_gate", "V15 delivery recovery purity", purityEarly.tracks as PlaylistTrack[]);
         }
         if (
@@ -12672,7 +12688,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         requestedLength,
         coverageLevel: worldCoverageAssessment?.score ?? null,
       });
-      if (committedWorld?.hardLock) {
+      if (committedWorld?.hardLock && !contractRebalanceDeliveryGuard) {
         const fullWorldFiltered = filterTracksByFullWorldProof(
           delivery.tracks,
           committedWorld,
@@ -13628,8 +13644,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       recoveryPoolSize: mergedConstrainedRecoveryPool.length,
     }));
     let preFreezeOpenerDiagnostics: OpenerHygieneDiagnostics = {};
-    {
-      const preFreezeWorldIds = inferWorldIdentityIdsFromPrompt(vibe);
+    const preFreezeWorldIds = inferWorldIdentityIdsFromPrompt(vibe);
+    if (!contractRebalanceDeliveryGuard) {
       const preFreezeHygiene = applyPreFreezeOpenerHygieneToDelivery(
         delivery.tracks as PlaylistTrack[],
         preFreezeWorldIds,
