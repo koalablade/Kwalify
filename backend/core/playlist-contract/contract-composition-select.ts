@@ -6,7 +6,7 @@
 import type { ContractCompositionMeta, ContractCompositionTrack } from "./contract-composition-types";
 import { getContractCompositionMeta, requiredContractDimensions } from "./contract-composition-types";
 import type { PlaylistContract } from "./types";
-import { CONTRACT_AXIS_ACTIVATION_THRESHOLD, intersectionThreshold } from "./contract-axis-scoring";
+import { CONTRACT_AXIS_ACTIVATION_THRESHOLD, intersectionThreshold, semanticSpamPenalty } from "./contract-axis-scoring";
 import { compoundIntersectionStrength } from "./contract-semantic-moment";
 import { passesCompoundRetrievalEligibility } from "./contract-compound-eligibility";
 
@@ -20,6 +20,17 @@ export type ContractCoverageSelectionDiagnostics = {
 };
 
 const MAX_PER_ARTIST = 4;
+
+function trackTextSpamPenalty(track: { trackName?: string | null; artistName?: string | null }): number {
+  const text = `${track.artistName ?? ""} ${track.trackName ?? ""}`.toLowerCase();
+  return semanticSpamPenalty(text);
+}
+
+function isCompositionSpamTrack(
+  track: ContractCompositionTrack & { trackName?: string | null; artistName?: string | null },
+): boolean {
+  return trackTextSpamPenalty(track) >= 0.35;
+}
 
 function artistKey(name: string | null | undefined): string {
   return (name ?? "").toLowerCase().trim();
@@ -135,7 +146,9 @@ export function selectContractCoveragePreservingPool<T extends ContractCompositi
   const required = requiredContractDimensions(contract);
   const preserveBoth = contract.tension.filter((t) => t.resolution === "preserve_both");
   const phases: string[] = [];
-  const admissible = tracks.filter((t) => getContractCompositionMeta(t)?.admissible !== false);
+  const admissible = tracks.filter(
+    (t) => getContractCompositionMeta(t)?.admissible !== false && !isCompositionSpamTrack(t),
+  );
   const inputCount = tracks.length;
 
   if (required.length <= 1 || preserveBoth.length === 0) {

@@ -60,11 +60,12 @@ function meta(partial: Partial<ContractCompositionMeta>): ContractCompositionMet
 type SyntheticTrack = {
   trackId: string;
   artistName: string;
+  trackName?: string;
   contractCompositionMeta?: ContractCompositionMeta;
 };
 
-function track(id: string, artist: string, compositionMeta: ContractCompositionMeta): SyntheticTrack {
-  return { trackId: id, artistName: artist, contractCompositionMeta: compositionMeta };
+function track(id: string, artist: string, compositionMeta: ContractCompositionMeta, extra?: Partial<SyntheticTrack>): SyntheticTrack {
+  return { trackId: id, artistName: artist, contractCompositionMeta: compositionMeta, ...extra };
 }
 
 test("selectContractCoveragePreservingPool reserves intersection and axis coverage", () => {
@@ -268,4 +269,17 @@ test("rebalancePlaylistForContractCoverage injects missing axis when V3 output i
   assert.ok(
     tracks.filter((t) => (t.contractCompositionMeta?.axisScores.party_energy ?? 0) >= 0.42).length >= 2,
   );
+});
+
+test("selectContractCoveragePreservingPool rejects title spam tracks", () => {
+  const contract = syntheticContract();
+  const pool: SyntheticTrack[] = [
+    track("good-1", "Robyn", meta({ contractScore: 0.7, axisScores: { axisA: 0.6, axisB: 0.55 } })),
+    track("spam-1", "DJ Spam", meta({ contractScore: 0.85, axisScores: { axisA: 0.9, axisB: 0.88 } }), {
+      trackName: "Stutter Techno VIP Mix",
+    }),
+  ];
+  const { tracks } = selectContractCoveragePreservingPool(pool, contract, 2);
+  assert.ok(!tracks.some((t) => (t.trackName ?? "").includes("Techno")));
+  assert.equal(tracks.length, 1);
 });

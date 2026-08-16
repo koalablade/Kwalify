@@ -4,7 +4,7 @@
  */
 
 import type { ContractCompositionMeta } from "./contract-composition-types";
-import { CONTRACT_AXIS_ACTIVATION_THRESHOLD } from "./contract-axis-scoring";
+import { CONTRACT_AXIS_ACTIVATION_THRESHOLD, semanticSpamPenalty } from "./contract-axis-scoring";
 import { compoundEmotionalBangerAntiPatternPenalty } from "./contract-semantic-moment";
 import type { ContractTension, PlaylistContract } from "./types";
 
@@ -33,6 +33,8 @@ export function passesCompoundRetrievalEligibility(
   if (preserveBoth.length === 0) return true;
 
   if (opts?.track) {
+    const text = `${opts.track.artistName ?? ""} ${opts.track.trackName ?? ""}`.toLowerCase();
+    if (semanticSpamPenalty(text) >= 0.35) return false;
     const antiPattern = compoundEmotionalBangerAntiPatternPenalty(opts.track, contract);
     if (antiPattern >= 0.45) return false;
   }
