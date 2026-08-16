@@ -137,6 +137,8 @@ export function seedContractRetrievalIntoScoredPool<T extends {
   let metaAttached = 0;
   const enrichedPool: Array<ScoredLibraryTrack<T> & ContractCompositionTrack> = [];
 
+  const preserveBoth = contract.tension.some((t) => t.resolution === "preserve_both");
+  let compoundFiltered = 0;
   for (const raw of contractRetrievalPool) {
     const existing = sortedById.get(raw.trackId);
     const base = existing ?? raw;
@@ -150,8 +152,10 @@ export function seedContractRetrievalIntoScoredPool<T extends {
     }
     metaAttached += 1;
     if (!meta.admissible) continue;
-    const preserveBoth = contract.tension.some((t) => t.resolution === "preserve_both");
-    if (preserveBoth && !passesCompoundRetrievalEligibility(meta, contract, { relaxed: true })) continue;
+    if (preserveBoth && !passesCompoundRetrievalEligibility(meta, contract, { relaxed: true })) {
+      compoundFiltered += 1;
+      continue;
+    }
 
     const compound = computeCompoundIntentScore(meta, contract);
     const contractRank = compound * 0.68 + meta.contractScore * 0.18 + meta.intersectionStrength * 0.14;
@@ -184,6 +188,43 @@ export function seedContractRetrievalIntoScoredPool<T extends {
     if (!existing) seededNew += 1;
     sortedById.set(raw.trackId, enriched);
     scoredById.set(raw.trackId, enriched);
+  }
+
+  // Graceful degradation: never zero the seeded pool when admissible supply exists.
+  if (preserveBoth && enrichedPool.length === 0 && compoundFiltered > 0) {
+    const fallbackCandidates: Array<{ raw: T; meta: ContractCompositionMeta; compound: number }> = [];
+    for (const raw of contractRetrievalPool) {
+      let meta = getContractCompositionMeta(raw);
+      if (!meta) {
+        meta = buildContractCompositionMeta(
+          toAuthoritativeTrack(raw, classMap),
+          contract,
+          classMap.get(raw.trackId) ?? null,
+        );
+      }
+      if (!meta.admissible) continue;
+      fallbackCandidates.push({
+        raw,
+        meta,
+        compound: computeCompoundIntentScore(meta, contract),
+      });
+    }
+    fallbackCandidates.sort((a, b) => b.compound - a.compound);
+    for (const row of fallbackCandidates.slice(0, Math.min(120, fallbackCandidates.length))) {
+      const existing = sortedById.get(row.raw.trackId);
+      const base = existing ?? row.raw;
+      const contractRank =
+        row.compound * 0.68 + row.meta.contractScore * 0.18 + row.meta.intersectionStrength * 0.14;
+      const enriched = {
+        ...base,
+        contractCompositionMeta: row.meta,
+        score: Math.max((existing as ScoredLibraryTrack<T> | undefined)?.score ?? 0, contractRank),
+      } as ScoredLibraryTrack<T> & ContractCompositionTrack;
+      enrichedPool.push(enriched);
+      if (!existing) seededNew += 1;
+      sortedById.set(row.raw.trackId, enriched);
+      scoredById.set(row.raw.trackId, enriched);
+    }
   }
 
   enrichedPool.sort((a, b) => {

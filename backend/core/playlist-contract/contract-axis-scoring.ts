@@ -75,11 +75,17 @@ export function scoreContractDimension(
   switch (dimensionId) {
     case "melancholy": {
       if (valence >= 0.55) return valence < 0.65 ? 0.15 : 0.1;
+      const spamPenalty = semanticSpamPenalty(text);
+      // High-energy club/drill production is not emotional melancholy.
+      if (
+        (energy > 0.78 && valence > 0.28 && valence < 0.48) ||
+        (energy > 0.74 && spamPenalty > 0)
+      ) {
+        return Math.max(0.08, 0.2 - spamPenalty * 0.55);
+      }
       const emotionalBase = valence < 0.42 ? 0.55 + (0.42 - valence) : 0.35;
-      // High-energy club production is aggression/spam, not emotional melancholy.
       const energyDampen = energy > 0.72 ? Math.min(0.45, (energy - 0.72) * 1.35) : 0;
-      const spamPenalty = semanticSpamPenalty(text) * 0.62;
-      return Math.max(0.08, emotionalBase - energyDampen - spamPenalty);
+      return Math.max(0.08, emotionalBase - energyDampen - spamPenalty * 0.62);
     }
     case "party_energy":
       if (energy > 0.72) return 0.58 + Math.min(0.35, (energy - 0.72) * 1.2);

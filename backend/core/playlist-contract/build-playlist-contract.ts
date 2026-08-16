@@ -98,13 +98,15 @@ function detectTensions(
     });
   }
 
-  const upbeatMelancholic =
-    (/\bupbeat\b|\bhappy\b/.test(lower) && /\bmelanchol|\bsad\b/.test(lower)) ||
-    (/\bindie\b/.test(lower) && /\bmelanchol|\bsad\b/.test(lower) && /\bupbeat\b|\benergetic\b/.test(lower));
-  if (upbeatMelancholic && !tensions.some((t) => t.axes[0] === "melancholy" && t.axes[1] === "high_energy")) {
+  // Only explicit contrast ("but") — blend descriptors like "upbeat indie melancholic"
+  // are handled via prefer moods, not preserve_both (avoids pool starvation).
+  const upbeatButMelancholic =
+    /\bupbeat\b/.test(lower) && /\bmelanchol|\bsad\b/.test(lower) &&
+    /\bbut\b|\bwithout\b|\bnot\b/.test(lower);
+  if (upbeatButMelancholic && !tensions.some((t) => t.axes[0] === "melancholy")) {
     tensions.push({
       axes: ["melancholy", "high_energy"],
-      description: "upbeat melancholic contrast",
+      description: "upbeat but melancholic contrast",
       resolution: "preserve_both",
     });
   }
