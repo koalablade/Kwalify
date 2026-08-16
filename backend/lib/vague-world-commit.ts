@@ -185,14 +185,22 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
     ],
   },
   {
+    worldId: "night_drive_world",
+    sceneId: "EMPTY_MOTORWAY_NIGHT",
+    label: "late night drive",
+    priority: 13,
+    patterns: [
+      /\b(?:late night drive|night drive|midnight drive|late.?night.*\bdriv)\b/i,
+    ],
+  },
+  {
     worldId: "evening_drive_world",
     sceneId: "EMPTY_MOTORWAY_NIGHT",
     label: "evening / night drive",
     priority: 11,
     patterns: [
-      /\b(?:late night drive|night drive|long drive|driving home|drive home|after work.*driv|motorway|headlights|road trip through|wales rainy|90s car stereo|windows down|lonely city walk|walk at 1am|golden hour walk)\b/i,
-      /\b(?:late night|midnight drive)\b.*\b(?:drive|driving|motorway|highway)\b/i,
-      /\b(?:drive|driving)\b.*\b(?:late night|midnight|night)\b/i,
+      /\b(?:long drive|road trip|driving home|drive home|after work.*driv|motorway|headlights|road trip through|wales rainy|90s car stereo|windows down|lonely city walk|walk at 1am|golden hour walk)\b/i,
+      /\b(?:evening drive|sunset drive)\b/i,
     ],
   },
   {
@@ -230,6 +238,13 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
     patterns: [
       /\b(?:old songs that hit different|songs that hit different|hit different|something nostalgic)\b/i,
     ],
+  },
+  {
+    worldId: "road_trip_singalong_world",
+    sceneId: "EMPTY_MOTORWAY_NIGHT",
+    label: "long drive / road trip",
+    priority: 10,
+    patterns: [/\b(?:long drive|road trip)\b/i],
   },
   {
     worldId: "summer_evening_world",
