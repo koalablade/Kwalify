@@ -9,7 +9,8 @@ import { matchesAvoidArtist } from "./cultural-identity-profile";
 import { scoreTrackWorldIdentity, type WorldIdentityTrack } from "./world-identity-score";
 import { trackPassesWorldPurity } from "./world-purity-gate";
 import { normalizeSessionArtist } from "../../lib/session-artist-gravity";
-import { isSemanticSpamTrack } from "../playlist-contract/contract-axis-scoring";
+import { driveMomentContextPenalty, isSemanticSpamTrack } from "../playlist-contract/contract-axis-scoring";
+import { passesMomentFitForRefill } from "./song-moment-fit";
 
 export type DeliverableDepthRefillDiagnostics = {
   seedCount: number;
@@ -130,6 +131,18 @@ function passesDeliverableSlot<T extends WorldIdentityTrack>(
   const isOpener = position === 0 && opts.preserveOpener === true;
   const candidate = opts.enrichTrack ? opts.enrichTrack(track) : track;
   if (isSemanticSpamTrack(candidate)) return false;
+  if (opts.prompt) {
+    if (
+      driveMomentContextPenalty(opts.prompt, {
+        trackName: candidate.trackName,
+        artistName: candidate.artistName,
+        energy: candidate.energy ?? null,
+      }) >= 0.5
+    ) {
+      return false;
+    }
+    if (!passesMomentFitForRefill(candidate, opts.prompt)) return false;
+  }
   if (!trackPassesWorldPurity(candidate, profile, position, { isThesisOpener: isOpener })) return false;
   if (opts.isGenreVerified && !opts.isGenreVerified(track)) return false;
   return true;

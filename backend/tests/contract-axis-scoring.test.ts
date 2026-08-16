@@ -79,6 +79,13 @@ test("V52 driveMomentContextPenalty penalises sped-up spam but not contextual re
     driveMomentContextPenalty(prompt, { artistName: "Drake", trackName: "Jungle", energy: 0.65 }) <= 0,
   );
   assert.equal(driveMomentContextPenalty("cozy sunday", { artistName: "DJ Fronteo", trackName: "Sped Up" }), 0);
+  assert.ok(
+    driveMomentContextPenalty(prompt, {
+      artistName: "Philip George",
+      trackName: "Wish You Were Mine - Radio Edit",
+      energy: 0.66,
+    }) >= 0.5,
+  );
 });
 
 test("V51 must:indie_general matches indie family prefix", () => {
