@@ -42,6 +42,9 @@ export function semanticSpamPenalty(text: string): number {
   if (/\bcheesy|cheesey|novelty|eurovision|kidz bop|gummy bear|party all the time\b/.test(text)) {
     return 0.55;
   }
+  if (/\bstorm\s+queen\b|\blook right through\b.*\b(?:edit|vip|mix)\b/.test(text)) {
+    return 0.42;
+  }
   if (/\bsped up|slowed \+ reverb|phonk|stutter techno|tiktok|vip mix|club mix|\bvip\b|on sp33d|sp33d|\btechno\b.*\bremix\b/.test(text)) {
     return 0.38;
   }
