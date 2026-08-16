@@ -287,14 +287,6 @@ function audioNostalgicSignal(t: VerifierTrackInput, profile: TrackSemanticProfi
   return score;
 }
 
-function audioWarmEveningSignal(t: VerifierTrackInput): number {
-  const e = t.energy ?? 0.5;
-  const v = t.valence ?? 0.5;
-  if (e >= 0.35 && e <= 0.68 && v >= 0.42 && v <= 0.78) return 0.72;
-  if (e <= 0.75 && v >= 0.35) return 0.55;
-  return 0.32;
-}
-
 function semanticMomentFit(
   profile: TrackSemanticProfile,
   expectation: PromptExpectation,
@@ -323,14 +315,6 @@ function semanticMomentFit(
   }
   if (expectation.momentTags.includes("nostalgic")) {
     score = Math.max(score, audioNostalgicSignal(track, profile) * 0.78);
-  }
-  if (expectation.momentTags.includes("evening") || expectation.momentTags.includes("sunset")) {
-    score = Math.max(score, audioWarmEveningSignal(track) * 0.8);
-  }
-  if (expectation.activityTags.includes("bbq") || expectation.atmosphereTags.includes("singalong")) {
-    const e = track.energy ?? 0.5;
-    const v = track.valence ?? 0.5;
-    if (e >= 0.45 && e <= 0.82 && v >= 0.45) score = Math.max(score, 0.62);
   }
   return Math.min(1, score);
 }
@@ -487,20 +471,10 @@ function classifyTrackFlag(
   compoundWeakness: number | null,
   fillerSuspect: boolean,
   contrastViolation: boolean,
-  genreWorldLocked: boolean,
 ): TrackFitFlag {
   if (fillerSuspect || contrastViolation) return "misfit";
   if (compoundWeakness != null && compoundWeakness < 0.38) return "misfit";
-  if (genreWorldLocked) {
-    if (worldFit < 0.32) return "misfit";
-    if (worldFit >= 0.52 && semanticFit >= 0.32) {
-      return compoundWeakness != null && compoundWeakness < 0.48 ? "borderline" : "strong";
-    }
-    if (worldFit >= 0.42 || semanticFit >= 0.48) return "borderline";
-    return "misfit";
-  }
-  if (semanticFit < 0.32 && worldFit < 0.32) return "misfit";
-  if (semanticFit < 0.38 || worldFit < 0.35) return "borderline";
+  if (semanticFit < 0.38 || worldFit < 0.35) return "misfit";
   if (compoundWeakness != null && compoundWeakness < 0.48) return "borderline";
   if (semanticFit < 0.52 || worldFit < 0.48) return "borderline";
   return "strong";
@@ -664,14 +638,7 @@ export function verifyIndependentHumanQuality(
       keywordLiteral,
       spamSuspect,
     );
-    const flag = classifyTrackFlag(
-      semanticFit,
-      worldFit,
-      compoundWeakness,
-      fillerSuspect,
-      contrastViolation,
-      !!expectation.worldHint,
-    );
+    const flag = classifyTrackFlag(semanticFit, worldFit, compoundWeakness, fillerSuspect, contrastViolation);
 
     const reasons: string[] = [];
     if (spamSuspect) reasons.push("spam/techno/novelty smell");
