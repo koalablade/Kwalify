@@ -13,6 +13,7 @@ import {
   type ContractRetrievalTrack,
 } from "./constraint-aware-retrieval";
 import { buildContractCompositionMeta, CONTRACT_AXIS_ACTIVATION_THRESHOLD, scoreContractDimension } from "./contract-axis-scoring";
+import { computeCompoundIntentScore } from "./contract-composition-select";
 import type { ContractCompositionMeta } from "./contract-composition-types";
 import type { ContractTension, PlaylistContract } from "./types";
 
@@ -168,6 +169,45 @@ function rankAxisTracks<T extends ContractAuthoritativeTrack>(
   return [...activated, ...remainder];
 }
 
+/** V44 — rank by compound intent with partner-axis floor so single-axis spam cannot fill quotas. */
+function rankCompoundAxisTracks<T extends ContractAuthoritativeTrack>(
+  eligible: T[],
+  axis: string,
+  partnerAxis: string,
+  contract: PlaylistContract,
+  classMap: Map<string, ActivityClassificationInput>,
+  partnerFloor = CONTRACT_AXIS_ACTIVATION_THRESHOLD * 0.82,
+): Array<{ track: T; score: number; compound: number }> {
+  return eligible
+    .map((track) => {
+      const classification = classMap.get(track.trackId) ?? null;
+      const ct = toContractTrack(track, classification);
+      const meta = buildContractCompositionMeta(ct, contract, classification);
+      const sa = meta.axisScores[axis] ?? 0;
+      const sb = meta.axisScores[partnerAxis] ?? 0;
+      if (sa < CONTRACT_AXIS_ACTIVATION_THRESHOLD || sb < partnerFloor) return null;
+      const compound = computeCompoundIntentScore(meta, contract);
+      return { track, score: compound, compound };
+    })
+    .filter((row): row is { track: T; score: number; compound: number } => row != null)
+    .sort((a, b) => b.compound - a.compound);
+}
+
+function rankCompoundTensionTracks<T extends ContractAuthoritativeTrack>(
+  eligible: T[],
+  contract: PlaylistContract,
+  classMap: Map<string, ActivityClassificationInput>,
+): Array<{ track: T; compound: number; meta: ContractCompositionMeta }> {
+  return eligible
+    .map((track) => {
+      const classification = classMap.get(track.trackId) ?? null;
+      const ct = toContractTrack(track, classification);
+      const meta = buildContractCompositionMeta(ct, contract, classification);
+      return { track, compound: computeCompoundIntentScore(meta, contract), meta };
+    })
+    .sort((a, b) => b.compound - a.compound);
+}
+
 export function retrieveContractAuthoritativePool<T extends ContractAuthoritativeTrack>(input: {
   tracks: T[];
   contract: PlaylistContract;
@@ -237,11 +277,13 @@ export function retrieveContractAuthoritativePool<T extends ContractAuthoritativ
   const preserveBoth = contract.tension.filter((t) => t.resolution === "preserve_both");
   if (preserveBoth.length > 0) rankingSignals.push("tension_preserve_both");
 
-  type Scored = { track: T; score: number; contractScore: number; tensionScore: number };
+  type Scored = { track: T; score: number; contractScore: number; tensionScore: number; compound: number };
   const scoredRows: Scored[] = eligible.map((track) => {
     const classification = classMap.get(track.trackId) ?? null;
     const ct = toContractTrack(track, classification);
     const contractScore = scoreTrackAgainstContract(ct, contract).score;
+    const meta = buildContractCompositionMeta(ct, contract, classification);
+    const compound = computeCompoundIntentScore(meta, contract);
     let tensionScore = 0;
     for (const t of preserveBoth) tensionScore = Math.max(tensionScore, scorePreserveBoth(ct, t));
     const e = track.energy ?? 0.5;
@@ -252,11 +294,12 @@ export function retrieveContractAuthoritativePool<T extends ContractAuthoritativ
       genreBoost = genreExpectations.some((f) => matchesGenreFamily(classification, track, f)) ? 0.12 : 0;
     }
     const score =
-      contractScore * 0.38 +
-      tensionScore * (preserveBoth.length > 0 ? 0.42 : 0) +
-      emotionFit * 0.12 +
+      contractScore * 0.24 +
+      compound * (preserveBoth.length > 0 ? 0.46 : 0.22) +
+      tensionScore * (preserveBoth.length > 0 ? 0.12 : 0) +
+      emotionFit * 0.1 +
       genreBoost;
-    return { track, score, contractScore, tensionScore };
+    return { track, score, contractScore, tensionScore, compound };
   });
 
   scoredRows.sort((a, b) => b.score - a.score);
@@ -266,14 +309,24 @@ export function retrieveContractAuthoritativePool<T extends ContractAuthoritativ
   const tensionPreservation: ContractAuthoritativeDiagnostics["tensionPreservation"] = [];
 
   if (preserveBoth.length > 0) {
+    rankingSignals.push("compound_tension_pool_v44");
     for (const tension of preserveBoth) {
       const [axisA, axisB] = tension.axes;
       const axisPoolSizes: Record<string, number> = { [axisA]: 0, [axisB]: 0 };
       let bothCount = 0;
       const quota = Math.floor(broadCap * 0.32);
-      const axisRankA = rankAxisTracks(eligible, axisA, classMap);
-      const axisRankB = rankAxisTracks(eligible, axisB, classMap);
-      const bothRank = scoredRows.filter((r) => r.tensionScore > 0.35);
+      const compoundRank = rankCompoundTensionTracks(eligible, contract, classMap);
+      const axisRankA = rankCompoundAxisTracks(eligible, axisA, axisB, contract, classMap);
+      const axisRankB = rankCompoundAxisTracks(eligible, axisB, axisA, contract, classMap);
+      const bothRank = compoundRank.filter((row) => {
+        const sa = row.meta.axisScores[axisA] ?? 0;
+        const sb = row.meta.axisScores[axisB] ?? 0;
+        return (
+          row.meta.intersectionStrength >= 0.32 &&
+          sa >= CONTRACT_AXIS_ACTIVATION_THRESHOLD &&
+          sb >= CONTRACT_AXIS_ACTIVATION_THRESHOLD
+        );
+      });
 
       for (const row of bothRank.slice(0, quota)) {
         if (seen.has(row.track.trackId)) continue;

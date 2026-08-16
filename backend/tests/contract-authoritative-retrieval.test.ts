@@ -56,6 +56,63 @@ test("sad party bangers contract pool prefers party-energy over acoustic indie",
   assert.ok((partyMeta?.axisScores.party_energy ?? 0) >= 0.42);
 });
 
+test("V44 compound retrieval pool prefers both-axis fit over single-axis energy spam", () => {
+  const prompt = "energetic but not cheesy";
+  const world = resolveCommittedWorld({ prompt });
+  const contract = buildPlaylistContract({ prompt, committedWorld: world });
+  const tracks = [
+    {
+      trackId: "single",
+      trackName: "TECHNO - VIP",
+      artistName: "ZAPRAVKA",
+      energy: 0.92,
+      valence: 0.5,
+      genreFamily: "electronic",
+      danceability: 0.82,
+    },
+    {
+      trackId: "compound",
+      trackName: "Feel It Still",
+      artistName: "Portugal. The Man",
+      energy: 0.72,
+      valence: 0.62,
+      genreFamily: "indie",
+      danceability: 0.68,
+    },
+  ];
+  const classMap = new Map(
+    tracks.map((t) => [
+      t.trackId,
+      {
+        genrePrimary: t.genreFamily,
+        genreFamily: t.genreFamily,
+        primarySubgenre: "",
+        secondarySubgenre: null,
+        subGenres: [] as string[],
+      },
+    ]),
+  );
+  const result = retrieveContractAuthoritativePool({
+    tracks,
+    contract,
+    classMap,
+    emotionProfile: {
+      energy: 0.7,
+      valence: 0.55,
+      tension: 0.4,
+      nostalgia: 0.2,
+      calm: 0.1,
+      environment: null,
+      timeOfDay: null,
+      motionState: null,
+    },
+    vibe: prompt,
+    broadCap: 2,
+  });
+  assert.equal(result.tracks[0]?.trackId, "compound");
+  assert.ok(result.diagnostics.rankingSignals.includes("compound_tension_pool_v44"));
+});
+
 test("V40 gate evaluation defers without V39 flag", () => {
   setPlaylistContractV40Enabled(true);
   const ctx = resolveWorldGateContext({ prompt: "sad party bangers" });

@@ -6,6 +6,7 @@
 import type { UserGenreProfile } from "../../lib/user-genre-profile";
 import type { ScoredLibraryTrack } from "../scoring-engine/types";
 import { buildContractCompositionMeta, CONTRACT_AXIS_ACTIVATION_THRESHOLD } from "./contract-axis-scoring";
+import { computeCompoundIntentScore } from "./contract-composition-select";
 import type { ContractAuthoritativeTrack } from "./contract-authoritative-retrieval";
 import {
   getContractCompositionMeta,
@@ -149,7 +150,8 @@ export function seedContractRetrievalIntoScoredPool<T extends {
     metaAttached += 1;
     if (!meta.admissible) continue;
 
-    const contractRank = meta.contractScore * 0.45 + meta.intersectionStrength * 0.4;
+    const compound = computeCompoundIntentScore(meta, contract);
+    const contractRank = compound * 0.68 + meta.contractScore * 0.18 + meta.intersectionStrength * 0.14;
     const scoredBase = existing as ScoredLibraryTrack<T> | undefined;
     const enriched = {
       ...base,
@@ -184,8 +186,8 @@ export function seedContractRetrievalIntoScoredPool<T extends {
   enrichedPool.sort((a, b) => {
     const ma = getContractCompositionMeta(a);
     const mb = getContractCompositionMeta(b);
-    const sa = (ma?.contractScore ?? 0) + (ma?.intersectionStrength ?? 0) * 0.5;
-    const sb = (mb?.contractScore ?? 0) + (mb?.intersectionStrength ?? 0) * 0.5;
+    const sa = ma ? computeCompoundIntentScore(ma, contract) : 0;
+    const sb = mb ? computeCompoundIntentScore(mb, contract) : 0;
     return sb - sa;
   });
 

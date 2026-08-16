@@ -298,3 +298,70 @@ test("mergeContractRetrievalUniverse preserves V40 axis meta on scored shapes", 
   const lookup = buildContractMetaLookup([retrievalTrack]);
   assert.ok((lookup.get("party-sad-1")?.axisScores.party_energy ?? 0) >= 0.42);
 });
+
+test("V44 seed ranks compound fit above single-axis dominant retrieval track", () => {
+  const contract = tensionContract(["high_energy", "not_cheesy"]);
+  const classMap = new Map([
+    ["single-axis", classifyTrack({
+      trackName: "TECHNO VIP",
+      artistName: "Spammer",
+      albumName: "Album",
+      energy: 0.91,
+      valence: 0.52,
+    })],
+    ["compound-fit", classifyTrack({
+      trackName: "Real Banger",
+      artistName: "Credible",
+      albumName: "Album",
+      energy: 0.74,
+      valence: 0.6,
+    })],
+  ]);
+
+  const singleAxis: SeedTrack = {
+    trackId: "single-axis",
+    trackName: "TECHNO VIP",
+    artistName: "Spammer",
+    albumName: "Album",
+    energy: 0.91,
+    valence: 0.52,
+    danceability: 0.8,
+    tempo: 140,
+    acousticness: 0.05,
+    contractCompositionMeta: {
+      contractScore: 0.62,
+      admissible: true,
+      axisScores: { high_energy: 0.9, not_cheesy: 0.12 },
+      axesActive: ["high_energy"],
+      intersectionStrength: 0.08,
+      mustMatches: [],
+      preferMatches: [],
+      violations: [],
+    },
+  };
+  const compoundFit: SeedTrack = {
+    trackId: "compound-fit",
+    trackName: "Real Banger",
+    artistName: "Credible",
+    albumName: "Album",
+    energy: 0.74,
+    valence: 0.6,
+    danceability: 0.66,
+    tempo: 128,
+    acousticness: 0.1,
+    contractCompositionMeta: {
+      contractScore: 0.68,
+      admissible: true,
+      axisScores: { high_energy: 0.72, not_cheesy: 0.64 },
+      axesActive: ["high_energy", "not_cheesy"],
+      intersectionStrength: 0.68,
+      mustMatches: [],
+      preferMatches: [],
+      violations: [],
+    },
+  };
+
+  const scoring = { sorted: [] as ScoredLibraryTrack<SeedTrack>[], scored: [] as ScoredLibraryTrack<SeedTrack>[] };
+  seedContractRetrievalIntoScoredPool(scoring, [singleAxis, compoundFit], contract, classMap);
+  assert.equal(scoring.sorted[0]?.trackId, "compound-fit");
+});

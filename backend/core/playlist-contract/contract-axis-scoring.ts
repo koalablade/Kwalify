@@ -9,6 +9,33 @@ import { scoreTrackAgainstContract } from "./constraint-aware-retrieval";
 export const CONTRACT_AXIS_ACTIVATION_THRESHOLD = 0.42;
 const ACTIVATION_THRESHOLD = CONTRACT_AXIS_ACTIVATION_THRESHOLD;
 
+function trackTextForAxis(
+  track: ContractAuthoritativeTrack,
+  classification: { genreFamily?: string | null; genrePrimary?: string | null } | null,
+): string {
+  return [
+    track.trackName,
+    track.artistName,
+    classification?.genreFamily ?? track.genreFamily,
+    classification?.genrePrimary,
+    ...(track.genres ?? []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+/** V44 — semantic cheesy/novelty penalty from track text (not audio alone). */
+function cheesySemanticPenalty(text: string): number {
+  if (/\bcheesy|cheesey|novelty|eurovision|kidz bop|gummy bear|party all the time\b/.test(text)) {
+    return 0.55;
+  }
+  if (/\bsped up|slowed \+ reverb|phonk|stutter techno|tiktok|vip mix|club mix|\bvip\b|\btechno\b.*\bremix\b/.test(text)) {
+    return 0.38;
+  }
+  return 0;
+}
+
 /** Score a named contract dimension using audio + classification, not title tokens alone. */
 export function scoreContractDimension(
   track: ContractAuthoritativeTrack,
@@ -20,6 +47,7 @@ export function scoreContractDimension(
   const dance = track.danceability ?? energy;
   const family = (classification?.genreFamily ?? track.genreFamily ?? "").toLowerCase();
   const primary = (classification?.genrePrimary ?? "").toLowerCase();
+  const text = trackTextForAxis(track, classification);
 
   if (dimensionId.startsWith("must:")) {
     const token = dimensionId.slice(5).replace(/_/g, " ");
@@ -51,12 +79,24 @@ export function scoreContractDimension(
     case "high_energy":
       if (energy > 0.68) return 0.55 + Math.min(0.45, (energy - 0.68) * 1.5);
       return energy > 0.55 ? 0.28 : 0.1;
-    case "not_cheesy":
-      return energy > 0.5 && valence > 0.35 && valence < 0.85 ? 0.65 : 0.25;
+    case "not_cheesy": {
+      const featureBase =
+        energy > 0.5 && valence > 0.35 && valence < 0.85 ? 0.52 : energy > 0.45 ? 0.28 : 0.14;
+      const genreCredibility =
+        /indie|alternative|rock|electronic|hip_hop|soul|punk|metal/.test(family) ||
+        /indie|alternative|rock|electronic|hip_hop|soul|punk|metal/.test(primary)
+          ? 0.14
+          : 0;
+      return Math.max(0.08, Math.min(0.88, featureBase + genreCredibility - cheesySemanticPenalty(text)));
+    }
     case "low_energy":
       return energy < 0.48 ? 0.55 + (0.48 - energy) : energy < 0.58 ? 0.3 : 0.12;
-    case "not_boring":
-      return energy > 0.38 || valence > 0.42 || dance > 0.45 ? 0.55 : 0.15;
+    case "not_boring": {
+      const interest = Math.max(energy, dance * 0.92, valence * 0.78);
+      if (interest < 0.34) return 0.1;
+      const titleInterest = /\blive\b|\bacoustic\b|\bremix\b/.test(text) ? 0.08 : 0;
+      return Math.min(0.82, 0.28 + interest * 0.48 + titleInterest);
+    }
     default:
       return 0.35;
   }
