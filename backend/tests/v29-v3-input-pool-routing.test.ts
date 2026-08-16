@@ -158,6 +158,11 @@ describe("v29 v3 input pool routing", () => {
     assert.ok(resolved.inputPool.some((t) => /bob marley|shaggy|peter tosh/i.test(t.artistName ?? "")));
   });
 
+  it("commits 90s indie road trip nostalgia to road_trip_singalong_world", () => {
+    const world = resolveCommittedWorld({ prompt: "90s indie road trip nostalgia" });
+    assert.equal(world?.musicalWorldId, "road_trip_singalong_world");
+  });
+
   it("preserves hard_lock_verified path for worlds with verified supply", () => {
     const contractPool = technoLibrary(120);
     const verifiedPool = contractPool.slice(0, 10);

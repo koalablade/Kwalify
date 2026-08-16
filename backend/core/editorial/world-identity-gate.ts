@@ -1319,7 +1319,11 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   ) {
     ids.push("country_world");
   }
-  if (/\broad\s+trip\b.*\b(?:sing|singalong|anthem|banger)\b|\bsingalong\b.*\broad\s+trip\b/i.test(p)) {
+  if (
+    /\broad\s+trip\b.*\b(?:sing|singalong|anthem|banger|nostalg|90s|indie)\b|\b(?:90s|indie|nostalg)\b.*\broad\s+trip\b|\bsingalong\b.*\broad\s+trip\b/i.test(
+      p,
+    )
+  ) {
     ids.push("road_trip_singalong_world");
   }
   if (/\bpetrol\s+station\b.*\b2\s*am\b|\b2\s*am\b.*\bpetrol\b/i.test(p)) ids.push("petrol_station_2am_world");

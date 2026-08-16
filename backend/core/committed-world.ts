@@ -421,6 +421,10 @@ const PRIMARY_MUSICAL_WORLD: Array<{ pattern: RegExp; id: string }> = [
   { pattern: /\b(?:70s?|seventies)\s+disco\b|\bdisco\b.*\b(?:party|rooftop|dance)\b/i, id: "disco_1970s_world" },
   { pattern: /\b(?:madchester|stone\s+roses|happy\s+mondays|baggy)\b/i, id: "madchester_world" },
   { pattern: /\b(?:madchester|britpop)\b/i, id: "britpop_world" },
+  {
+    pattern: /\broad\s+trip\b.*\b(?:nostalg|90s|indie|singalong|anthem)\b|\b(?:90s|indie|nostalg)\b.*\broad\s+trip\b/i,
+    id: "road_trip_singalong_world",
+  },
   { pattern: /\b(?:80s?|eighties)\s+(?:night\s+)?drive\b/i, id: "80s_night_drive_world" },
   { pattern: /\b(?:rainy|rain)\s+motorway\b/i, id: "rainy_motorway_world" },
   { pattern: /\broad\s+trip\b.*\b(?:sing|singalong|anthem)\b/i, id: "road_trip_singalong_world" },
