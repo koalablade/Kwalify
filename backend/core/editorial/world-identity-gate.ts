@@ -608,8 +608,7 @@ const EVENING_DRIVE_IDENTITY: WorldIdentityProfile = {
     /\b(?:the\s+national|war\s+on\s+drugs|radiohead|m83|tame\s+impala|beach\s+house|the\s+1975|cinematic)\b/i,
   ],
   rejectAny: [
-    /\b(?:hard\s+techno|tekkno|drill\b|death\s+metal|brostep|christmas|uk\s+garage|speed\s+garage|eurodance|happy\s+hardcore)\b/i,
-    /\b(?:sped\s+up|sp33d|on\s+sp33d|vip\s+mix|club\s+mix|nightcore|phonk)\b/i,
+    /\b(?:hard\s+techno|tekkno|drill\b|death\s+metal|brostep|christmas)\b/i,
     /\b(?:tiesto|storm\s+queen|dmx\b|meat\s+loaf)\b/i,
   ],
   energy: { min: 0.3, max: 0.75 },

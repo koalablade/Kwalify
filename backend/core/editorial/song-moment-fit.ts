@@ -46,10 +46,7 @@ const DISCO_OFF_MOMENT =
   /\b(?:pop\s+smoke|warren\s+g|otis\s+redding|dock of the bay|princess\s+nokia|regulate|bump\s+&\s+grind)\b/i;
 
 const NIGHT_DRIVE_WEAK =
-  /\b(?:turning\s+japanese|non\s+stop\s+edit|radio\s+edit|club\s+mix|uk\s+garage|speed\s+garage|eurodance|happy\s+hardcore|sped\s+up|sp33d|on\s+sp33d|vip\s+mix)\b/i;
-
-const NIGHT_DRIVE_CLUB_SPAM =
-  /\b(?:sped\s+up|sp33d|on\s+sp33d|vip\s+mix|club\s+mix|stutter\s+techno|phonk|nightcore|speed\s+up)\b/i;
+  /\b(?:turning\s+japanese|non\s+stop\s+edit)\b/i;
 
 function titleOf(t: SongMomentTrack): string {
   return String(t.trackName ?? "").toLowerCase();
@@ -177,9 +174,6 @@ export function momentRejectSeverity(
   }
 
   if (activity === "night_drive") {
-    if (NIGHT_DRIVE_CLUB_SPAM.test(title)) return "hard";
-    const dance = track.danceability ?? null;
-    if (NIGHT_DRIVE_WEAK.test(title) && dance !== null && dance > 0.68 && popOf(track) < 55) return "hard";
     if (NIGHT_DRIVE_WEAK.test(title) && popOf(track) < 40) return "soft";
   }
 
