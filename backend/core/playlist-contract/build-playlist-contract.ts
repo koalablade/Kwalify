@@ -161,16 +161,6 @@ function detectTensions(
     });
   }
 
-  const warmMelancholic =
-    /\bwarm\b/.test(lower) && /\bmelanchol|\bsad\b/.test(lower);
-  if (warmMelancholic && !tensions.some((t) => t.axes[0] === "melancholy")) {
-    tensions.push({
-      axes: ["melancholy", "low_energy"],
-      description: "warm and melancholic",
-      resolution: "preserve_both",
-    });
-  }
-
   const emotionalUpbeat =
     /\bemotional\b/.test(lower) && /\bupbeat\b/.test(lower);
   if (emotionalUpbeat && !tensions.some((t) => t.axes.includes("melancholy"))) {
