@@ -88,7 +88,13 @@ export function matchScene(text: string): string | null {
     if (entry.pattern.test(text)) return entry.scene;
   }
   const lower = text.toLowerCase();
-  if (/\b(?:ukg|uk\s+garage|grime|uk\s+rap|uk\s+drill)\b/.test(lower)) return null;
+  if (/\b(?:late night|night drive|midnight drive|late.?night drive)\b/.test(lower)) return "night-drive";
+  if (/\b(?:rainy sunday|rainy day|rainy afternoon)\b/.test(lower)) return "rainy-day";
+  if (/\b(?:long drive|road trip)\b/.test(lower)) return "road-trip";
+  if (/\b(?:summer evening|warm evening)\b/.test(lower)) return "summer-evening";
+  if (/\b(?:quiet night|still night)\b/.test(lower)) return "quiet-night";
+  if (/\b(?:something nostalgic|old songs that hit different|hit different)\b/.test(lower)) return "nostalgia-open";
+  if (/\b(?:feeling weird|feel weird|weird mood)\b/.test(lower)) return "ambiguous-mood";
   if (/\bgarage\b/.test(lower)) return "garage-workshop";
   if (/\brainy\b/.test(lower) && /\bnight\b/.test(lower)) return "rainy-night-drive";
   return null;
@@ -105,7 +111,8 @@ export function matchEmotion(text: string): string | null {
   if (/\b(?:motivated|hype|pump|fired\s+up)\b/.test(lower)) return "motivated";
   if (/\b(?:angry|rage|furious|aggressive)\b/.test(lower)) return "aggressive";
   if (/\b(?:calm|peaceful|relaxed|chill)\b/.test(lower)) return "calm";
-  if (/\b(?:nostalg|throwback|retro)\b/.test(lower)) return "nostalgic";
+  if (/\b(?:nostalg|throwback|retro|memory lane|hit different)\b/.test(lower)) return "nostalgic";
+  if (/\b(?:weird|off|strange|uncanny)\b/.test(lower)) return "ambiguous";
   if (/\b(?:lonely|alone|solitary)\b/.test(lower)) return "solitary";
   return null;
 }
@@ -113,7 +120,7 @@ export function matchEmotion(text: string): string | null {
 export function matchEnergy(text: string): "low" | "medium" | "high" | null {
   const lower = text.toLowerCase();
   if (/\b(?:gym|workout|hype|party|rave|intense|pump)\b/.test(lower)) return "high";
-  if (/\b(?:sleep|calm|relax|unwind|soft|peaceful)\b/.test(lower)) return "low";
+  if (/\b(?:sleep|calm|relax|unwind|soft|peaceful|quiet|cozy|rainy)\b/.test(lower)) return "low";
   return "medium";
 }
 

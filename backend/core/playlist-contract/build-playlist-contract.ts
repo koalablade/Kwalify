@@ -39,6 +39,37 @@ function constraint<T>(value: T, source: string, confidence: number): ContractCo
   return { value, source, confidence: round2(clamp01(confidence)) };
 }
 
+function inferContractContext(
+  prompt: string,
+  decomposed: DecomposedIntent,
+  locked: LockedIntent,
+): { activity: string | null; scene: string | null; setting: string | null; timeOfDay: string | null } {
+  const lower = prompt.toLowerCase();
+  const activity = locked.activity ?? decomposed.inferredActivity ?? null;
+  const scene = decomposed.scene ?? null;
+  let setting: string | null = null;
+  let timeOfDay: string | null = null;
+
+  if (/\b(?:rainy|rain|wet weather|drizzle)\b/.test(lower)) setting = "rainy";
+  else if (/\b(?:beach|coastal|ocean|sea)\b/.test(lower)) setting = "coastal";
+  else if (/\b(?:city|urban|downtown|street)\b/.test(lower)) setting = "urban";
+  else if (/\b(?:motorway|highway|open road|countryside)\b/.test(lower)) setting = "open_road";
+
+  if (/\b(?:late night|midnight|2\s*am|3\s*am|after dark|witching hour)\b/.test(lower)) {
+    timeOfDay = "late_night";
+  } else if (/\b(?:evening|sunset|dusk|golden hour|summer evening)\b/.test(lower)) {
+    timeOfDay = "evening";
+  } else if (/\b(?:morning|sunrise|dawn|sunday morning|cozy sunday)\b/.test(lower)) {
+    timeOfDay = "morning";
+  } else if (/\b(?:afternoon|midday)\b/.test(lower)) {
+    timeOfDay = "afternoon";
+  } else if (/\b(?:night drive|night\b)/.test(lower) && !/\b(?:good night|night out)\b/.test(lower)) {
+    timeOfDay = "night";
+  }
+
+  return { activity, scene, setting, timeOfDay };
+}
+
 function detectTensions(
   prompt: string,
   decomposed: DecomposedIntent,
@@ -94,6 +125,58 @@ function detectTensions(
     tensions.push({
       axes: ["melancholy", "party_energy"],
       description: "dark but danceable",
+      resolution: "preserve_both",
+    });
+  }
+
+  const melancholicDanceable =
+    (/\bmelanchol|\bsad\b/.test(lower) && /\bdanceable\b|\bdance\b/.test(lower)) ||
+    lower.includes("melancholic+danceable");
+  if (melancholicDanceable && !tensions.some((t) => t.axes[0] === "melancholy" && t.axes[1] === "party_energy")) {
+    tensions.push({
+      axes: ["melancholy", "party_energy"],
+      description: "melancholic but danceable",
+      resolution: "preserve_both",
+    });
+  }
+
+  const partyRestrained =
+    (/\bparty\b/.test(lower) && /\b(?:restrain|controlled|understated)\b/.test(lower)) ||
+    lower.includes("party+restrained");
+  if (partyRestrained && !tensions.some((t) => t.axes.includes("party_energy"))) {
+    tensions.push({
+      axes: ["party_energy", "not_cheesy"],
+      description: "party but restrained",
+      resolution: "preserve_both",
+    });
+  }
+
+  const aggressiveControlled =
+    /\baggressive\b/.test(lower) && /\b(?:controlled|restrain)\b/.test(lower);
+  if (aggressiveControlled) {
+    tensions.push({
+      axes: ["high_energy", "not_cheesy"],
+      description: "aggressive but controlled",
+      resolution: "preserve_both",
+    });
+  }
+
+  const warmMelancholic =
+    /\bwarm\b/.test(lower) && /\bmelanchol|\bsad\b/.test(lower);
+  if (warmMelancholic && !tensions.some((t) => t.axes[0] === "melancholy")) {
+    tensions.push({
+      axes: ["melancholy", "low_energy"],
+      description: "warm and melancholic",
+      resolution: "preserve_both",
+    });
+  }
+
+  const emotionalUpbeat =
+    /\bemotional\b/.test(lower) && /\bupbeat\b/.test(lower);
+  if (emotionalUpbeat && !tensions.some((t) => t.axes.includes("melancholy"))) {
+    tensions.push({
+      axes: ["melancholy", "high_energy"],
+      description: "emotional but upbeat",
       resolution: "preserve_both",
     });
   }
@@ -354,7 +437,8 @@ export function buildPlaylistContract(input: BuildPlaylistContractInput): Playli
   const tensions = detectTensions(prompt, decomposed, locked);
 
   const activities: ContractConstraint<string>[] = [];
-  const activity = locked.activity ?? decomposed.inferredActivity ?? intentState.activity ?? null;
+  const inferredCtx = inferContractContext(prompt, decomposed, locked);
+  const activity = inferredCtx.activity;
   if (activity) {
     activities.push(constraint(activity, "locked_or_decomposed", intentState.confidence));
   }
@@ -365,6 +449,9 @@ export function buildPlaylistContract(input: BuildPlaylistContractInput): Playli
     if (!scenes.some((x) => x.value === s)) {
       scenes.push(constraint(s, "intent_state_scene", intentState.confidence * 0.85));
     }
+  }
+  if (inferredCtx.scene && !scenes.some((x) => x.value === inferredCtx.scene)) {
+    scenes.push(constraint(inferredCtx.scene, "inferred_scene", decomposed.confidence * 0.78));
   }
 
   const unknownDimensions: import("./types").ContractDimension[] = [];
@@ -421,9 +508,9 @@ export function buildPlaylistContract(input: BuildPlaylistContractInput): Playli
     mustNot,
     context: {
       activity,
-      scene: decomposed.scene ?? (intentState.scene?.[0] ?? null),
-      setting: null,
-      timeOfDay: null,
+      scene: decomposed.scene ?? inferredCtx.scene ?? (intentState.scene?.[0] ?? null),
+      setting: inferredCtx.setting,
+      timeOfDay: inferredCtx.timeOfDay,
     },
     tension: tensions,
     unknown: {

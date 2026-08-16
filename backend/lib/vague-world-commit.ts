@@ -188,9 +188,11 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
     worldId: "evening_drive_world",
     sceneId: "EMPTY_MOTORWAY_NIGHT",
     label: "evening / night drive",
-    priority: 9,
+    priority: 11,
     patterns: [
-      /\b(?:driving home|drive home|after work.*driv|motorway|headlights|road trip through|wales rainy|90s car stereo|windows down|lonely city walk|walk at 1am|golden hour walk)\b/i,
+      /\b(?:late night drive|night drive|long drive|driving home|drive home|after work.*driv|motorway|headlights|road trip through|wales rainy|90s car stereo|windows down|lonely city walk|walk at 1am|golden hour walk)\b/i,
+      /\b(?:late night|midnight drive)\b.*\b(?:drive|driving|motorway|highway)\b/i,
+      /\b(?:drive|driving)\b.*\b(?:late night|midnight|night)\b/i,
     ],
   },
   {
@@ -199,7 +201,43 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
     label: "rainy reading / window",
     priority: 10,
     patterns: [
-      /\b(?:rainy afternoon reading|reading by the window|rainy day in bed)\b/i,
+      /\b(?:rainy afternoon reading|reading by the window|rainy day in bed|rainy sunday|rainy day)\b/i,
+    ],
+  },
+  {
+    worldId: "quiet_night_world",
+    sceneId: "SLOW_MORNING_COFFEE",
+    label: "quiet night / stillness",
+    priority: 9,
+    patterns: [
+      /\b(?:quiet night|still night|soft night|can't sleep but calm)\b/i,
+    ],
+  },
+  {
+    worldId: "weird_mood_world",
+    sceneId: "INDIE_BEDROOM_LOFI",
+    label: "weird / off mood",
+    priority: 8,
+    patterns: [
+      /\b(?:feeling weird|feel weird|weird mood|off mood|something feels off)\b/i,
+    ],
+  },
+  {
+    worldId: "hit_different_world",
+    sceneId: "NOSTALGIA",
+    label: "old songs that hit different",
+    priority: 10,
+    patterns: [
+      /\b(?:old songs that hit different|songs that hit different|hit different|something nostalgic)\b/i,
+    ],
+  },
+  {
+    worldId: "summer_evening_world",
+    sceneId: "BEACH_SUNSET",
+    label: "summer evening warmth",
+    priority: 10,
+    patterns: [
+      /\b(?:summer evening|warm evening|balmy evening|evening sun)\b/i,
     ],
   },
   {
