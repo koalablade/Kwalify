@@ -98,6 +98,21 @@ describe("independent human quality verifier", () => {
     assert.ok(result.playlistVerdict !== "weak");
   });
 
+  it("accepts cozy acoustic rainy Sunday playlists", () => {
+    const result = verifyIndependentHumanQuality("rainy Sunday", [
+      { artistName: "Big Thief", trackName: "Change", energy: 0.45, valence: 0.48, danceability: 0.42, acousticness: 0.55 },
+      { artistName: "Adrianne Lenker", trackName: "anything", energy: 0.43, valence: 0.4, danceability: 0.38, acousticness: 0.62 },
+      { artistName: "Tigers Jaw", trackName: "Safe In Your Skin", energy: 0.31, valence: 0.42, danceability: 0.35, acousticness: 0.58 },
+      { artistName: "Iron & Wine", trackName: "Naked As We Came", energy: 0.35, valence: 0.38, danceability: 0.38, acousticness: 0.72 },
+      { artistName: "SYML", trackName: "Where's My Love - Acoustic", energy: 0.42, valence: 0.53, danceability: 0.39, acousticness: 0.59 },
+    ]);
+    const misfitCount = result.tracks.filter((t) => t.flag === "misfit").length;
+    assert.ok(misfitCount <= 2, `expected <=2 misfits, got ${misfitCount}`);
+    assert.ok(result.playlistVerdict !== "weak");
+    const exp = parsePromptExpectation("rainy Sunday");
+    assert.equal(exp.worldHint, "sunday_chill_world");
+  });
+
   it("returns weak for empty playlist", () => {
     const result = verifyIndependentHumanQuality("late night drive", []);
     assert.equal(result.trackCount, 0);

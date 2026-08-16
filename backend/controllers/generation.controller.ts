@@ -13611,6 +13611,17 @@ router.post("/generate", async (req, res): Promise<void> => {
         }
       }
     }
+    if (delivery.tracks.length > 0) {
+      const postFallbackSpamStrip = stripSemanticSpamTracks(delivery.tracks);
+      if (postFallbackSpamStrip.length < delivery.tracks.length) {
+        assignFT(
+          "terminal_delivery",
+          "remove title spam/novelty edits after terminal fallback refill",
+          postFallbackSpamStrip as PlaylistTrack[],
+        );
+        finalApiTracks = formatTracksForApi(delivery.tracks, emotionProfile);
+      }
+    }
     const preResponseQualityCheckpoint = runDeliveryCheckpoint(pipelineAuthority, "pre_response", checkpointCtx({
       requireTelemetry: true,
       confidence: playlistConfidence,
@@ -14205,6 +14216,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         lateHqg.action === "honest_partial" &&
         lateHqg.salvageableCount > 0 &&
         finalApiTracks.length > lateHqg.salvageableCount &&
+        !contractRebalanceDeliveryGuard &&
         !skipLateIntentFidelityCap &&
         (
           lateHqg.reasons.includes("intent_fidelity_failed") ||

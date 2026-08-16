@@ -4,6 +4,10 @@
 
 const PROMPT_WORLD_KEYWORDS: Array<{ pattern: RegExp; keywords: string[] }> = [
   {
+    pattern: /\b(?:90s|1990s|nineties)\b.*\b(?:indie|road\s+trip)\b|\b(?:indie|road\s+trip)\b.*\b(?:90s|1990s|nineties)\b/i,
+    keywords: ["90s", "indie", "britpop", "oasis", "blur", "pulp", "singalong", "road trip"],
+  },
+  {
     pattern: /\b(?:late\s+night\s+drive|long\s+drive|evening\s+drive|sunset\s+drive|something\s+for\s+driving)\b/i,
     keywords: [
       "night drive",
@@ -117,7 +121,18 @@ const WORLD_ID_KEYWORDS: Record<string, string[]> = {
     "post punk",
     "synth",
   ],
-  road_trip_singalong_world: ["road trip", "indie", "classic rock", "singalong", "windows down"],
+  road_trip_singalong_world: [
+    "road trip",
+    "indie",
+    "classic rock",
+    "singalong",
+    "windows down",
+    "90s",
+    "britpop",
+    "oasis",
+    "blur",
+    "pulp",
+  ],
   rainy_motorway_world: ["night drive", "cinematic", "synth", "new wave", "dream pop", "post punk", "ambient"],
   "80s_night_drive_world": ["new wave", "synth pop", "post punk", "darkwave", "synth"],
   gym_rock_world: ["metal", "hard rock", "industrial", "punk", "nu metal"],

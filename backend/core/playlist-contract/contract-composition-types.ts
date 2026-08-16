@@ -53,6 +53,9 @@ export function requiredContractDimensions(contract: PlaylistContract): string[]
   for (const g of contract.must.genres) {
     if (g.confidence >= 0.55) dims.add(`must:${g.value}`);
   }
+  for (const e of contract.must.eras) {
+    if (e.confidence >= 0.55) dims.add(`must:era:${e.value}`);
+  }
   for (const e of contract.prefer.energy) dims.add(`prefer:energy:${e.value}`);
   for (const m of contract.prefer.moods) dims.add(`prefer:mood:${m.value}`);
   return [...dims];

@@ -65,3 +65,36 @@ test("V50 isSemanticSpamTrack catches sp33d and sped-up title spam", () => {
   );
   assert.equal(isSemanticSpamTrack({ artistName: "The War on Drugs", trackName: "Red Eyes" }), false);
 });
+
+test("V51 must:indie_general matches indie family prefix", () => {
+  const indieTrack = {
+    trackId: "1",
+    trackName: "Remember When",
+    artistName: "Wallows",
+    releaseYear: 2019,
+    genreFamily: "indie",
+  };
+  const score = scoreContractDimension(indieTrack, "must:indie_general", { genreFamily: "indie", genrePrimary: "indie_rock" });
+  assert.ok(score >= 0.72, `expected indie family match, got ${score}`);
+});
+
+test("V51 must:era:90s scores release years in decade", () => {
+  const nineties = {
+    trackId: "1",
+    trackName: "Song 2",
+    artistName: "Blur",
+    releaseYear: 1997,
+    genreFamily: "indie",
+  };
+  const modern = {
+    trackId: "2",
+    trackName: "Remember When",
+    artistName: "Wallows",
+    releaseYear: 2019,
+    genreFamily: "indie",
+  };
+  assert.ok(
+    scoreContractDimension(nineties, "must:era:90s", { genreFamily: "indie" }) >
+      scoreContractDimension(modern, "must:era:90s", { genreFamily: "indie" }),
+  );
+});

@@ -220,6 +220,11 @@ export function parsePromptExpectation(prompt: string): PromptExpectation {
     momentTags.push("morning");
     atmosphereTags.push("cozy", "reflective");
   }
+  if (/\brainy\s+sunday\b/.test(lower)) {
+    momentTags.push("sunday", "rain");
+    atmosphereTags.push("cozy", "reflective", "gentle");
+    activityTags.push("relaxing");
+  }
   if (/\b(?:lo.?fi|study|focus)\b/.test(lower)) {
     momentTags.push("studying");
     activityTags.push("studying");
@@ -254,8 +259,11 @@ export function parsePromptExpectation(prompt: string): PromptExpectation {
   else if (/\breggae\b/.test(lower)) worldHint = "reggae_world";
   else if (/\b(?:late night drive|night drive|long drive|road trip|something for driving)\b/.test(lower)) {
     worldHint = "night_drive_world";
+  } else if (/\brainy\s+sunday\b/.test(lower)) {
+    worldHint = "sunday_chill_world";
+  } else if (/\b(?:rainy day)\b/.test(lower)) {
+    worldHint = "rainy_reading_world";
   }
-  else if (/\b(?:rainy sunday|rainy day)\b/.test(lower)) worldHint = "rainy_drive_world";
 
   return { compoundAxes, negations, momentTags, activityTags, atmosphereTags, worldHint, promptLower: lower };
 }
@@ -316,7 +324,19 @@ function semanticMomentFit(
   if (expectation.momentTags.includes("nostalgic")) {
     score = Math.max(score, audioNostalgicSignal(track, profile) * 0.78);
   }
+  if (expectation.momentTags.includes("sunday") && expectation.momentTags.includes("rain")) {
+    score = Math.max(score, audioCozyRainySignal(track) * 0.8);
+  }
   return Math.min(1, score);
+}
+
+function audioCozyRainySignal(t: VerifierTrackInput): number {
+  const e = t.energy ?? 0.5;
+  const v = t.valence ?? 0.5;
+  const a = t.acousticness ?? 0.5;
+  if (e <= 0.55 && v >= 0.28 && v <= 0.65 && a >= 0.35) return 0.78;
+  if (e <= 0.62 && v >= 0.25 && v <= 0.7) return 0.62;
+  return 0.38;
 }
 
 function audioMelancholySignal(t: VerifierTrackInput): number {

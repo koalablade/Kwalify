@@ -59,6 +59,7 @@ const VAGUE_PROBES = [
 
 const GENRE_PROBES = [
   { id: "V50-G01", category: "genre", prompt: "90s indie road trip" },
+  { id: "V50-G09", category: "genre", prompt: "90s indie road trip nostalgia" },
   { id: "V50-G02", category: "genre", prompt: "dad rock BBQ" },
   { id: "V50-G03", category: "genre", prompt: "pop punk gym" },
   { id: "V50-G04", category: "genre", prompt: "sunset reggae" },

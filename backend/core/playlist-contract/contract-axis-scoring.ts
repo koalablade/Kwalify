@@ -88,9 +88,29 @@ export function scoreContractDimension(
   const primary = (classification?.genrePrimary ?? "").toLowerCase();
   const text = trackTextForAxis(track, classification);
 
+  if (dimensionId.startsWith("must:era:")) {
+    const decade = Number.parseInt(dimensionId.slice(9).replace(/\D/g, ""), 10);
+    const year = track.releaseYear ?? null;
+    if (!decade || year == null) return 0.18;
+    const eraStart = decade >= 100 ? decade : decade + 1900;
+    const eraEnd = eraStart + 9;
+    if (year >= eraStart && year <= eraEnd) return 0.88;
+    if (year >= eraStart - 3 && year <= eraEnd + 3) return 0.58;
+    return 0.12;
+  }
   if (dimensionId.startsWith("must:")) {
-    const token = dimensionId.slice(5).replace(/_/g, " ");
-    if (family.includes(token.replace(/ /g, "")) || primary.includes(token.replace(/ /g, ""))) return 0.85;
+    const raw = dimensionId.slice(5);
+    const token = raw.replace(/_/g, " ");
+    const tokenCompact = token.replace(/ /g, "");
+    const primaryPart = raw.split("_")[0]?.replace(/_/g, "") ?? tokenCompact;
+    if (
+      family.includes(tokenCompact) ||
+      primary.includes(tokenCompact) ||
+      family.includes(primaryPart) ||
+      primary.includes(primaryPart)
+    ) {
+      return 0.85;
+    }
     return 0.15;
   }
   if (dimensionId.startsWith("prefer:mood:")) {
@@ -213,6 +233,9 @@ export function buildContractCompositionMeta(
   }
   for (const g of contract.must.genres) {
     if (g.confidence >= 0.55) dims.add(`must:${g.value}`);
+  }
+  for (const e of contract.must.eras) {
+    if (e.confidence >= 0.55) dims.add(`must:era:${e.value}`);
   }
   for (const e of contract.prefer.energy) dims.add(`prefer:energy:${e.value}`);
   for (const m of contract.prefer.moods) dims.add(`prefer:mood:${m.value}`);
