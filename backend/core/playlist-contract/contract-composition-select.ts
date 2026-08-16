@@ -8,6 +8,7 @@ import { getContractCompositionMeta, requiredContractDimensions } from "./contra
 import type { PlaylistContract } from "./types";
 import {
   CONTRACT_AXIS_ACTIVATION_THRESHOLD,
+  driveMomentContextPenalty,
   intersectionThreshold,
   isSemanticSpamTrack,
   semanticSpamPenalty,
@@ -35,6 +36,29 @@ function isCompositionSpamTrack(
   track: ContractCompositionTrack & { trackName?: string | null; artistName?: string | null },
 ): boolean {
   return isSemanticSpamTrack(track);
+}
+
+function driveCompositionPenalty(
+  prompt: string | undefined,
+  track: {
+    trackName?: string | null;
+    artistName?: string | null;
+    energy?: number | null;
+  },
+): number {
+  if (!prompt) return 0;
+  return driveMomentContextPenalty(prompt, track);
+}
+
+function isDriveContextRejected(
+  prompt: string | undefined,
+  track: ContractCompositionTrack & {
+    trackName?: string | null;
+    artistName?: string | null;
+    energy?: number | null;
+  },
+): boolean {
+  return driveCompositionPenalty(prompt, track) >= 0.5;
 }
 
 function artistKey(name: string | null | undefined): string {
@@ -100,11 +124,15 @@ function compareCompoundIntent(
   a: ContractCompositionTrack,
   b: ContractCompositionTrack,
   contract: PlaylistContract,
+  prompt?: string,
 ): number {
-  return (
+  const scoreA =
+    computeCompoundIntentScore(getContractCompositionMeta(a), contract) -
+    driveCompositionPenalty(prompt, a as { trackName?: string | null; artistName?: string | null; energy?: number | null });
+  const scoreB =
     computeCompoundIntentScore(getContractCompositionMeta(b), contract) -
-    computeCompoundIntentScore(getContractCompositionMeta(a), contract)
-  );
+    driveCompositionPenalty(prompt, b as { trackName?: string | null; artistName?: string | null; energy?: number | null });
+  return scoreB - scoreA;
 }
 
 /** Marginal value of adding candidate given current playlist coverage. */
@@ -113,10 +141,12 @@ export function marginalContractValue(
   contract: PlaylistContract,
   coveredDimensions: Map<string, number>,
   playlistSize: number,
+  prompt?: string,
+  track?: { trackName?: string | null; artistName?: string | null; energy?: number | null },
 ): number {
   if (!meta || !meta.admissible) return -1;
 
-  const compound = computeCompoundIntentScore(meta, contract);
+  const compound = computeCompoundIntentScore(meta, contract) - driveCompositionPenalty(prompt, track ?? {});
   let value = compound * 0.68;
   const required = requiredContractDimensions(contract);
   for (const dim of required) {
@@ -147,12 +177,16 @@ export function selectContractCoveragePreservingPool<T extends ContractCompositi
   tracks: T[],
   contract: PlaylistContract,
   limit: number,
+  prompt?: string,
 ): { tracks: T[]; diagnostics: ContractCoverageSelectionDiagnostics } {
   const required = requiredContractDimensions(contract);
   const preserveBoth = contract.tension.filter((t) => t.resolution === "preserve_both");
   const phases: string[] = [];
   const admissible = tracks.filter(
-    (t) => getContractCompositionMeta(t)?.admissible !== false && !isCompositionSpamTrack(t),
+    (t) =>
+      getContractCompositionMeta(t)?.admissible !== false &&
+      !isCompositionSpamTrack(t) &&
+      !isDriveContextRejected(prompt, t),
   );
   const inputCount = tracks.length;
 
@@ -183,7 +217,7 @@ export function selectContractCoveragePreservingPool<T extends ContractCompositi
 
   const byIntersection = [...admissible]
     .filter((t) => (getContractCompositionMeta(t)?.intersectionStrength ?? 0) >= intersectionThreshold(preserveBoth[0]!))
-    .sort((a, b) => compareCompoundIntent(a, b, contract));
+    .sort((a, b) => compareCompoundIntent(a, b, contract, prompt));
   const intersectionQuota = Math.min(Math.floor(limit * 0.28), byIntersection.length);
   for (const track of byIntersection.slice(0, intersectionQuota)) {
     tryAdd(track);
@@ -194,7 +228,7 @@ export function selectContractCoveragePreservingPool<T extends ContractCompositi
     if (out.length >= limit) break;
     const dimRanked = [...admissible]
       .filter((t) => (getContractCompositionMeta(t)?.axisScores[dim] ?? 0) >= 0.42)
-      .sort((a, b) => compareCompoundIntent(a, b, contract));
+      .sort((a, b) => compareCompoundIntent(a, b, contract, prompt));
     const dimQuota = Math.min(Math.floor(limit * 0.22), dimRanked.length);
     let added = 0;
     for (const track of dimRanked) {
@@ -204,7 +238,7 @@ export function selectContractCoveragePreservingPool<T extends ContractCompositi
     phases.push(`axis:${dim}:${added}`);
   }
 
-  const ranked = [...admissible].sort((a, b) => compareCompoundIntent(a, b, contract));
+  const ranked = [...admissible].sort((a, b) => compareCompoundIntent(a, b, contract, prompt));
   for (const track of ranked) {
     if (out.length >= limit) break;
     if (preserveBoth.length > 0) {
@@ -300,6 +334,7 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
   contract: PlaylistContract,
   targetLength: number,
   maxPerArtist: number,
+  prompt?: string,
 ): { tracks: T[]; diagnostics: Record<string, unknown> } {
   if (candidatePool.length === 0) {
     return { tracks: selected, diagnostics: { skipped: true, reason: "empty_pool" } };
@@ -344,7 +379,10 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
 
   const addTrack = (track: T) => {
     if (used.has(track.trackId)) return false;
-    if (isCompositionSpamTrack(track as ContractCompositionTrack & { trackName?: string | null; artistName?: string | null })) {
+    if (
+      isCompositionSpamTrack(track as ContractCompositionTrack & { trackName?: string | null; artistName?: string | null }) ||
+      isDriveContextRejected(prompt, track)
+    ) {
       return false;
     }
     if (!canAdd(track)) return false;
@@ -372,7 +410,7 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
           !used.has(t.trackId) &&
           (getContractCompositionMeta(t)?.axisScores[dim] ?? 0) >= CONTRACT_AXIS_ACTIVATION_THRESHOLD,
       )
-      .sort((a, b) => compareCompoundIntent(a, b, contract));
+      .sort((a, b) => compareCompoundIntent(a, b, contract, prompt));
     let added = 0;
     for (const track of dimRanked) {
       if (added >= minPerAxis - current || result.length >= targetLength) break;
@@ -389,7 +427,7 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
           !used.has(t.trackId) &&
           (getContractCompositionMeta(t)?.intersectionStrength ?? 0) >= intersectionThreshold(preserveBothTension!),
       )
-      .sort((a, b) => compareCompoundIntent(a, b, contract));
+      .sort((a, b) => compareCompoundIntent(a, b, contract, prompt));
     let added = 0;
     for (const track of byIntersection) {
       if (added >= intersectionQuota - currentIntersection || result.length >= targetLength) break;
@@ -409,6 +447,8 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
         contract,
         coveredDimensions,
         targetLength,
+        prompt,
+        track,
       );
       if (val > bestVal) {
         bestVal = val;
@@ -419,7 +459,7 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
       if (result.length >= targetLength) break;
       const stallPick = remaining
         .filter((t) => canAdd(t))
-        .sort((a, b) => compareCompoundIntent(a, b, contract))[0];
+        .sort((a, b) => compareCompoundIntent(a, b, contract, prompt))[0];
       if (!stallPick) break;
       const stallIdx = remaining.indexOf(stallPick);
       remaining.splice(stallIdx, 1);
@@ -444,7 +484,7 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
       tailSeen.add(resolved.trackId);
       tailCandidates.push(resolved);
     }
-    tailCandidates.sort((a, b) => compareCompoundIntent(a, b, contract));
+    tailCandidates.sort((a, b) => compareCompoundIntent(a, b, contract, prompt));
     for (const track of tailCandidates) {
       if (result.length >= targetLength) break;
       const meta = getContractCompositionMeta(track);
@@ -483,7 +523,7 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
         const bCompound =
           preserveBoth && mb && passesCompoundRetrievalEligibility(mb, contract, trackOpts(b)) ? 1 : 0;
         if (bCompound !== aCompound) return bCompound - aCompound;
-        return compareCompoundIntent(a, b, contract);
+        return compareCompoundIntent(a, b, contract, prompt);
       });
     for (const track of honestFill) {
       if (result.length >= targetLength) break;

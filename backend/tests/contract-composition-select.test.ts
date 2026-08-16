@@ -283,3 +283,18 @@ test("selectContractCoveragePreservingPool rejects title spam tracks", () => {
   assert.ok(!tracks.some((t) => (t.trackName ?? "").includes("Techno")));
   assert.equal(tracks.length, 1);
 });
+
+test("selectContractCoveragePreservingPool rejects drive spam for late night drive prompts", () => {
+  const contract = syntheticContract();
+  const pool: SyntheticTrack[] = [
+    track("good-1", "The War on Drugs", meta({ contractScore: 0.72, axisScores: { axisA: 0.62, axisB: 0.58 } }), {
+      trackName: "Red Eyes",
+    }),
+    track("spam-1", "DJ Fronteo", meta({ contractScore: 0.88, axisScores: { axisA: 0.9, axisB: 0.86 } }), {
+      trackName: "Mary On A Cross (Sped Up) - Remix",
+    }),
+  ];
+  const { tracks } = selectContractCoveragePreservingPool(pool, contract, 2, "late night drive");
+  assert.equal(tracks.length, 1);
+  assert.equal(tracks[0]?.trackId, "good-1");
+});

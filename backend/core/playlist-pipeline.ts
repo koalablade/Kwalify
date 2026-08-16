@@ -4008,7 +4008,12 @@ function buildV3CandidatePool<T extends {
       classMap,
       contractMetaLookup,
     );
-    const selected = selectContractCoveragePreservingPool(enriched, opts.contractComposition.contract, intentReadyCap);
+    const selected = selectContractCoveragePreservingPool(
+      enriched,
+      opts.contractComposition.contract,
+      intentReadyCap,
+      opts.vibe,
+    );
     intentReady = selected.tracks;
     contractCoveragePool = intentReady;
     contractPoolSelectionDiagnostics = selected.diagnostics;
@@ -6261,6 +6266,7 @@ export async function buildPlaylistPipeline<T extends {
       contract,
       opts.playlistLength,
       opts.maxPerArtist,
+      opts.vibe,
     );
     finalTracksList = rebalanced.tracks as V3MetadataTrack<T>[];
     contractRebalanceApplied = rebalanced.diagnostics.rebalanced === true;
@@ -6274,6 +6280,7 @@ export async function buildPlaylistPipeline<T extends {
         contract,
         opts.playlistLength,
         opts.maxPerArtist,
+        opts.vibe,
       );
       if (poolOnly.tracks.length > 0) {
         finalTracksList = poolOnly.tracks as V3MetadataTrack<T>[];
