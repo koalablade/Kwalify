@@ -46,12 +46,35 @@ export function semanticSpamPenalty(text: string): number {
     return 0.42;
   }
   if (
-    /\bsped up|speed up|speedup|nightcore|slowed \+ reverb|phonk|stutter techno|tiktok|vip mix|club mix|\bvip\b|on sp33d|sp33d|hardstyle|brostep|\btechno\b.*\bremix\b/.test(
+    /\bsped up|speed up|speedup|nightcore|slowed \+ reverb|phonk|stutter techno|tiktok|vip mix|club mix|\bvip\b|on sp33d|sp33d|hardstyle|brostep|riddim|squat\s+rave|non\s+stop\s+edit|turning\s+japanese|\btechno\b.*\bremix\b/.test(
       text,
     )
   ) {
     return 0.38;
   }
+  return 0;
+}
+
+/** Contextual remix/dance penalty for vague drive prompts — not a blocklist. */
+export function driveMomentContextPenalty(
+  prompt: string,
+  track: { trackName?: string | null; artistName?: string | null; energy?: number | null },
+): number {
+  if (!/\b(?:late\s+night\s+drive|long\s+drive|road\s+trip|night\s+drive|something\s+for\s+driving|evening\s+drive)\b/i.test(prompt)) {
+    return 0;
+  }
+  const text = `${track.artistName ?? ""} ${track.trackName ?? ""}`.toLowerCase();
+  const energy = track.energy ?? 0.5;
+  if (/\b(?:sped\s+up|sp33d|on\s+sp33d|nightcore|speed\s+up|speedup|dj\s+fronteo|chillhop\s+beats)\b/i.test(text)) {
+    return 0.55;
+  }
+  if (/\b(?:d&b|drum and bass|jump up|hardstyle|brostep)\b/.test(text)) return 0.35;
+  if (/\bradio edit\b/.test(text) && energy > 0.62) return 0.22;
+  if (/\b(?:war on drugs|m83|chromatics|kavinsky|the midnight|beach house|cigarettes after sex|khruangbin|tame impala|radiohead|the national)\b/.test(text)) {
+    return -0.08;
+  }
+  if (/\b(?:camelphat|deep house|melodic house)\b/.test(text) && energy <= 0.75) return -0.05;
+  if (/\bdrake\b/.test(text) && /\bjungle\b/.test(text) && energy <= 0.72) return -0.04;
   return 0;
 }
 

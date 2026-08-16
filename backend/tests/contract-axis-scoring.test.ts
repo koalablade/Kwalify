@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isSemanticSpamTrack, scoreContractDimension } from "../core/playlist-contract/contract-axis-scoring";
+import { driveMomentContextPenalty, isSemanticSpamTrack, scoreContractDimension } from "../core/playlist-contract/contract-axis-scoring";
 import { requiredContractDimensions } from "../core/playlist-contract/contract-composition-types";
 
 test("V44 not_cheesy penalizes novelty/spam titles over raw energy", () => {
@@ -67,6 +67,20 @@ test("V50 isSemanticSpamTrack catches sp33d and sped-up title spam", () => {
   assert.equal(isSemanticSpamTrack({ artistName: "The War on Drugs", trackName: "Red Eyes" }), false);
 });
 
+test("V52 driveMomentContextPenalty penalises sped-up spam but not contextual remixes", () => {
+  const prompt = "late night drive";
+  assert.ok(
+    driveMomentContextPenalty(prompt, { artistName: "DJ Fronteo", trackName: "Mary On A Cross (Sped Up) - Remix" }) >= 0.5,
+  );
+  assert.ok(
+    driveMomentContextPenalty(prompt, { artistName: "Calvin Harris", trackName: "I'm Not Alone - CamelPhat Remix", energy: 0.69 }) <= 0,
+  );
+  assert.ok(
+    driveMomentContextPenalty(prompt, { artistName: "Drake", trackName: "Jungle", energy: 0.65 }) <= 0,
+  );
+  assert.equal(driveMomentContextPenalty("cozy sunday", { artistName: "DJ Fronteo", trackName: "Sped Up" }), 0);
+});
+
 test("V51 must:indie_general matches indie family prefix", () => {
   const indieTrack = {
     trackId: "1",
@@ -116,4 +130,11 @@ test("V51 must:era is scored but not a hard rebalance quota dimension", () => {
   } as unknown as import("../core/playlist-contract/types").PlaylistContract);
   assert.ok(dims.includes("must:indie_general"));
   assert.ok(!dims.includes("must:era:90s"), `era must not be required quota dim: ${dims.join(",")}`);
+});
+
+test("V52 riddim and squat rave titles are semantic spam", () => {
+  assert.equal(isSemanticSpamTrack({ trackName: "Tekkers Riddim", artistName: "Grima x Azza" }), true);
+  assert.equal(isSemanticSpamTrack({ trackName: "Squat Rave (Locked Off)", artistName: "Gray" }), true);
+  assert.equal(isSemanticSpamTrack({ trackName: "Jungle", artistName: "Drake" }), false);
+  assert.equal(isSemanticSpamTrack({ trackName: "I'm Not Alone - CamelPhat Remix", artistName: "Calvin Harris" }), false);
 });

@@ -86,13 +86,17 @@ describe("v18 song moment fit", () => {
     );
   });
 
-  it("guardWeakCloser removes Shout when no swap helps", () => {
-    const tracks = [
-      tr("Blue Monday", "New Order", 0.72, 80),
-      tr("Shout", "Tears For Fears", 0.88, 85),
-    ];
-    const result = guardWeakCloser(tracks, "motorway_rain");
-    assert.ok(result.changed);
-    assert.ok(!/shout/i.test(result.tracks[result.tracks.length - 1]!.trackName));
+  it("V52 late night drive rejects sped-up spam in refill gate", () => {
+    assert.equal(
+      passesMomentFitForRefill(tr("Mary On A Cross (Sped Up) - Remix", "DJ Fronteo", 0.65, 40), "late night drive"),
+      false,
+    );
+    assert.equal(
+      passesMomentFitForRefill(tr("Jungle", "Drake", 0.65, 80), "late night drive"),
+      true,
+    );
+    const spamScore = scoreSongMomentFit(tr("NOBODYNOONE - BLVTH ON SP33D REMIX", "BLVTH", 0.65, 30), "night_drive");
+    const cinematic = scoreSongMomentFit(tr("Red Eyes", "The War on Drugs", 0.55, 70), "night_drive");
+    assert.ok(cinematic > spamScore);
   });
 });

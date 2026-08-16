@@ -95,7 +95,7 @@ const CHEESY_MARKERS =
   /\b(?:cheesy|cheesey|novelty|eurovision|kidz bop|gummy bear|party all the time|ymca|macarena|chicken dance|cotton eye)\b/i;
 
 const SPAM_MARKERS =
-  /\b(?:sped up|slowed \+ reverb|phonk|stutter techno|tiktok|vip mix|club mix|\bvip\b|on sp33d|sp33d|storm queen|look right through.*(?:edit|vip|mix)|\btechno\b.*\bremix\b|hardstyle|brostep)\b/i;
+  /\b(?:sped up|slowed \+ reverb|phonk|stutter techno|tiktok|vip mix|club mix|\bvip\b|on sp33d|sp33d|storm queen|look right through.*(?:edit|vip|mix)|\btechno\b.*\bremix\b|hardstyle|brostep|riddim|squat\s+rave|non\s+stop\s+edit|turning\s+japanese)\b/i;
 
 const TECHNO_SPAM =
   /\b(?:techno|hard techno|stutter|vip|hardstyle|trance remix|club mix)\b/i;

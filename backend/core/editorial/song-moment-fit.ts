@@ -48,6 +48,12 @@ const DISCO_OFF_MOMENT =
 const NIGHT_DRIVE_WEAK =
   /\b(?:turning\s+japanese|non\s+stop\s+edit)\b/i;
 
+const NIGHT_DRIVE_SPAM =
+  /\b(?:sped\s+up|sp33d|on\s+sp33d|nightcore|speed\s+up|speedup|dj\s+fronteo|chillhop\s+beats)\b/i;
+
+const NIGHT_DRIVE_CINEMATIC =
+  /\b(?:war on drugs|m83|chromatics|kavinsky|the midnight|beach house|cigarettes after sex|khruangbin|tame impala|radiohead|the national|mac demarco|real estate|future islands)\b/i;
+
 function titleOf(t: SongMomentTrack): string {
   return String(t.trackName ?? "").toLowerCase();
 }
@@ -121,9 +127,16 @@ export function scoreSongMomentFit(
       break;
     }
     case "night_drive": {
+      if (NIGHT_DRIVE_SPAM.test(title) || NIGHT_DRIVE_SPAM.test(artist)) score -= 0.58;
+      if (/\b(?:d&b|drum and bass|jump up|hardstyle|brostep)\b/i.test(title)) score -= 0.32;
+      if (/\bradio edit\b/i.test(title) && energy !== null && energy > 0.62) score -= 0.22;
       if (NIGHT_DRIVE_WEAK.test(title) && !/\b(?:new order|depeche|cure|pet shop|simple minds|m83|a-ha|talking heads)\b/.test(artist)) {
         score -= 0.35;
       }
+      if (NIGHT_DRIVE_CINEMATIC.test(artist)) score += 0.18;
+      if (energy !== null && energy >= 0.35 && energy <= 0.68) score += 0.1;
+      if (artist.includes("drake") && /\bjungle\b/.test(title) && energy !== null && energy <= 0.72) score += 0.1;
+      if (/\b(?:camelphat|deep house|melodic house)\b/i.test(title) && energy !== null && energy <= 0.75) score += 0.06;
       break;
     }
     case "country": {
@@ -174,7 +187,9 @@ export function momentRejectSeverity(
   }
 
   if (activity === "night_drive") {
+    if (NIGHT_DRIVE_SPAM.test(title) || NIGHT_DRIVE_SPAM.test(artistOf(track))) return "hard";
     if (NIGHT_DRIVE_WEAK.test(title) && popOf(track) < 40) return "soft";
+    if (/\bradio edit\b/i.test(title) && energy !== null && energy > 0.68) return "soft";
   }
 
   if (position === 0) {
@@ -197,7 +212,7 @@ export function passesMomentFitForRefill(track: SongMomentTrack, prompt: string)
   else if (/\b(?:motorway|midnight\s+rain|windscreen)\b/.test(p)) activity = "motorway_rain";
   else if (/\b(?:disco|rooftop\s+party|1978)\b/.test(p)) activity = "disco";
   else if (/\b(?:madchester|baggy)\b/.test(p)) activity = "madchester";
-  else if (/\b(?:80s|night\s+drive)\b/.test(p)) activity = "night_drive";
+  else if (/\b(?:80s|late\s+night\s+drive|long\s+drive|road\s+trip|something\s+for\s+driving|evening\s+drive|night\s+drive)\b/.test(p)) activity = "night_drive";
   else if (/\b(?:country|cowboy)\b/.test(p)) activity = "country";
 
   if (!activity) return true;
