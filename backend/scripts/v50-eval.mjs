@@ -77,12 +77,30 @@ const COMBO_PROBES = [
   { id: "V50-X06", category: "combo", prompt: "dark chill electronic" },
 ];
 
+const ADVERSARIAL_PROBES = [
+  { id: "V50-A01", category: "adversarial", prompt: "happy but lonely" },
+  { id: "V50-A02", category: "adversarial", prompt: "angry but calm" },
+  { id: "V50-A03", category: "adversarial", prompt: "nostalgic but modern" },
+  { id: "V50-A04", category: "adversarial", prompt: "upbeat but sad" },
+  { id: "V50-A05", category: "adversarial", prompt: "romantic but not cheesy" },
+  { id: "V50-A06", category: "adversarial", prompt: "energetic but laid back" },
+  { id: "V50-A07", category: "adversarial", prompt: "intense but controlled" },
+  { id: "V50-A08", category: "adversarial", prompt: "sad but hopeful" },
+];
+
 const CONTROL_PROBES = [
   { id: "V50-CTL01", category: "control", prompt: "cozy sunday morning coffee" },
   { id: "V50-CTL02", category: "control", prompt: "lo-fi study focus" },
 ];
 
-const ALL_PROMPTS = [...COMPOUND_PROBES, ...VAGUE_PROBES, ...GENRE_PROBES, ...COMBO_PROBES, ...CONTROL_PROBES];
+const ALL_PROMPTS = [
+  ...COMPOUND_PROBES,
+  ...VAGUE_PROBES,
+  ...GENRE_PROBES,
+  ...COMBO_PROBES,
+  ...ADVERSARIAL_PROBES,
+  ...CONTROL_PROBES,
+];
 
 function parseArgs() {
   const args = process.argv.slice(2);
