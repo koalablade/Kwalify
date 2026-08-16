@@ -310,6 +310,7 @@ import {
 } from "../core/playlist-contract/constraint-aware-retrieval";
 import { auditPlaylistAgainstContract } from "../core/playlist-contract/contract-validator";
 import { deriveHonestPartialFromContract } from "../core/playlist-contract/honest-partial";
+import { stripSemanticSpamTracks } from "../core/playlist-contract/contract-axis-scoring";
 import type { ExpectationTrack } from "../core/expectation/types";
 import { persistGenerationSignal } from "../lib/generation-signals";
 import { loadEditorialMemory, recordEditorialMemory } from "../core/editorial/editorial-memory";
@@ -13317,6 +13318,16 @@ router.post("/generate", async (req, res): Promise<void> => {
       requireTelemetry: true,
       recoveryPoolSize: mergedConstrainedRecoveryPool.length,
     }));
+    if (delivery.tracks.length > 0) {
+      const withoutSpam = stripSemanticSpamTracks(delivery.tracks);
+      if (withoutSpam.length < delivery.tracks.length) {
+        assignFT(
+          "semantic_spam_strip",
+          "remove title spam/novelty edits before terminal delivery",
+          withoutSpam as PlaylistTrack[],
+        );
+      }
+    }
     const openingWindowDedupHistoryLists = auditNoveltyMemoryRows
       ? evaluationRecentTrackLists
       : getOpeningWindowSessionHistory(generateSessionUserId);

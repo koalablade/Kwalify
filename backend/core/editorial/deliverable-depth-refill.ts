@@ -9,6 +9,7 @@ import { matchesAvoidArtist } from "./cultural-identity-profile";
 import { scoreTrackWorldIdentity, type WorldIdentityTrack } from "./world-identity-score";
 import { trackPassesWorldPurity } from "./world-purity-gate";
 import { normalizeSessionArtist } from "../../lib/session-artist-gravity";
+import { isSemanticSpamTrack } from "../playlist-contract/contract-axis-scoring";
 
 export type DeliverableDepthRefillDiagnostics = {
   seedCount: number;
@@ -128,6 +129,7 @@ function passesDeliverableSlot<T extends WorldIdentityTrack>(
 ): boolean {
   const isOpener = position === 0 && opts.preserveOpener === true;
   const candidate = opts.enrichTrack ? opts.enrichTrack(track) : track;
+  if (isSemanticSpamTrack(candidate)) return false;
   if (!trackPassesWorldPurity(candidate, profile, position, { isThesisOpener: isOpener })) return false;
   if (opts.isGenreVerified && !opts.isGenreVerified(track)) return false;
   return true;
@@ -212,13 +214,15 @@ export function refillDeliverableDepth<T extends WorldIdentityTrack>(
 
   void opts.prompt;
 
+  const cleaned = output.filter((track) => !isSemanticSpamTrack(track));
+
   return {
-    tracks: output,
+    tracks: cleaned,
     diagnostics: {
       seedCount: seedTracks.length,
       poolSize: rankedPool.length,
       requestedLength: requested,
-      outputCount: output.length,
+      outputCount: cleaned.length,
       refilledCount,
       poolExhausted,
       positionReplacements,

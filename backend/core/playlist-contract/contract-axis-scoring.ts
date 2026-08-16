@@ -64,6 +64,12 @@ export function isSemanticSpamTrack(track: {
   return semanticSpamPenalty(text) >= 0.35;
 }
 
+export function stripSemanticSpamTracks<T extends { trackName?: string | null; artistName?: string | null }>(
+  tracks: T[],
+): T[] {
+  return tracks.filter((track) => !isSemanticSpamTrack(track));
+}
+
 function cheesySemanticPenalty(text: string): number {
   return semanticSpamPenalty(text);
 }
