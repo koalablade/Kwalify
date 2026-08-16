@@ -152,7 +152,7 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
     label: "sunday / cozy chill",
     priority: 9,
     patterns: [
-      /\b(?:sunday morning|sunday reset|cozy evening|sofa|chill for sunday|chill evening|warm after.?work|after work unwind)\b/i,
+      /\b(?:sunday morning|sunday reset|cozy sunday|cozy evening|sofa|chill for sunday|chill evening|warm after.?work|after work unwind)\b/i,
       /\b(?:hospital waiting|weirdly calm|assembling ikea|ikea furniture|songs that sound like autumn)\b/i,
     ],
   },
@@ -197,10 +197,10 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
     worldId: "evening_drive_world",
     sceneId: "EMPTY_MOTORWAY_NIGHT",
     label: "evening / night drive",
-    priority: 11,
+    priority: 12,
     patterns: [
       /\b(?:long drive|road trip|driving home|drive home|after work.*driv|motorway|headlights|road trip through|wales rainy|90s car stereo|windows down|lonely city walk|walk at 1am|golden hour walk)\b/i,
-      /\b(?:evening drive|sunset drive)\b/i,
+      /\b(?:evening drive|sunset drive|nostalgic driv(?:ing|e)|driving nostalgia)\b/i,
     ],
   },
   {

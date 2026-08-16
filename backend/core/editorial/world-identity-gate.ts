@@ -527,8 +527,8 @@ const FOCUS_STUDY_IDENTITY: WorldIdentityProfile = {
   ],
   energy: { max: 0.55 },
   danceability: { max: 0.68 },
-  // Lyrical pop ballads are near-zero instrumental — when features exist, enforce.
-  instrumentalness: { min: 0.25 },
+  // Vocal lofi/chillhop often scores low instrumentalness — allow soft study picks.
+  instrumentalness: { min: 0.08 },
 };
 
 const SUNDAY_CHILL_IDENTITY: WorldIdentityProfile = {
@@ -1391,6 +1391,10 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   }
   if (/\bdad\s+rock\b/i.test(p)) ids.push("dad_secret_world");
   if (/\blo-?fi\b|\blofi\b|\bchillhop\b|\bstudy\s+beats?\b/i.test(p)) ids.push("lofi_world");
+  if (/\blo-?fi\s+study\b|\bstudy\s+(?:lo-?fi|lofi|beats?)\b/i.test(p)) {
+    if (!ids.includes("lofi_world")) ids.push("lofi_world");
+    if (!ids.includes("focus_study_world")) ids.push("focus_study_world");
+  }
   if (/\bambient\b|\bsoundscape\b|\bno\s+vocals?\b/i.test(p)) ids.push("ambient_world");
   if (
     /\b(?:deep\s+)?focus\b|\bno\s+distractions?\b|\bstudy\s+session\b|\bcoding\s+focus\b|\bconcentration\b|\bexam\s+revision\b/i.test(p) &&
@@ -1436,6 +1440,13 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
     /\b(?:evening|sunset)\s+(?:drive|driving)\b|\b(?:night|late)\s+(?:drive|driving)\b.*\b(?:motorway|highway|road)\b/i.test(p) &&
     !ids.includes("rainy_drive_world") &&
     !ids.includes("rainy_motorway_world")
+  ) {
+    ids.push("evening_drive_world");
+  }
+  if (
+    /\bnostalgic\s+driv|\bdriv(?:ing|e)\b.*\bnostalgic|\bnostalgic\b.*\bdriv(?:ing|e)\b/i.test(p) &&
+    !ids.includes("night_drive_world") &&
+    !ids.includes("rainy_drive_world")
   ) {
     ids.push("evening_drive_world");
   }

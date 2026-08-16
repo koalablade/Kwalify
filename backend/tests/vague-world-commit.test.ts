@@ -28,6 +28,9 @@ test("vague lifestyle prompts auto-commit one everyday world", () => {
     ["i just got dumped be gentle", "soft_sad_world"],
     ["coffee shop laptop session", "coffee_soft_focus_world"],
     ["driving home after work", "evening_drive_world"],
+    ["nostalgic driving", "evening_drive_world"],
+    ["cozy Sunday morning", "sunday_chill_world"],
+    ["late night drive", "night_drive_world"],
   ];
   for (const [prompt, world] of cases) {
     const c = resolveVagueWorldCommit(prompt, { tier: "low", promptConfidenceScore: 0.25 });
@@ -56,6 +59,14 @@ test("readiness allows commit without four-word bypass alone", () => {
 test("inferWorldIdentityIdsFromPrompt commits everyday worlds", () => {
   const ids = inferWorldIdentityIdsFromPrompt("cooking dinner with friends");
   assert.ok(ids.includes("social_kitchen_world"), String(ids));
+});
+
+test("nostalgic driving and lo-fi study route to correct worlds", () => {
+  const driveIds = inferWorldIdentityIdsFromPrompt("nostalgic driving");
+  assert.ok(driveIds.includes("evening_drive_world"), String(driveIds));
+  const studyIds = inferWorldIdentityIdsFromPrompt("lo-fi study");
+  assert.ok(studyIds.includes("lofi_world"), String(studyIds));
+  assert.ok(studyIds.includes("focus_study_world"), String(studyIds));
 });
 
 test("sunday chill rejects Storm Queen / DMX", () => {
