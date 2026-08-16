@@ -39,11 +39,17 @@ test("vague lifestyle prompts auto-commit one everyday world", () => {
   }
 });
 
-test("late night drive clarifies evening vs night drive worlds", () => {
+test("late night drive commits to night drive world", () => {
   const c = resolveVagueWorldCommit("late night drive", { tier: "low", promptConfidenceScore: 0.25 });
-  assert.equal(c.action, "clarify");
-  assert.equal(c.worldId, "evening_drive_world");
-  assert.ok(c.alternatives.some((a) => a.worldId === "night_drive_world"));
+  assert.equal(c.action, "commit");
+  assert.equal(c.worldId, "night_drive_world");
+  assert.ok(shouldSuppressVagueWiden(c));
+});
+
+test("evening drive stays distinct from late night drive", () => {
+  const evening = resolveVagueWorldCommit("evening drive", { tier: "low", promptConfidenceScore: 0.25 });
+  assert.equal(evening.action, "commit");
+  assert.equal(evening.worldId, "evening_drive_world");
 });
 
 test("named genre prompts passthrough without everyday override", () => {

@@ -52,6 +52,7 @@ const CULTURAL_SCENE_PATTERNS: Array<{ pattern: RegExp; scene: string }> = [
   { pattern: /\b(?:fix(?:ing)?|repair(?:ing)?|working\s+on)\s+(?:a\s+|my\s+)?(?:car|cars|volvo|saab|bmw|mx-?5)\b/i, scene: "garage_repair" },
   { pattern: /\b(?:garage|workshop|project\s+car)\b/i, scene: "garage_workshop" },
   { pattern: /\brainy\s+night\s+driv/i, scene: "rainy_night_drive" },
+  { pattern: /\blate\s+night\s+driv/i, scene: "night_drive" },
   { pattern: /\bnight\s+driv/i, scene: "night_drive" },
   { pattern: /\btop\s+gear\b|\bclarkson\b/i, scene: "top_gear_driving" },
 ];

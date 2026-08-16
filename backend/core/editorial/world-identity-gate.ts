@@ -608,7 +608,8 @@ const EVENING_DRIVE_IDENTITY: WorldIdentityProfile = {
     /\b(?:the\s+national|war\s+on\s+drugs|radiohead|m83|tame\s+impala|beach\s+house|the\s+1975|cinematic)\b/i,
   ],
   rejectAny: [
-    /\b(?:hard\s+techno|tekkno|drill\b|death\s+metal|brostep|christmas)\b/i,
+    /\b(?:hard\s+techno|tekkno|drill\b|death\s+metal|brostep|christmas|uk\s*garage|ukg|grime|riddim|squat\s+rave|drum\s*(?:and|&)\s*bass|\bdnb\b)\b/i,
+    /\b(?:non\s+stop\s+edit|turning\s+japanese)\b/i,
     /\b(?:tiesto|storm\s+queen|dmx\b|meat\s+loaf)\b/i,
   ],
   energy: { min: 0.3, max: 0.75 },
@@ -851,7 +852,8 @@ const NIGHT_DRIVE_IDENTITY: WorldIdentityProfile = {
   rejectAny: [
     /\b(?:metal|hardcore|trap\b|drill\b|country|bluegrass|arena\s+rock|classic\s+rock|reggae|dancehall|hip[-\s]?hop|rap\b|moomba?hton)\b/i,
     /\b(?:french\s+montana|mungo'?s?\s+hi\s+fi|dmx\b|50\s+cent|central\s+cee|tion\s+wayne|arrdee)\b/i,
-    /\b(?:miku|vocaloid|jump\s+up|brostep|hardstyle)\b/i,
+    /\b(?:miku|vocaloid|jump\s+up|brostep|hardstyle|uk\s*garage|ukg|grime|riddim|squat\s+rave|drum\s*(?:and|&)\s*bass|\bdnb\b)\b/i,
+    /\b(?:non\s+stop\s+edit|turning\s+japanese)\b/i,
     /\b(?:queen\b(?!\s+of\s+the\s+stone)|led\s+zeppelin|ac\/?dc|guns\s+n'?\s*roses|bon\s+jovi|def\s+leppard|travis\s+scott)\b/i,
     /\b(?:bon\s+iver|clairo|noah\s+kahan|dayglow|gregory\s+alan\s+isakov|badbadnotgood|sufjan\s+stevens)\b/i,
   ],
@@ -1436,6 +1438,16 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
     if (!ids.includes("rainy_motorway_world")) ids.push("rainy_drive_world");
   } else if (/\b(?:cozy|chill|calm|soft)\b.*\brain|\brain(?:y|ing)?\b.*\b(?:cozy|chill|calm|night\s+chill)\b/i.test(p)) {
     ids.push("chill_rainy_world");
+  }
+  if (/\blate\s+night\s+drive\b/i.test(p)) {
+    ids.push("night_drive_world");
+  }
+  if (
+    /\blate\s+night\s+drive|\bnight\s+drive|\bmidnight\s+drive/i.test(p) &&
+    !ids.includes("rainy_motorway_world") &&
+    !ids.includes("rainy_drive_world")
+  ) {
+    ids.push("night_drive_world");
   }
   if (
     /\b(?:motorway|highway)\s+at\s+(?:night|midnight)\b|\b(?:empty|night)\s+(?:motorway|highway)\b|\bmotorway\s+at\s+midnight\b/i.test(p)

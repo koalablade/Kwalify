@@ -190,9 +190,9 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
     worldId: "night_drive_world",
     sceneId: "EMPTY_MOTORWAY_NIGHT",
     label: "night drive / motorway",
-    priority: 13,
+    priority: 15,
     patterns: [
-      /\b(?:night drive|midnight drive|motorway at (?:night|midnight)|empty (?:motorway|highway))\b/i,
+      /\b(?:late night drive|late.?night.*\bdriv|night drive|midnight drive|motorway at (?:night|midnight)|empty (?:motorway|highway))\b/i,
     ],
   },
   {
@@ -201,8 +201,8 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
     label: "evening / night drive",
     priority: 14,
     patterns: [
-      /\b(?:long drive|road trip|driving home|drive home|after work.*driv|motorway|headlights|road trip through|wales rainy|90s car stereo|windows down|lonely city walk|walk at 1am|golden hour walk)\b/i,
-      /\b(?:evening drive|sunset drive|late night drive|late.?night.*\bdriv|something for driving|music for driving|driving music)\b/i,
+      /\b(?:long drive|road trip|driving home|drive home|after work.*driv|motorway|headlights|road trip through|wales rainy|90s car stereo|windows down|lonely city walk|walk at 1am|golden hour walk|nostalgic\s+driv(?:e|ing))\b/i,
+      /\b(?:evening drive|sunset drive|something for driving|music for driving|driving music)\b/i,
     ],
   },
   {

@@ -426,6 +426,7 @@ const PRIMARY_MUSICAL_WORLD: Array<{ pattern: RegExp; id: string }> = [
     id: "road_trip_singalong_world",
   },
   { pattern: /\b(?:80s?|eighties)\s+(?:night\s+)?drive\b/i, id: "80s_night_drive_world" },
+  { pattern: /\blate\s+night\s+drive\b/i, id: "night_drive_world" },
   { pattern: /\b(?:rainy|rain)\s+motorway\b/i, id: "rainy_motorway_world" },
   { pattern: /\broad\s+trip\b.*\b(?:sing|singalong|anthem)\b/i, id: "road_trip_singalong_world" },
   { pattern: /\bpetrol\s+station\b.*\b2\s*am\b/i, id: "petrol_station_2am_world" },
@@ -470,6 +471,8 @@ const MUSICAL_WORLD_IDS = new Set([
   "country_world",
   "disco_1970s_world",
   "80s_night_drive_world",
+  "night_drive_world",
+  "evening_drive_world",
   "rainy_motorway_world",
   "gym_energy_world",
 ]);
@@ -485,7 +488,7 @@ const EXPLICIT_SCENE_WORLD: Array<{ pattern: RegExp; id: string }> = [
     id: "rainy_motorway_world",
   },
   {
-    pattern: /\b(?:motorway|highway)\s+at\s+(?:night|midnight)\b|\bnight\s+drive\b|\b(?:empty|night)\s+(?:motorway|highway)\b/i,
+    pattern: /\b(?:late\s+night\s+drive|motorway|highway)\s+at\s+(?:night|midnight)\b|\bnight\s+drive\b|\b(?:empty|night)\s+(?:motorway|highway)\b/i,
     id: "night_drive_world",
   },
 ];
