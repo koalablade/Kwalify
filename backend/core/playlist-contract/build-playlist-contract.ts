@@ -171,6 +171,26 @@ function detectTensions(
     });
   }
 
+  const warmMelancholic =
+    /\bwarm\b/.test(lower) && /\bmelanchol|\bsad\b/.test(lower);
+  if (warmMelancholic && !tensions.some((t) => t.description?.includes("warm"))) {
+    tensions.push({
+      axes: ["melancholy", "low_energy"],
+      description: "warm and melancholic",
+      resolution: "preserve_both",
+    });
+  }
+
+  const nostalgicDriving =
+    /\bnostalgic\b/.test(lower) && /\b(?:driv|driving|road trip)\b/.test(lower);
+  if (nostalgicDriving && !tensions.some((t) => t.description?.includes("nostalgic driving"))) {
+    tensions.push({
+      axes: ["melancholy", "high_energy"],
+      description: "nostalgic driving",
+      resolution: "preserve_both",
+    });
+  }
+
   // Only explicit contrast ("but") — blend descriptors like "upbeat indie melancholic"
   // are handled via prefer moods, not preserve_both (avoids pool starvation).
   const upbeatButMelancholic =

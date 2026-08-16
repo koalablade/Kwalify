@@ -95,7 +95,7 @@ const CHEESY_MARKERS =
   /\b(?:cheesy|cheesey|novelty|eurovision|kidz bop|gummy bear|party all the time|ymca|macarena|chicken dance|cotton eye)\b/i;
 
 const SPAM_MARKERS =
-  /\b(?:sped up|slowed \+ reverb|phonk|stutter techno|tiktok|vip mix|club mix|\bvip\b|\btechno\b.*\bremix\b|hardstyle|brostep)\b/i;
+  /\b(?:sped up|slowed \+ reverb|phonk|stutter techno|tiktok|vip mix|club mix|\bvip\b|on sp33d|sp33d|\btechno\b.*\bremix\b|hardstyle|brostep)\b/i;
 
 const TECHNO_SPAM =
   /\b(?:techno|hard techno|stutter|vip|hardstyle|trance remix|club mix)\b/i;
@@ -243,6 +243,9 @@ export function parsePromptExpectation(prompt: string): PromptExpectation {
   if (/\b(?:road trip|driving|drive)\b/.test(lower)) {
     activityTags.push("driving");
     momentTags.push("road-trip");
+  }
+  if (/\bnostalgic driving\b/.test(lower)) {
+    compoundAxes.push({ positive: "melancholy", negative: undefined, label: "nostalgic driving" });
   }
 
   let worldHint: string | null = null;
@@ -405,7 +408,9 @@ function detectKeywordLiteral(
 ): boolean {
   const words = norm(prompt).split(/\s+/).filter((w) => w.length > 3);
   const title = titleKey(t);
+  const skipLiteral = new Set(["drive", "driving", "night", "long", "nostalgic", "party", "study", "focus"]);
   for (const word of words) {
+    if (skipLiteral.has(word)) continue;
     if (title.includes(word) && semanticFit < 0.42) {
       if (word === "party" && partySignal < 0.45) return true;
       if (word !== "party" && semanticFit < 0.35) return true;
@@ -494,7 +499,10 @@ function scoreIndependentWorldFit(
 
   if (expectation.worldHint) {
     const profileWorld = getCulturalProfile(expectation.worldHint);
-    if (profileWorld) return scoreTrackWorldIdentity(t, profileWorld);
+    if (profileWorld) {
+      const raw = scoreTrackWorldIdentity(t, profileWorld);
+      return Math.max(raw, 0.38);
+    }
   }
 
   const committed = resolveCommittedWorld({ prompt: expectation.promptLower });

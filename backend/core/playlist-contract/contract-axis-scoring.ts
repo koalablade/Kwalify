@@ -42,7 +42,7 @@ export function semanticSpamPenalty(text: string): number {
   if (/\bcheesy|cheesey|novelty|eurovision|kidz bop|gummy bear|party all the time\b/.test(text)) {
     return 0.55;
   }
-  if (/\bsped up|slowed \+ reverb|phonk|stutter techno|tiktok|vip mix|club mix|\bvip\b|\btechno\b.*\bremix\b/.test(text)) {
+  if (/\bsped up|slowed \+ reverb|phonk|stutter techno|tiktok|vip mix|club mix|\bvip\b|on sp33d|sp33d|\btechno\b.*\bremix\b/.test(text)) {
     return 0.38;
   }
   return 0;
@@ -74,6 +74,12 @@ export function scoreContractDimension(
   if (dimensionId.startsWith("prefer:mood:")) {
     const mood = dimensionId.slice(12);
     if (/sad|melanchol|heartbreak/.test(mood)) return valence < 0.45 ? 0.7 + (0.45 - valence) * 0.5 : 0.2;
+    if (/warm|cozy|tender/.test(mood)) {
+      return valence >= 0.35 && valence <= 0.72 && energy >= 0.32 && energy <= 0.68 ? 0.72 : 0.32;
+    }
+    if (/nostalgic|retro|throwback/.test(mood)) {
+      return valence <= 0.65 && energy >= 0.38 && energy <= 0.82 ? 0.68 : 0.3;
+    }
     if (/chill|calm|relaxed/.test(mood)) return energy < 0.5 ? 0.65 : 0.25;
     if (/happy|feel.?good|uplift/.test(mood)) return valence > 0.55 && energy > 0.45 ? 0.7 : 0.25;
     return 0.4;
