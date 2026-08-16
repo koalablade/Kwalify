@@ -13342,6 +13342,11 @@ router.post("/generate", async (req, res): Promise<void> => {
           "remove title spam/novelty edits before terminal delivery",
           withoutSpam as PlaylistTrack[],
         );
+        finalApiTracks = formatTracksForApi(
+          delivery.tracks,
+          emotionProfile,
+          momentPipeline?.canonicalScene?.sceneId ?? null,
+        );
       }
     }
     const openingWindowDedupHistoryLists = auditNoveltyMemoryRows
@@ -13699,6 +13704,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       },
     };
     let deliveredTracks = [...delivery.tracks] as PlaylistTrack[];
+    finalApiTracks = formatTracksForApi(
+      deliveredTracks,
+      emotionProfile,
+      momentPipeline?.canonicalScene?.sceneId ?? null,
+    );
     // Terminal human-scene safety net — filter the response payload only.
     // Pipeline Authority is frozen here, so do not mutate delivery.tracks.
     {
@@ -14256,6 +14266,26 @@ router.post("/generate", async (req, res): Promise<void> => {
           finalApiTracks = finalApiTracks.slice(0, lateHqg.salvageableCount);
           deliveredTracks = syncTracksToApiOrder(deliveredTracks, finalApiTracks);
         }
+      }
+    }
+    // Response-only spam strip — pipeline frozen; human curation/refill can reintroduce title spam.
+    if (deliveredTracks.length > 0) {
+      const cleanedDelivered = stripSemanticSpamTracks(deliveredTracks) as PlaylistTrack[];
+      if (cleanedDelivered.length < deliveredTracks.length) {
+        const removed = deliveredTracks.length - cleanedDelivered.length;
+        deliveredTracks = cleanedDelivered;
+        finalApiTracks = formatTracksForApi(
+          deliveredTracks,
+          emotionProfile,
+          momentPipeline?.canonicalScene?.sceneId ?? null,
+        );
+        finalization = {
+          tracks: delivery.tracks as PlaylistTrack[],
+          diagnostics: {
+            ...finalization.diagnostics,
+            terminalSemanticSpamStrip: { removed },
+          },
+        };
       }
     }
     const productionHygieneDiagnostics = {

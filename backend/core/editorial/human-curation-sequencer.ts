@@ -12,6 +12,7 @@ import {
   passesMomentFitForRefill,
 } from "./song-moment-fit";
 import { scoreTrackWorldIdentity } from "./world-identity-score";
+import { isSemanticSpamTrack } from "../playlist-contract/contract-axis-scoring";
 
 export type HumanCurationTrack = {
   trackId?: string | null;
@@ -454,10 +455,17 @@ export function buildMomentReplacementPool<T extends HumanCurationTrack>(
   delivered: T[],
   expansion?: T[],
 ): T[] {
-  return capReplacementPool([
+  const merged = [
     ...delivered,
     ...(expansion && expansion.length > 0 ? expansion : []),
-  ]);
+  ].filter(
+    (track) =>
+      !isSemanticSpamTrack({
+        artistName: track.artistName,
+        trackName: track.trackName,
+      }),
+  );
+  return capReplacementPool(merged);
 }
 
 function searchCrossPoolReplacement<T extends HumanCurationTrack>(
