@@ -7,6 +7,7 @@ import type { ContractCompositionMeta, ContractCompositionTrack } from "./contra
 import { getContractCompositionMeta, requiredContractDimensions } from "./contract-composition-types";
 import type { PlaylistContract } from "./types";
 import { CONTRACT_AXIS_ACTIVATION_THRESHOLD, intersectionThreshold } from "./contract-axis-scoring";
+import { compoundIntersectionStrength } from "./contract-semantic-moment";
 import { passesCompoundRetrievalEligibility } from "./contract-compound-eligibility";
 
 export type ContractCoverageSelectionDiagnostics = {
@@ -68,7 +69,7 @@ export function computeCompoundIntentScore(
   for (const tension of preserveBoth) {
     const a = meta.axisScores[tension.axes[0]] ?? 0;
     const b = meta.axisScores[tension.axes[1]] ?? 0;
-    bestCompound = Math.max(bestCompound, Math.sqrt(a * b));
+    bestCompound = Math.max(bestCompound, compoundIntersectionStrength(a, b));
   }
 
   let score =
@@ -195,6 +196,14 @@ export function selectContractCoveragePreservingPool<T extends ContractCompositi
     tryAdd(track);
   }
   phases.push("global_fill");
+
+  if (out.length < limit) {
+    for (const track of ranked) {
+      if (out.length >= limit) break;
+      tryAdd(track);
+    }
+    phases.push(`honest_tail:${out.length}`);
+  }
 
   return {
     tracks: out.slice(0, limit),

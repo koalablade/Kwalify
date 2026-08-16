@@ -13,6 +13,7 @@ import {
   type ContractRetrievalTrack,
 } from "./constraint-aware-retrieval";
 import { buildContractCompositionMeta, CONTRACT_AXIS_ACTIVATION_THRESHOLD, scoreContractDimension } from "./contract-axis-scoring";
+import { compoundIntersectionStrength } from "./contract-semantic-moment";
 import { compoundPartnerFloor, passesCompoundRetrievalEligibility } from "./contract-compound-eligibility";
 import { computeCompoundIntentScore } from "./contract-composition-select";
 import type { ContractCompositionMeta } from "./contract-composition-types";
@@ -116,7 +117,7 @@ function scorePreserveBoth(track: ContractAuthoritativeTrack, tension: ContractT
   const [a, b] = tension.axes;
   const sa = scoreTensionAxis(track, a);
   const sb = scoreTensionAxis(track, b);
-  return Math.sqrt(sa * sb) * 0.65 + (sa + sb) * 0.175;
+  return compoundIntersectionStrength(sa, sb) * 0.65 + (sa + sb) * 0.175;
 }
 
 function matchesGenreFamily(

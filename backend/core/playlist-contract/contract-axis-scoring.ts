@@ -1,10 +1,20 @@
 /**
  * V41 — Generic contract dimension scoring from track features (not prompt regexes).
+ * V46 — Semantic moment evidence blended with audio features for compound axes.
  */
 
 import type { ContractAuthoritativeTrack } from "./contract-authoritative-retrieval";
 import type { ContractTension, PlaylistContract } from "./types";
 import { scoreTrackAgainstContract } from "./constraint-aware-retrieval";
+import {
+  blendAxisWithSemanticMoment,
+  buildTrackSemanticProfileForContract,
+  compoundIntersectionStrength,
+  contrastiveNegationPenalty,
+  scoreSemanticAxisEvidence,
+  scoreUnwantedPoleForAxis,
+} from "./contract-semantic-moment";
+import type { TrackSemanticProfile } from "../../lib/track-semantic-types";
 
 export const CONTRACT_AXIS_ACTIVATION_THRESHOLD = 0.42;
 const ACTIVATION_THRESHOLD = CONTRACT_AXIS_ACTIVATION_THRESHOLD;
@@ -40,11 +50,12 @@ function cheesySemanticPenalty(text: string): number {
   return semanticSpamPenalty(text);
 }
 
-/** Score a named contract dimension using audio + classification, not title tokens alone. */
+/** Score a named contract dimension using audio + semantic profile + classification. */
 export function scoreContractDimension(
   track: ContractAuthoritativeTrack,
   dimensionId: string,
   classification: { genreFamily?: string | null; genrePrimary?: string | null } | null,
+  semanticProfile?: TrackSemanticProfile | null,
 ): number {
   const energy = track.energy ?? 0.5;
   const valence = track.valence ?? 0.5;
@@ -72,29 +83,36 @@ export function scoreContractDimension(
     return energy > 0.45 && energy < 0.72 ? 0.6 : 0.3;
   }
 
+  let audioScore = 0.35;
   switch (dimensionId) {
     case "melancholy": {
-      if (valence >= 0.55) return valence < 0.65 ? 0.15 : 0.1;
+      if (valence >= 0.55) {
+        audioScore = valence < 0.65 ? 0.15 : 0.1;
+        break;
+      }
       const spamPenalty = semanticSpamPenalty(text);
       // High-energy club/drill production is not emotional melancholy.
       if (
         (energy > 0.78 && valence > 0.28 && valence < 0.48) ||
         (energy > 0.74 && spamPenalty > 0)
       ) {
-        return Math.max(0.08, 0.2 - spamPenalty * 0.55);
+        audioScore = Math.max(0.08, 0.2 - spamPenalty * 0.55);
+        break;
       }
       const emotionalBase = valence < 0.42 ? 0.55 + (0.42 - valence) : 0.35;
       const energyDampen = energy > 0.72 ? Math.min(0.45, (energy - 0.72) * 1.35) : 0;
-      return Math.max(0.08, emotionalBase - energyDampen - spamPenalty * 0.62);
+      audioScore = Math.max(0.08, emotionalBase - energyDampen - spamPenalty * 0.62);
+      break;
     }
     case "party_energy":
-      if (energy > 0.72) return 0.58 + Math.min(0.35, (energy - 0.72) * 1.2);
-      if (energy > 0.68 && dance > 0.5) return 0.48 + Math.min(0.4, (energy - 0.68) * 1.2);
-      if (energy > 0.62 && dance > 0.55) return 0.35 + (energy - 0.62) * 0.4;
-      return energy > 0.55 ? 0.22 : 0.08;
+      if (energy > 0.72) audioScore = 0.58 + Math.min(0.35, (energy - 0.72) * 1.2);
+      else if (energy > 0.68 && dance > 0.5) audioScore = 0.48 + Math.min(0.4, (energy - 0.68) * 1.2);
+      else if (energy > 0.62 && dance > 0.55) audioScore = 0.35 + (energy - 0.62) * 0.4;
+      else audioScore = energy > 0.55 ? 0.22 : 0.08;
+      break;
     case "high_energy":
-      if (energy > 0.68) return 0.55 + Math.min(0.45, (energy - 0.68) * 1.5);
-      return energy > 0.55 ? 0.28 : 0.1;
+      audioScore = energy > 0.68 ? 0.55 + Math.min(0.45, (energy - 0.68) * 1.5) : energy > 0.55 ? 0.28 : 0.1;
+      break;
     case "not_cheesy": {
       const featureBase =
         energy > 0.5 && valence > 0.35 && valence < 0.85 ? 0.52 : energy > 0.45 ? 0.28 : 0.14;
@@ -103,19 +121,40 @@ export function scoreContractDimension(
         /indie|alternative|rock|electronic|hip_hop|soul|punk|metal/.test(primary)
           ? 0.14
           : 0;
-      return Math.max(0.08, Math.min(0.88, featureBase + genreCredibility - cheesySemanticPenalty(text)));
+      audioScore = Math.max(0.08, Math.min(0.88, featureBase + genreCredibility - cheesySemanticPenalty(text)));
+      break;
     }
     case "low_energy":
-      return energy < 0.48 ? 0.55 + (0.48 - energy) : energy < 0.58 ? 0.3 : 0.12;
+      audioScore = energy < 0.48 ? 0.55 + (0.48 - energy) : energy < 0.58 ? 0.3 : 0.12;
+      break;
     case "not_boring": {
       const interest = Math.max(energy, dance * 0.92, valence * 0.78);
-      if (interest < 0.34) return 0.1;
-      const titleInterest = /\blive\b|\bacoustic\b|\bremix\b/.test(text) ? 0.08 : 0;
-      return Math.min(0.82, 0.28 + interest * 0.48 + titleInterest);
+      if (interest < 0.34) audioScore = 0.1;
+      else {
+        const titleInterest = /\blive\b|\bacoustic\b|\bremix\b/.test(text) ? 0.08 : 0;
+        audioScore = Math.min(0.82, 0.28 + interest * 0.48 + titleInterest);
+      }
+      break;
     }
     default:
-      return 0.35;
+      audioScore = 0.35;
   }
+
+  const profile =
+    semanticProfile ??
+    buildTrackSemanticProfileForContract(track, classification);
+  const semanticScore = scoreSemanticAxisEvidence(profile, dimensionId);
+  const unwantedPole = scoreUnwantedPoleForAxis(profile, dimensionId);
+  let blended = blendAxisWithSemanticMoment(audioScore, semanticScore, dimensionId, unwantedPole);
+
+  for (const neg of ["cheesy", "boring"]) {
+    if (dimensionId === `not_${neg}`) {
+      const penalty = contrastiveNegationPenalty(profile, text, neg);
+      blended = Math.max(0.06, blended - penalty * 0.35);
+    }
+  }
+
+  return blended;
 }
 
 export function buildContractCompositionMeta(
@@ -138,18 +177,20 @@ export function buildContractCompositionMeta(
   for (const e of contract.prefer.energy) dims.add(`prefer:energy:${e.value}`);
   for (const m of contract.prefer.moods) dims.add(`prefer:mood:${m.value}`);
 
+  const semanticProfile = buildTrackSemanticProfileForContract(track, classification);
+
   for (const dim of dims) {
-    axisScores[dim] = scoreContractDimension(track, dim, classification);
+    axisScores[dim] = scoreContractDimension(track, dim, classification, semanticProfile);
   }
 
   const preserveBoth = contract.tension.filter((t) => t.resolution === "preserve_both");
   let intersectionStrength = 0;
   for (const t of preserveBoth) {
-    const a = axisScores[t.axes[0]] ?? scoreContractDimension(track, t.axes[0], classification);
-    const b = axisScores[t.axes[1]] ?? scoreContractDimension(track, t.axes[1], classification);
+    const a = axisScores[t.axes[0]] ?? scoreContractDimension(track, t.axes[0], classification, semanticProfile);
+    const b = axisScores[t.axes[1]] ?? scoreContractDimension(track, t.axes[1], classification, semanticProfile);
     axisScores[t.axes[0]] = a;
     axisScores[t.axes[1]] = b;
-    intersectionStrength = Math.max(intersectionStrength, Math.sqrt(a * b));
+    intersectionStrength = Math.max(intersectionStrength, compoundIntersectionStrength(a, b));
   }
 
   const axesActive = Object.entries(axisScores)
