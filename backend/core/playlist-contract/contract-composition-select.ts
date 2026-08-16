@@ -1,5 +1,6 @@
 /**
- * V41 — Coverage-preserving candidate selection and marginal-gain playlist assembly.
+ * V41 ? Coverage-preserving candidate selection and marginal-gain playlist assembly.
+ * V43 ? Compound-intent scoring so single-axis candidates cannot outrank musical-moment fits.
  */
 
 import type { ContractCompositionMeta, ContractCompositionTrack } from "./contract-composition-types";
@@ -32,6 +33,62 @@ function dimensionCoverageCount<T extends ContractCompositionTrack>(
   }).length;
 }
 
+/** V43 ? penalty when one tension axis is strong but its partner is inactive. */
+export function singleAxisDominancePenalty(
+  meta: ContractCompositionMeta,
+  contract: PlaylistContract,
+): number {
+  let penalty = 0;
+  for (const tension of contract.tension) {
+    if (tension.resolution !== "preserve_both") continue;
+    const a = meta.axisScores[tension.axes[0]] ?? 0;
+    const b = meta.axisScores[tension.axes[1]] ?? 0;
+    const hi = Math.max(a, b);
+    const lo = Math.min(a, b);
+    if (hi >= 0.5 && lo < CONTRACT_AXIS_ACTIVATION_THRESHOLD) {
+      penalty += (hi - lo) * (hi - 0.4) * 0.38;
+    }
+  }
+  return penalty;
+}
+
+/** V43 ? compound musical-moment score from tension axis geometry (not single-axis max). */
+export function computeCompoundIntentScore(
+  meta: ContractCompositionMeta | undefined,
+  contract: PlaylistContract,
+): number {
+  if (!meta) return 0;
+  const preserveBoth = contract.tension.filter((t) => t.resolution === "preserve_both");
+  if (preserveBoth.length === 0) {
+    return meta.contractScore;
+  }
+
+  let bestCompound = 0;
+  for (const tension of preserveBoth) {
+    const a = meta.axisScores[tension.axes[0]] ?? 0;
+    const b = meta.axisScores[tension.axes[1]] ?? 0;
+    bestCompound = Math.max(bestCompound, Math.sqrt(a * b));
+  }
+
+  let score =
+    bestCompound * 0.58 +
+    meta.intersectionStrength * 0.32 +
+    meta.contractScore * 0.1;
+  score -= singleAxisDominancePenalty(meta, contract);
+  return Math.max(0, score);
+}
+
+function compareCompoundIntent(
+  a: ContractCompositionTrack,
+  b: ContractCompositionTrack,
+  contract: PlaylistContract,
+): number {
+  return (
+    computeCompoundIntentScore(getContractCompositionMeta(b), contract) -
+    computeCompoundIntentScore(getContractCompositionMeta(a), contract)
+  );
+}
+
 /** Marginal value of adding candidate given current playlist coverage. */
 export function marginalContractValue(
   meta: ContractCompositionMeta | undefined,
@@ -40,24 +97,27 @@ export function marginalContractValue(
   playlistSize: number,
 ): number {
   if (!meta || !meta.admissible) return -1;
-  let value = meta.contractScore * 0.35 + meta.intersectionStrength * 0.25;
+
+  const compound = computeCompoundIntentScore(meta, contract);
+  let value = compound * 0.68;
   const required = requiredContractDimensions(contract);
   for (const dim of required) {
     const score = meta.axisScores[dim] ?? 0;
     if (score < 0.35) continue;
     const current = coveredDimensions.get(dim) ?? 0;
     const target = Math.max(2, Math.ceil(playlistSize * 0.15));
+    const coverageWeight = Math.min(score, compound + 0.15);
     if (current < target) {
-      value += (1 - current / target) * score * 0.45;
+      value += (1 - current / target) * coverageWeight * 0.32;
     } else {
-      value += score * 0.05;
+      value += coverageWeight * 0.04;
     }
   }
   if (meta.intersectionStrength > 0.35) {
     const intKey = "__intersection";
     const intCount = coveredDimensions.get(intKey) ?? 0;
     const intTarget = Math.max(3, Math.ceil(playlistSize * 0.2));
-    if (intCount < intTarget) value += meta.intersectionStrength * 0.55;
+    if (intCount < intTarget) value += meta.intersectionStrength * 0.48;
   }
   return value;
 }
@@ -103,11 +163,7 @@ export function selectContractCoveragePreservingPool<T extends ContractCompositi
 
   const byIntersection = [...admissible]
     .filter((t) => (getContractCompositionMeta(t)?.intersectionStrength ?? 0) >= intersectionThreshold(preserveBoth[0]!))
-    .sort(
-      (a, b) =>
-        (getContractCompositionMeta(b)?.intersectionStrength ?? 0) -
-        (getContractCompositionMeta(a)?.intersectionStrength ?? 0),
-    );
+    .sort((a, b) => compareCompoundIntent(a, b, contract));
   const intersectionQuota = Math.min(Math.floor(limit * 0.28), byIntersection.length);
   for (const track of byIntersection.slice(0, intersectionQuota)) {
     tryAdd(track);
@@ -118,11 +174,7 @@ export function selectContractCoveragePreservingPool<T extends ContractCompositi
     if (out.length >= limit) break;
     const dimRanked = [...admissible]
       .filter((t) => (getContractCompositionMeta(t)?.axisScores[dim] ?? 0) >= 0.42)
-      .sort(
-        (a, b) =>
-          (getContractCompositionMeta(b)?.axisScores[dim] ?? 0) -
-          (getContractCompositionMeta(a)?.axisScores[dim] ?? 0),
-      );
+      .sort((a, b) => compareCompoundIntent(a, b, contract));
     const dimQuota = Math.min(Math.floor(limit * 0.22), dimRanked.length);
     let added = 0;
     for (const track of dimRanked) {
@@ -132,13 +184,7 @@ export function selectContractCoveragePreservingPool<T extends ContractCompositi
     phases.push(`axis:${dim}:${added}`);
   }
 
-  const ranked = [...admissible].sort((a, b) => {
-    const ma = getContractCompositionMeta(a);
-    const mb = getContractCompositionMeta(b);
-    const sa = (ma?.contractScore ?? 0) + (ma?.intersectionStrength ?? 0) * 0.4;
-    const sb = (mb?.contractScore ?? 0) + (mb?.intersectionStrength ?? 0) * 0.4;
-    return sb - sa;
-  });
+  const ranked = [...admissible].sort((a, b) => compareCompoundIntent(a, b, contract));
   for (const track of ranked) {
     if (out.length >= limit) break;
     tryAdd(track);
@@ -271,11 +317,7 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
           !used.has(t.trackId) &&
           (getContractCompositionMeta(t)?.axisScores[dim] ?? 0) >= CONTRACT_AXIS_ACTIVATION_THRESHOLD,
       )
-      .sort(
-        (a, b) =>
-          (getContractCompositionMeta(b)?.axisScores[dim] ?? 0) -
-          (getContractCompositionMeta(a)?.axisScores[dim] ?? 0),
-      );
+      .sort((a, b) => compareCompoundIntent(a, b, contract));
     let added = 0;
     for (const track of dimRanked) {
       if (added >= minPerAxis - current || result.length >= targetLength) break;
@@ -292,11 +334,7 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
           !used.has(t.trackId) &&
           (getContractCompositionMeta(t)?.intersectionStrength ?? 0) >= intersectionThreshold(preserveBothTension!),
       )
-      .sort(
-        (a, b) =>
-          (getContractCompositionMeta(b)?.intersectionStrength ?? 0) -
-          (getContractCompositionMeta(a)?.intersectionStrength ?? 0),
-      );
+      .sort((a, b) => compareCompoundIntent(a, b, contract));
     let added = 0;
     for (const track of byIntersection) {
       if (added >= intersectionQuota - currentIntersection || result.length >= targetLength) break;
@@ -327,9 +365,25 @@ export function rebalancePlaylistForContractCoverage<T extends ContractCompositi
     addTrack(picked!);
   }
 
-  for (const track of selected) {
-    if (result.length >= targetLength) break;
-    addTrack(poolById.get(track.trackId) ?? track);
+  if (result.length < targetLength) {
+    const tailSeen = new Set<string>(used);
+    const tailCandidates: T[] = [];
+    for (const track of candidatePool) {
+      if (tailSeen.has(track.trackId)) continue;
+      tailSeen.add(track.trackId);
+      tailCandidates.push(track);
+    }
+    for (const track of selected) {
+      const resolved = poolById.get(track.trackId) ?? track;
+      if (tailSeen.has(resolved.trackId)) continue;
+      tailSeen.add(resolved.trackId);
+      tailCandidates.push(resolved);
+    }
+    tailCandidates.sort((a, b) => compareCompoundIntent(a, b, contract));
+    for (const track of tailCandidates) {
+      if (result.length >= targetLength) break;
+      addTrack(track);
+    }
   }
 
   return {

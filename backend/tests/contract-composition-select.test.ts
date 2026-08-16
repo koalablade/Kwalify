@@ -9,6 +9,7 @@ import test from "node:test";
 import type { ContractCompositionMeta } from "../core/playlist-contract/contract-composition-types";
 import type { PlaylistContract } from "../core/playlist-contract/types";
 import {
+  computeCompoundIntentScore,
   contractRebalanceWasApplied,
   marginalContractValue,
   rebalancePlaylistForContractCoverage,
@@ -141,6 +142,82 @@ test("contractRebalanceWasApplied detects successful rebalance diagnostics", () 
   assert.equal(contractRebalanceWasApplied(null), false);
   assert.equal(contractRebalanceWasApplied({ rebalance: { skipped: true } }), false);
   assert.equal(contractRebalanceWasApplied({ rebalance: { rebalanced: true, outputCount: 25 } }), true);
+});
+
+test("V43 marginalContractValue prefers compound fit over single-axis dominance", () => {
+  const contract: PlaylistContract = {
+    ...syntheticContract(),
+    tension: [
+      {
+        axes: ["high_energy", "not_cheesy"],
+        description: "energetic but not cheesy",
+        resolution: "preserve_both",
+      },
+    ],
+  };
+  const covered = new Map<string, number>([
+    ["high_energy", 3],
+    ["not_cheesy", 1],
+    ["__intersection", 1],
+  ]);
+  const singleAxisDominant = meta({
+    axisScores: { high_energy: 0.88, not_cheesy: 0.12 },
+    intersectionStrength: 0.1,
+    axesActive: ["high_energy"],
+  });
+  const compoundFit = meta({
+    axisScores: { high_energy: 0.72, not_cheesy: 0.68 },
+    intersectionStrength: 0.7,
+    axesActive: ["high_energy", "not_cheesy"],
+  });
+  assert.ok(
+    computeCompoundIntentScore(compoundFit, contract) >
+      computeCompoundIntentScore(singleAxisDominant, contract),
+  );
+  assert.ok(
+    marginalContractValue(compoundFit, contract, covered, 20) >
+      marginalContractValue(singleAxisDominant, contract, covered, 20),
+  );
+});
+
+test("V43 rebalance tail prefers compound pool over V3 single-axis leftovers", () => {
+  const contract: PlaylistContract = {
+    ...syntheticContract(),
+    tension: [
+      {
+        axes: ["high_energy", "not_cheesy"],
+        description: "energetic but not cheesy",
+        resolution: "preserve_both",
+      },
+    ],
+  };
+  const pool: SyntheticTrack[] = [
+    track("v3-bad", "johnny-cash", meta({
+      axisScores: { high_energy: 0.9, not_cheesy: 0.1 },
+      intersectionStrength: 0.05,
+      axesActive: ["high_energy"],
+    })),
+    track("compound-good", "compound-artist", meta({
+      axisScores: { high_energy: 0.7, not_cheesy: 0.66 },
+      intersectionStrength: 0.68,
+      axesActive: ["high_energy", "not_cheesy"],
+    })),
+  ];
+  const v3Selected = [pool[0]!];
+
+  const { tracks } = rebalancePlaylistForContractCoverage(
+    v3Selected,
+    pool,
+    contract,
+    2,
+    2,
+  );
+
+  assert.ok(tracks.some((t) => t.trackId === "compound-good"));
+  assert.ok(
+    !tracks.every((t) => t.trackId === "v3-bad"),
+    "compound pool candidate should displace single-axis V3 tail when slots remain",
+  );
 });
 
 test("rebalancePlaylistForContractCoverage injects missing axis when V3 output is single-sided", () => {
