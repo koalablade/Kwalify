@@ -42,6 +42,21 @@ if ($isSelfHost -and -not (Test-EnvKeySet "LOG_LEVEL")) {
   $changed = $true
 }
 
+# V39–V41 compound-intent path: code is always in the build but inactive without these flags.
+if ($isSelfHost) {
+  foreach ($pair in @(
+    @("PLAYLIST_CONTRACT_WORLD_GATE", "1"),
+    @("PLAYLIST_CONTRACT_V40", "1"),
+    @("PLAYLIST_CONTRACT_V41", "1")
+  )) {
+    if (-not (Test-EnvKeySet $pair[0])) {
+      Set-EnvLine $envPath $pair[0] $pair[1]
+      Write-Host "  Set $($pair[0])=$($pair[1]) (compound-intent pipeline)" -ForegroundColor Green
+      $changed = $true
+    }
+  }
+}
+
 if (-not (Test-EnvKeySet "OPS_METRICS_TOKEN")) {
   $token = New-RandomToken
   Set-EnvLine $envPath "OPS_METRICS_TOKEN" $token

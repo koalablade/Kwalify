@@ -115,6 +115,7 @@ async function readinessHandler(_req: Request, res: Response): Promise<void> {
       enabled: pipelineAuthority.pipelineAuthorityEnabled,
       version: pipelineAuthority.pipelineAuthorityVersion,
       buildTimestamp: pipelineAuthority.buildTimestamp,
+      playlistContract: pipelineAuthority.playlistContract,
     },
     latencyMs: Date.now() - startedAt,
   });

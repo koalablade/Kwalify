@@ -1,4 +1,9 @@
 import { deploymentVersion } from "../deployment-version";
+import {
+  isPlaylistContractV40Enabled,
+  isPlaylistContractV41Enabled,
+  isPlaylistContractWorldGateEnabled,
+} from "../../core/playlist-contract/feature-flag";
 
 export const PIPELINE_AUTHORITY_VERSION = 1;
 
@@ -12,6 +17,11 @@ export function pipelineDeploymentFingerprint(): {
   buildTimestamp: string | null;
   pipelineAuthorityEnabled: boolean;
   pipelineAuthorityVersion: number;
+  playlistContract: {
+    worldGate: boolean;
+    v40: boolean;
+    v41: boolean;
+  };
 } {
   const buildTimestamp =
     process.env["BUILD_TIMESTAMP"]?.trim() ||
@@ -23,6 +33,11 @@ export function pipelineDeploymentFingerprint(): {
     buildTimestamp,
     pipelineAuthorityEnabled: isPipelineAuthorityEnabledInBuild(),
     pipelineAuthorityVersion: PIPELINE_AUTHORITY_VERSION,
+    playlistContract: {
+      worldGate: isPlaylistContractWorldGateEnabled(),
+      v40: isPlaylistContractV40Enabled(),
+      v41: isPlaylistContractV41Enabled(),
+    },
   };
 }
 

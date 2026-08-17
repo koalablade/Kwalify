@@ -105,6 +105,15 @@ if (-not (Select-String -Path $envPath -Pattern '^\s*GENERATE_QUEUE_LIMIT=' -Qui
 if (-not (Select-String -Path $envPath -Pattern '^\s*LOG_LEVEL=' -Quiet)) {
   Set-EnvLine $envPath "LOG_LEVEL" "info"
 }
+foreach ($pair in @(
+  @("PLAYLIST_CONTRACT_WORLD_GATE", "1"),
+  @("PLAYLIST_CONTRACT_V40", "1"),
+  @("PLAYLIST_CONTRACT_V41", "1")
+)) {
+  if (-not (Select-String -Path $envPath -Pattern "^\s*$([regex]::Escape($pair[0]))=\s*\S" -Quiet)) {
+    Set-EnvLine $envPath $pair[0] $pair[1]
+  }
+}
 
 & (Join-Path $Root "scripts\ensure-beta-observability.ps1") -Root $Root
 if (-not (Select-String -Path $envPath -Pattern '^\s*SENTRY_DSN=' -Quiet)) {

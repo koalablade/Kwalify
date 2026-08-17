@@ -80,6 +80,22 @@ if (Test-Path -LiteralPath $envPath) {
   } else {
     Write-Host "  [?]    SENTRY_DSN not set (optional - sentry.io free tier)" -ForegroundColor Yellow
   }
+  if ($selfHost) {
+    $contractOk = @(
+      "PLAYLIST_CONTRACT_WORLD_GATE",
+      "PLAYLIST_CONTRACT_V40",
+      "PLAYLIST_CONTRACT_V41"
+    ) | ForEach-Object {
+      $m = Select-String -Path $envPath -Pattern "^\s*$_=\s*(1|true|on|shadow)\s*$" -Quiet
+      if (-not $m) { $_ }
+    }
+    if ($contractOk.Count -eq 0) {
+      Write-Host "  [OK]   PLAYLIST_CONTRACT_WORLD_GATE/V40/V41 enabled (compound-intent path)" -ForegroundColor Green
+    } else {
+      Write-Host "  [!!]   Compound-intent flags off: $($contractOk -join ', ') — set to 1 or restart via start.bat" -ForegroundColor Red
+      $fail++
+    }
+  }
 }
 
 Write-Host ""

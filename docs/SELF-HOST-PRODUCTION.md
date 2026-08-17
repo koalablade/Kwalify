@@ -60,9 +60,16 @@ GENERATE_CONCURRENCY_LIMIT=2
 NODE_ENV=production
 KWALIFY_HOST_MODE=selfhost
 KWALIFY_EXPOSURE=cloudflare
+PLAYLIST_CONTRACT_WORLD_GATE=1
+PLAYLIST_CONTRACT_V40=1
+PLAYLIST_CONTRACT_V41=1
 ```
 
-`setup-self-host.bat` sets these on first run.
+`setup-self-host.bat` and `start.bat` set these on first run. Verify on `/api/readyz` under `pipelineAuthority.playlistContract`.
+
+**Production candidate (local):** branch `v55-committed-world` @ `5fab771` (V55). GitHub `main` is still V38 — deploy from this branch, not `origin/main`.
+
+**V55 note:** Atmospheric prompts now get `musicalWorldId` + `hardLock` end-to-end (V53 admission + V54 survival engage). Compounds unchanged at 23–24 PASS. Cozy/lo-fi deliver depth but sonic clustering is still weak; late night drive may return honest 422 rather than wrong-world filler — aligned with human-curation doctrine.
 
 ---
 

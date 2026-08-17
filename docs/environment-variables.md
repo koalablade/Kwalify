@@ -58,6 +58,12 @@ These variables are used in the codebase but are **not** declared or validated i
 | `EVAL_ALLOWED_SPOTIFY_USER_IDS` | undefined (falls back to `SMOKE_SPOTIFY_USER_ID`) | `backend/lib/eval-token.ts`, generation audit mode | Comma-separated Spotify user IDs allowed to use eval token routes. |
 | `GLOBAL_RATE_LIMIT_PER_MINUTE` | `60` | `backend/lib/global-rate-limit.ts` | Per-client request cap per minute. Uses `CF-Connecting-IP` when behind Cloudflare. |
 | `GLOBAL_RATE_LIMIT_BURST` | `20` | `backend/lib/global-rate-limit.ts` | Short burst cap within `GLOBAL_RATE_LIMIT_BURST_WINDOW_MS`. |
+| `PLAYLIST_CONTRACT_WORLD_GATE` | `off` | `backend/core/playlist-contract/feature-flag.ts` | V39: defer hard world lock when contract disagrees with committed world. Set `1` for production compound-intent behavior. |
+| `PLAYLIST_CONTRACT_V40` | `off` | `backend/core/playlist-contract/feature-flag.ts` | V40: contract-authoritative retrieval when world gate defers. Requires `PLAYLIST_CONTRACT_WORLD_GATE=1`. |
+| `PLAYLIST_CONTRACT_V41` | `off` | `backend/core/playlist-contract/feature-flag.ts` | V41: contract-aware composition when gate defers (`sad but party`, `preserve_both`). Requires V39+V40 for full path. |
+| `PLAYLIST_CONTRACT_SHADOW` | `off` | `backend/core/playlist-contract/feature-flag.ts` | Build contract + log disagreements without changing output. |
+| `PLAYLIST_CONTRACT_RETRIEVAL` | `off` | `backend/core/playlist-contract/feature-flag.ts` | Rerank retrieval pool by contract score (experimental). |
+| `PLAYLIST_CONTRACT_VALIDATION` | `off` | `backend/core/playlist-contract/feature-flag.ts` | Terminal contract audit. Values: `shadow`, `enforce`, or `1`. |
 
 ## Variable Interactions
 
