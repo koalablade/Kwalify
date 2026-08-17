@@ -179,7 +179,7 @@ Write-Step "Weekly maintenance (Sundays 10:00 AM)"
 try {
   & (Join-Path $Root "scripts\schedule-weekly-maintenance.ps1")
 } catch {
-  Write-Host "  Could not register weekly task (optional — run weekly-maintenance.bat manually)" -ForegroundColor Yellow
+  Write-Host "  Could not register weekly task (optional - run weekly-maintenance.bat manually)" -ForegroundColor Yellow
 }
 
 $shortcutScript = Join-Path $Root "scripts\create-kwalify-shortcuts.ps1"

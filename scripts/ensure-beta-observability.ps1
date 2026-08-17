@@ -42,8 +42,40 @@ if ($isSelfHost -and -not (Test-EnvKeySet "LOG_LEVEL")) {
   $changed = $true
 }
 
-# V39–V41 compound-intent path: code is always in the build but inactive without these flags.
+# V39-V41 compound-intent path: code is always in the build but inactive without these flags.
 if ($isSelfHost) {
+  $defaultPublicUrl = "https://kwalify.net"
+  $appUrlMatch = Select-String -Path $envPath -Pattern '^\s*APP_URL\s*=\s*(\S+)' | Select-Object -First 1
+  $appUrl = if ($appUrlMatch) { $appUrlMatch.Matches.Groups[1].Value.Trim().TrimEnd('/') } else { "" }
+  if ($appUrl -notmatch '^https://' -or $appUrl -match 'localhost|127\.0\.0\.1') {
+    Set-EnvLine $envPath "APP_URL" $defaultPublicUrl
+    Write-Host "  Set APP_URL=$defaultPublicUrl (self-host public URL)" -ForegroundColor Green
+    $appUrl = $defaultPublicUrl
+    $changed = $true
+  }
+  if (-not (Test-EnvKeySet "FRONTEND_URL")) {
+    Set-EnvLine $envPath "FRONTEND_URL" $appUrl
+    Write-Host "  Set FRONTEND_URL=$appUrl (self-host)" -ForegroundColor Green
+    $changed = $true
+  }
+
+  $expectedRedirect = "$appUrl/api/auth/callback"
+  $redirectMatch = Select-String -Path $envPath -Pattern '^\s*SPOTIFY_REDIRECT_URI\s*=\s*(\S+)' | Select-Object -First 1
+  $currentRedirect = if ($redirectMatch) { $redirectMatch.Matches.Groups[1].Value } else { "" }
+  if ($currentRedirect -ne $expectedRedirect) {
+    Set-EnvLine $envPath "SPOTIFY_REDIRECT_URI" $expectedRedirect
+    Write-Host "  Set SPOTIFY_REDIRECT_URI=$expectedRedirect (self-host public URL)" -ForegroundColor Green
+    $changed = $true
+  }
+
+  $nodeEnvMatch = Select-String -Path $envPath -Pattern '^\s*NODE_ENV\s*=\s*(\S+)' | Select-Object -First 1
+  $nodeEnv = if ($nodeEnvMatch) { $nodeEnvMatch.Matches.Groups[1].Value } else { "" }
+  if ($nodeEnv -ne "production") {
+    Set-EnvLine $envPath "NODE_ENV" "production"
+    Write-Host "  Set NODE_ENV=production (self-host)" -ForegroundColor Green
+    $changed = $true
+  }
+
   foreach ($pair in @(
     @("PLAYLIST_CONTRACT_WORLD_GATE", "1"),
     @("PLAYLIST_CONTRACT_V40", "1"),

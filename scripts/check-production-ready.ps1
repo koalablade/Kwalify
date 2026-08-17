@@ -92,8 +92,29 @@ if (Test-Path -LiteralPath $envPath) {
     if ($contractOk.Count -eq 0) {
       Write-Host "  [OK]   PLAYLIST_CONTRACT_WORLD_GATE/V40/V41 enabled (compound-intent path)" -ForegroundColor Green
     } else {
-      Write-Host "  [!!]   Compound-intent flags off: $($contractOk -join ', ') — set to 1 or restart via start.bat" -ForegroundColor Red
+      Write-Host "  [!!]   Compound-intent flags off: $($contractOk -join ', ') - set to 1 or restart via start.bat" -ForegroundColor Red
       $fail++
+    }
+    $nodeEnv = Select-String -Path $envPath -Pattern '^\s*NODE_ENV\s*=\s*(\S+)' | Select-Object -First 1
+    if ($nodeEnv -and $nodeEnv.Matches.Groups[1].Value -eq "production") {
+      Write-Host "  [OK]   NODE_ENV=production" -ForegroundColor Green
+    } else {
+      Write-Host "  [!!]   NODE_ENV not production - run start.bat to normalize self-host .env" -ForegroundColor Red
+      $fail++
+    }
+    $appUrl = Select-String -Path $envPath -Pattern '^\s*APP_URL\s*=\s*(\S+)' | Select-Object -First 1
+    $redirect = Select-String -Path $envPath -Pattern '^\s*SPOTIFY_REDIRECT_URI\s*=\s*(\S+)' | Select-Object -First 1
+    if ($appUrl -and $redirect) {
+      $expected = "$($appUrl.Matches.Groups[1].Value.TrimEnd('/'))/api/auth/callback"
+      $actual = $redirect.Matches.Groups[1].Value
+      if ($actual -eq $expected) {
+        Write-Host "  [OK]   SPOTIFY_REDIRECT_URI matches APP_URL" -ForegroundColor Green
+      } elseif ($actual -match 'localhost|127\.0\.0\.1') {
+        Write-Host "  [!!]   SPOTIFY_REDIRECT_URI is localhost but APP_URL is public - run start.bat" -ForegroundColor Red
+        $fail++
+      } else {
+        Write-Host "  [?]    SPOTIFY_REDIRECT_URI ($actual) differs from APP_URL ($expected)" -ForegroundColor Yellow
+      }
     }
   }
 }

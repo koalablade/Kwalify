@@ -196,7 +196,7 @@ $uptimeTask = Get-ScheduledTask -TaskName "Kwalify-Uptime-Check" -ErrorAction Si
 if ($uptimeTask) {
   Row "Local uptime checks scheduled" $true "every 5 min (opt-in; not required for manual start)"
 } else {
-  Row "Local uptime checks" $true "off (expected — run check-uptime.ps1 when Kwalify is up)"
+  Row "Local uptime checks" $true "off (expected - run check-uptime.ps1 when Kwalify is up)"
 }
 
 # Spotify credentials in .env
