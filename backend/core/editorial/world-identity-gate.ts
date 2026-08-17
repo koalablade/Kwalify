@@ -21,6 +21,11 @@ import {
   demoteRemixBaitOpeners,
   shouldSuppressVagueLandfillOpeners,
 } from "./opener-hygiene";
+import {
+  isAtmosphericLexicalHack,
+  resolveAtmosphericContext,
+  scoreAtmosphericContextFit,
+} from "./atmospheric-context-scoring";
 
 export {
   OPENER_FILLER_PATTERN,
@@ -2055,7 +2060,26 @@ export function passesWorldIdentity(
   if (opts.hardLock) {
     // Positive world evidence must come from genres/artist/album — not title bait
     // ("Rainy Dayz", "Highwayman", "Sunglasses At Night").
-    if (hasPositiveEvidence) return true;
+    if (hasPositiveEvidence) {
+      const context = resolveAtmosphericContext(primary.id);
+      if (context) {
+        const atmosphericTrack = {
+          trackName: track.trackName,
+          artistName: track.artistName,
+          energy: track.energy ?? null,
+          valence: track.valence ?? null,
+          danceability: track.danceability ?? null,
+          acousticness: (track as { acousticness?: number | null }).acousticness ?? null,
+          instrumentalness: track.instrumentalness ?? null,
+          speechiness: (track as { speechiness?: number | null }).speechiness ?? null,
+          genreFamily: track.genreFamily ?? null,
+          genrePrimary: track.genrePrimary ?? null,
+        };
+        if (isAtmosphericLexicalHack(atmosphericTrack, context)) return false;
+        if (scoreAtmosphericContextFit(atmosphericTrack, context) < 0.4) return false;
+      }
+      return true;
+    }
     return false;
   }
   return true;
