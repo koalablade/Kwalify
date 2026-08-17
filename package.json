@@ -34,6 +34,7 @@
     "beta:evidence:feedback": "npm run build && node backend/scripts/beta-evidence-feedback.mjs",
     "beta:evidence:show": "npm run build && node backend/scripts/beta-evidence-show.mjs",
     "beta:evidence:from-json": "npm run build && node backend/scripts/beta-evidence-from-json.mjs",
+    "eval:human-quality": "npm run build && node backend/scripts/human-quality-eval.mjs",
     "test:human-curation": "npm run build && node --test backend/dist/tests/human-curation-alignment-v2.test.js",
     "test:unit": "npm run build && node --test backend/dist/tests/*.test.js",
     "backup:db": "powershell -ExecutionPolicy Bypass -File scripts/backup-db.ps1",
