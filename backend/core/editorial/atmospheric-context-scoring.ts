@@ -39,7 +39,7 @@ const LEXICAL_ATMOSPHERE =
   /\b(?:lo-?fi|lofi|chill\s*hop|study\s+beats?|focus\s+music|cozy|coffee|morning\s+vibes?|bedroom\s+pop)\b/i;
 
 const LIVE_OR_BROADCAST =
-  /\b(?:like\s+a\s+version|triple\s+j|live\s+at|live\s+from|concerto|festival\s+set|session)\b/i;
+  /\b(?:like\s+a\s+version|triple\s+j|live\s+at|live\s+from|live\s+acoustic|\bacoustic\b.*\blive\b|\bconcerto|festival\s+set|session)\b/i;
 
 const LOFI_TITLE_CLAIM = /\b(?:lo-?fi|lofi|chillhop|study\s+beats?|focus)\b/i;
 
@@ -133,8 +133,10 @@ export function scoreAtmosphericContextFit(
       score += inBand(valence, 0.22, 0.58, 0.2) * 0.12;
       score += inBand(dance, 0.08, 0.52, 0.18) * 0.1;
       if (instrumental >= 0.22 || speech <= 0.14) score += 0.14;
+      else if (speech > 0.08 && instrumental < 0.12) score -= 0.18;
       if (/\b(?:electronic|jazz|hip_hop|indie|classical|ambient)\b/.test(genre)) score += 0.08;
       if (energy > 0.55 || speech > 0.22) score -= 0.2;
+      if (/\b(?:symphony|concerto|orchestra)\b/i.test(titleBlob(track)) && speech > 0.05) score -= 0.22;
       return Math.max(0, Math.min(1, score));
     }
     default:
@@ -167,7 +169,7 @@ export function atmosphericLexicalHackPenalty(
 
   if (context === "cozy_morning") {
     if (LIVE_OR_BROADCAST.test(title)) penalty = Math.max(penalty, 0.52);
-    if (/\b(?:acoustic|live)\b/i.test(title) && energy > 0.48) penalty = Math.max(penalty, 0.4);
+    if (/\b(?:acoustic|live)\b/i.test(title) && energy > 0.42) penalty = Math.max(penalty, 0.48);
     if (/\b(?:bored yet|party|banger|hype)\b/i.test(title)) penalty = Math.max(penalty, 0.45);
     if (energy > 0.62 && valence > 0.72) penalty = Math.max(penalty, 0.35);
   }

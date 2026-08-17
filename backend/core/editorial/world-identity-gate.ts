@@ -2076,7 +2076,7 @@ export function passesWorldIdentity(
           genrePrimary: track.genrePrimary ?? null,
         };
         if (isAtmosphericLexicalHack(atmosphericTrack, context)) return false;
-        if (scoreAtmosphericContextFit(atmosphericTrack, context) < 0.4) return false;
+        if (scoreAtmosphericContextFit(atmosphericTrack, context) < 0.44) return false;
       }
       return true;
     }
