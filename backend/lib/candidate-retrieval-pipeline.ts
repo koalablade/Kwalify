@@ -37,6 +37,13 @@ import {
   WORLD_BELONGING_RETRIEVAL_MIN,
 } from "../core/editorial/world-belonging-retrieval";
 import {
+  atmosphericPoolDepthMultiplier,
+  atmosphericRetrievalAdmissionFit,
+  atmosphericRetrievalBoost,
+  isAtmosphericLexicalHack,
+  resolveAtmosphericContext,
+} from "../core/editorial/atmospheric-context-scoring";
+import {
   committedWorldArtistForbidden,
   hasExplicitMusicalHardLock,
   resolveCommittedWorld,
@@ -281,6 +288,9 @@ const COMMITTED_WORLD_RETRIEVAL_IDS = [
   "dad_rock_world",
   "lofi_world",
   "focus_study_world",
+  "sunday_chill_world",
+  "acoustic_sunday_world",
+  "coffee_soft_focus_world",
 ] as const;
 
 const COMMITTED_WORLD_GENRE_FAMILIES: Record<string, string[]> = {
@@ -315,6 +325,9 @@ const COMMITTED_WORLD_GENRE_FAMILIES: Record<string, string[]> = {
   dad_rock_world: ["rock", "pop"],
   lofi_world: ["indie", "electronic", "hip_hop", "jazz"],
   focus_study_world: ["electronic", "indie", "jazz"],
+  sunday_chill_world: ["indie", "folk", "soul", "jazz", "electronic"],
+  acoustic_sunday_world: ["indie", "folk", "acoustic", "soul"],
+  coffee_soft_focus_world: ["indie", "folk", "jazz", "classical", "electronic"],
 };
 
 const HIGH_CONFIDENCE_QUOTAS: Record<RetrievalSourceId, number> = {
@@ -699,6 +712,7 @@ function applyRetrievalScoreModifiers(
     sonicTieBreak?: number;
     compoundFit?: number;
     compoundActive?: boolean;
+    atmosphericBoost?: number;
   },
 ): number {
   let score = baseScore;
@@ -709,6 +723,9 @@ function applyRetrievalScoreModifiers(
   if (typeof opts.sonicTieBreak === "number") {
     score += opts.sonicTieBreak * 0.07;
   }
+  if (typeof opts.atmosphericBoost === "number") {
+    score += opts.atmosphericBoost;
+  }
   return score;
 }
 
@@ -716,9 +733,22 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
   opts: RetrieveScoringCandidatesOpts<T>,
 ): { tracks: T[]; diagnostics: RetrievalDiagnostics | Record<string, unknown> } {
   const sceneActive = opts.sceneActive ?? true;
-  const broadCap = sceneActive
-    ? Math.max(240, opts.requestedLength * 12)
-    : Math.max(900, opts.requestedLength * 35);
+  const committedForDepth = resolveCommittedWorld({
+    prompt: opts.vibe,
+    lockedIntent: opts.intent,
+  });
+  const depthWorldId =
+    committedForDepth?.id ??
+    inferWorldIdentityIdsFromPrompt(opts.vibe).find((id) =>
+      (COMMITTED_WORLD_RETRIEVAL_IDS as readonly string[]).includes(id),
+    ) ??
+    null;
+  const depthMultiplier = atmosphericPoolDepthMultiplier(depthWorldId);
+  const broadCap = Math.floor(
+    (sceneActive
+      ? Math.max(240, opts.requestedLength * 12)
+      : Math.max(900, opts.requestedLength * 35)) * depthMultiplier,
+  );
 
   if (opts.contractAuthoritative?.active && opts.contractAuthoritative.contract) {
     const v40 = retrieveContractAuthoritativePool({
@@ -939,7 +969,25 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
             },
             culturalProfile,
           );
-          if (culturalScore >= WORLD_BELONGING_RETRIEVAL_MIN) {
+          const atmosphericAdmission = atmosphericRetrievalAdmissionFit(
+            {
+              trackName: track.trackName,
+              artistName: track.artistName,
+              energy: track.energy ?? null,
+              valence: track.valence ?? null,
+              danceability: track.danceability ?? null,
+              acousticness: track.acousticness ?? null,
+              instrumentalness: track.instrumentalness ?? null,
+              speechiness: track.speechiness ?? null,
+              genreFamily: classification?.genreFamily ?? null,
+              genrePrimary: classification?.genrePrimary ?? null,
+            },
+            committedWorld.id,
+          );
+          if (
+            culturalScore >= WORLD_BELONGING_RETRIEVAL_MIN ||
+            atmosphericAdmission >= 0.54
+          ) {
             eligible.push(track);
             eligibleIds.add(track.trackId);
           }
@@ -998,9 +1046,29 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
         return false;
       }
       const worldFit = worldRetrievalFit(track, classification, retrievalWorldIds, lockWorldId);
+      const atmosphericContext = resolveAtmosphericContext(lockWorldId);
+      if (atmosphericContext) {
+        const enriched = {
+          trackName: track.trackName,
+          artistName: track.artistName,
+          energy: track.energy ?? null,
+          valence: track.valence ?? null,
+          danceability: track.danceability ?? null,
+          acousticness: track.acousticness ?? null,
+          instrumentalness: track.instrumentalness ?? null,
+          speechiness: track.speechiness ?? null,
+          genreFamily: classification?.genreFamily ?? null,
+          genrePrimary: classification?.genrePrimary ?? null,
+        };
+        if (isAtmosphericLexicalHack(enriched, atmosphericContext)) return false;
+        const admission = atmosphericRetrievalAdmissionFit(enriched, lockWorldId);
+        return worldFit >= WORLD_BELONGING_RETRIEVAL_MIN || admission >= 0.52;
+      }
       return worldFit >= WORLD_BELONGING_RETRIEVAL_MIN;
     });
-    const minWorldKeep = Math.max(3, Math.min(12, Math.ceil(opts.requestedLength * 0.35)));
+    const minWorldKeep = resolveAtmosphericContext(lockWorldId)
+      ? Math.max(8, Math.min(20, Math.ceil(opts.requestedLength * 0.55)))
+      : Math.max(3, Math.min(12, Math.ceil(opts.requestedLength * 0.35)));
     if (worldFiltered.length >= minWorldKeep) {
       eligible = worldFiltered;
     }
@@ -1290,11 +1358,29 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
       ? scoreCompoundPromptFit(track, classification, compoundConstraints, opts.vibe, opts.emotionProfile)
       : 1;
     const sonicTieBreak = scoreSonicMatchCandidate(track, promptSonicTarget, sonicTasteProfile, activityFit);
+    const atmosphericWorldId =
+      committedWorld?.id ?? retrievalProfile.committedWorldId ?? depthWorldId;
+    const atmosphericBoost = atmosphericRetrievalBoost(
+      {
+        trackName: track.trackName,
+        artistName: track.artistName,
+        energy: track.energy ?? null,
+        valence: track.valence ?? null,
+        danceability: track.danceability ?? null,
+        acousticness: track.acousticness ?? null,
+        instrumentalness: track.instrumentalness ?? null,
+        speechiness: track.speechiness ?? null,
+        genreFamily: classification?.genreFamily ?? null,
+        genrePrimary: classification?.genrePrimary ?? null,
+      },
+      atmosphericWorldId,
+    );
     let score = applyRetrievalScoreModifiers(baseScore, track, {
       recentTrackPenalty: opts.recentTrackPenalty,
       sonicTieBreak,
       compoundFit,
       compoundActive,
+      atmosphericBoost,
     });
     if (retrievalProfile.ukHipHopScene?.active) {
       score += ukHipHopRetrievalBoost(track, retrievalProfile.ukHipHopScene);

@@ -210,6 +210,49 @@ export function buildPromptSonicTarget(
       productionMood: "atmospheric",
       emotionalTone: "nostalgic",
     };
+  } else if (/\b(?:night drive|long drive|road trip|something for driving)\b/i.test(vibe)) {
+    target = {
+      ...target,
+      energyMin: 0.32,
+      energyMax: 0.66,
+      valenceMin: 0.26,
+      valenceMax: 0.62,
+      acousticElectronicBalance: 0.08,
+      productionMood: "atmospheric",
+      emotionalTone: "nostalgic",
+      sceneTags: [...sceneTags, "forward_motion", "nocturnal"],
+    };
+  } else if (/\b(?:cozy|sunday morning|coffee)\b/i.test(vibe)) {
+    target = {
+      ...target,
+      energyMin: 0.2,
+      energyMax: 0.54,
+      valenceMin: 0.4,
+      valenceMax: 0.74,
+      maxSpeechiness: 0.22,
+      acousticElectronicBalance: -0.18,
+      vocalPreference: 0.48,
+      productionMood: "warm",
+      emotionalTone: "nostalgic",
+      avoidHighDrive: true,
+      sceneTags: [...sceneTags, "cozy", "morning"],
+    };
+  } else if (/\b(?:lo-?fi|study focus|study session)\b/i.test(vibe)) {
+    target = {
+      ...target,
+      energyMin: 0.12,
+      energyMax: 0.46,
+      valenceMin: 0.22,
+      valenceMax: 0.58,
+      maxSpeechiness: 0.12,
+      minInstrumentalness: 0.22,
+      acousticElectronicBalance: 0.12,
+      vocalPreference: 0.22,
+      productionMood: "atmospheric",
+      emotionalTone: "neutral",
+      avoidHighDrive: true,
+      sceneTags: [...sceneTags, "focus", "study"],
+    };
   }
 
   return target;
