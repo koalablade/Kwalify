@@ -42,6 +42,7 @@ import {
   atmosphericRetrievalAdmissionFit,
   atmosphericRetrievalBoost,
   isAtmosphericLexicalHack,
+  isAtmosphericWorld,
   resolveAtmosphericContext,
 } from "../core/editorial/atmospheric-context-scoring";
 import {
@@ -815,6 +816,8 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
           lockedIntent: opts.intent,
         });
   const musicalHardLock = hasExplicitMusicalHardLock(committedWorld);
+  const atmosphericHardLock =
+    Boolean(committedWorld?.hardLock && isAtmosphericWorld(committedWorld.id));
   const retrievalWorldIds = resolveRetrievalWorldIds({
     committed: committedWorld,
     prompt: opts.vibe,
@@ -1024,19 +1027,21 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
     if (
       !committedWorld?.hardLock &&
       !musicalHardLock &&
+      !atmosphericHardLock &&
       (hardGated.length >= minActivityKeep || hardGated.length >= activityKeepTarget)
     ) {
       eligible = hardGated;
     } else if (
       committedWorld?.hardLock &&
       !musicalHardLock &&
+      !atmosphericHardLock &&
       hardGated.length >= Math.max(3, Math.min(8, Math.ceil(opts.requestedLength * 0.25)))
     ) {
       eligible = hardGated;
     }
   }
 
-  if (musicalHardLock && committedWorld && retrievalWorldIds.length > 0) {
+  if ((musicalHardLock || atmosphericHardLock) && committedWorld && retrievalWorldIds.length > 0) {
     const lockWorldId = committedWorld.musicalWorldId ?? committedWorld.id;
     const worldFiltered = eligible.filter((track) => {
       const classification = classifyFor(track, opts.classMap);

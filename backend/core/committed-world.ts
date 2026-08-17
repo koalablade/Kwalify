@@ -6,6 +6,7 @@
 import type { SceneLockStatus } from "./scene-lock-mode";
 import { resolveWorldBoundary, type WorldBoundary } from "./world-boundary";
 import { inferWorldIdentityIdsFromPrompt } from "./editorial/world-identity-gate";
+import { isAtmosphericWorld } from "./editorial/atmospheric-context-scoring";
 import {
   culturalProfileForCommittedWorld,
   type CulturalWorldProfile,
@@ -427,6 +428,15 @@ const PRIMARY_MUSICAL_WORLD: Array<{ pattern: RegExp; id: string }> = [
   },
   { pattern: /\b(?:80s?|eighties)\s+(?:night\s+)?drive\b/i, id: "80s_night_drive_world" },
   { pattern: /\blate\s+night\s+drive\b/i, id: "night_drive_world" },
+  {
+    pattern: /\blo-?fi\b.*\b(?:study|focus)\b|\b(?:study|focus)\b.*\blo-?fi\b|\blo-?fi\s+study\b/i,
+    id: "lofi_world",
+  },
+  {
+    pattern:
+      /\b(?:cozy\s+sunday|sunday\s+morning|cozy\s+morning)\b.*\b(?:coffee|tea)\b|\b(?:coffee|tea)\b.*\b(?:cozy\s+sunday|sunday\s+morning|cozy\s+morning)\b|\bcozy\s+sunday\s+morning\b/i,
+    id: "sunday_chill_world",
+  },
   { pattern: /\b(?:rainy|rain)\s+motorway\b/i, id: "rainy_motorway_world" },
   { pattern: /\broad\s+trip\b.*\b(?:sing|singalong|anthem)\b/i, id: "road_trip_singalong_world" },
   { pattern: /\bpetrol\s+station\b.*\b2\s*am\b/i, id: "petrol_station_2am_world" },
@@ -475,6 +485,15 @@ const MUSICAL_WORLD_IDS = new Set([
   "evening_drive_world",
   "rainy_motorway_world",
   "gym_energy_world",
+  "lofi_world",
+  "focus_study_world",
+  "sunday_chill_world",
+  "acoustic_sunday_world",
+  "coffee_soft_focus_world",
+  "quiet_night_world",
+  "late_night_calm_world",
+  "ambient_world",
+  "chill_rainy_world",
 ]);
 
 const EXPLICIT_SCENE_WORLD: Array<{ pattern: RegExp; id: string }> = [
@@ -520,6 +539,7 @@ function resolveSecondaryActivityWorld(prompt: string): string | null {
 export function hasExplicitMusicalHardLock(committed: CommittedWorld | null | undefined): boolean {
   if (!committed) return false;
   if (committed.musicalWorldId) return true;
+  if (committed.hardLock && isAtmosphericWorld(committed.id)) return true;
   return committed.source === "explicit_genre" && Boolean(committed.hardLock);
 }
 
@@ -635,16 +655,28 @@ export function resolveCommittedWorld(opts: {
   if (id === "dad_rock_world" && !worldIds.includes("classic_rock_world")) {
     worldIds.push("classic_rock_world", "dad_secret_world");
   }
+  if (id === "lofi_world" && inferred.includes("focus_study_world") && !worldIds.includes("focus_study_world")) {
+    worldIds.push("focus_study_world");
+  }
+  if (
+    id === "sunday_chill_world" &&
+    inferred.includes("coffee_soft_focus_world") &&
+    !worldIds.includes("coffee_soft_focus_world")
+  ) {
+    worldIds.push("coffee_soft_focus_world");
+  }
   const source = sourceFromBoundary(
     boundary,
     explicitMusical ? musicalWorldId : explicitActivity ? activityOnlyWorldId : null,
     explicitScene,
     opts.sceneLock ?? null,
   );
+  const atmosphericCommitted = isAtmosphericWorld(id);
   const hardLock =
     Boolean(explicitMusical || explicitScene) ||
     (explicitActivity && !musicalWorldId) ||
     boundary.hardLock === true ||
+    (atmosphericCommitted && inferred.includes(id)) ||
     (opts.sceneLock?.active === true && source !== "vague");
 
   const reason = explicitMusical
@@ -656,6 +688,10 @@ export function resolveCommittedWorld(opts: {
         : boundary.reason ?? `committed_world:${id}`;
 
   const artistContract = mergeArtistContracts(worldIds);
+  const resolvedMusicalWorldId =
+    musicalWorldId ??
+    (MUSICAL_WORLD_IDS.has(id) ? id : null) ??
+    (atmosphericCommitted && hardLock ? id : null);
 
   return {
     id,
@@ -665,7 +701,7 @@ export function resolveCommittedWorld(opts: {
     reason,
     worldIds,
     boundary,
-    musicalWorldId: musicalWorldId ?? (MUSICAL_WORLD_IDS.has(id) ? id : null),
+    musicalWorldId: resolvedMusicalWorldId,
     activityWorldId: activityWorldId ?? activityOnlyWorldId,
     activityContext,
     requiredArtists: artistContract.requiredArtists,

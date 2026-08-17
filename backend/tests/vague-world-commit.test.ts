@@ -4,6 +4,7 @@ import {
   resolveVagueWorldCommit,
   shouldSuppressVagueWiden,
 } from "../lib/vague-world-commit";
+import { resolveCommittedWorld, hasExplicitMusicalHardLock } from "../core/committed-world";
 import { evaluatePromptReadiness } from "../lib/prompt-readiness";
 import { resolveActivityProfile } from "../lib/activity-profiles";
 import { inferWorldIdentityIdsFromPrompt, passesWorldIdentity, stripRetrievalFillerTracks, demoteOpenerFillerTracks, sanitizePsychIndieOpenerChain, countPsychIndieOpenerFillers, maxPsychIndieOpenersForWorlds, OPENER_FILLER_PATTERN, worldIdentityProfilesForLock } from "../core/editorial/world-identity-gate";
@@ -79,6 +80,22 @@ test("nostalgic driving and lo-fi study route to correct worlds", () => {
   const studyIds = inferWorldIdentityIdsFromPrompt("lo-fi study");
   assert.ok(studyIds.includes("lofi_world"), String(studyIds));
   assert.ok(studyIds.includes("focus_study_world"), String(studyIds));
+  const cozyCoffeeIds = inferWorldIdentityIdsFromPrompt("cozy sunday morning coffee");
+  assert.ok(cozyCoffeeIds.includes("sunday_chill_world"), String(cozyCoffeeIds));
+  assert.ok(cozyCoffeeIds.includes("coffee_soft_focus_world"), String(cozyCoffeeIds));
+});
+
+test("V55 atmospheric prompts hard-lock with musical world id", () => {
+  for (const prompt of ["cozy sunday morning coffee", "lo-fi study focus", "late night drive"]) {
+    const world = resolveCommittedWorld({ prompt })!;
+    assert.equal(world.hardLock, true, prompt);
+    assert.ok(world.musicalWorldId, prompt);
+    assert.ok(hasExplicitMusicalHardLock(world), prompt);
+  }
+  const lofi = resolveCommittedWorld({ prompt: "lo-fi study focus" })!;
+  assert.ok(lofi.worldIds.includes("focus_study_world"));
+  const cozy = resolveCommittedWorld({ prompt: "cozy sunday morning coffee" })!;
+  assert.ok(cozy.worldIds.includes("coffee_soft_focus_world"));
 });
 
 test("sunday chill rejects Storm Queen / DMX", () => {

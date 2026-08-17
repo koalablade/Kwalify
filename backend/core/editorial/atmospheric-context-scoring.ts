@@ -211,6 +211,9 @@ export function atmosphericRetrievalAdmissionFit(
   return scoreAtmosphericContextFit(track, context);
 }
 
+/** Shared flat admission floor when per-context resolution is unavailable. */
+export const ATMOSPHERIC_ADMISSION_FLOOR = 0.5;
+
 /** Shared admission floor — retrieval, refill, and hard-lock filters use the same sonic bar. */
 export function atmosphericAdmissionFloor(context: AtmosphericContextKind): number {
   switch (context) {

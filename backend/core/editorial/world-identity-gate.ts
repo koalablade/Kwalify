@@ -1404,9 +1404,18 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   }
   if (/\bdad\s+rock\b/i.test(p)) ids.push("dad_secret_world");
   if (/\blo-?fi\b|\blofi\b|\bchillhop\b|\bstudy\s+beats?\b/i.test(p)) ids.push("lofi_world");
-  if (/\blo-?fi\s+study\b|\bstudy\s+(?:lo-?fi|lofi|beats?)\b/i.test(p)) {
+  if (/\blo-?fi\s+study\b|\bstudy\s+(?:lo-?fi|lofi|beats?)\b|\blo-?fi\s+study\s+focus\b/i.test(p)) {
     if (!ids.includes("lofi_world")) ids.push("lofi_world");
     if (!ids.includes("focus_study_world")) ids.push("focus_study_world");
+  }
+  if (
+    /\b(?:cozy\s+sunday|sunday\s+morning|cozy\s+morning)\b/i.test(p) ||
+    /\bcozy\s+sunday\s+morning\b/i.test(p)
+  ) {
+    if (!ids.includes("sunday_chill_world")) ids.push("sunday_chill_world");
+    if (/\b(?:coffee|tea)\b/i.test(p) && !ids.includes("coffee_soft_focus_world")) {
+      ids.push("coffee_soft_focus_world");
+    }
   }
   if (/\bambient\b|\bsoundscape\b|\bno\s+vocals?\b/i.test(p)) ids.push("ambient_world");
   if (

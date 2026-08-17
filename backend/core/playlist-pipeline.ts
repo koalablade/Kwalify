@@ -52,6 +52,7 @@ import {
 } from "./editorial/world-identity-gate";
 import { culturalProfileForCommittedWorld } from "./editorial/cultural-identity-profile";
 import { isAtmosphericWorld } from "./editorial/atmospheric-context-scoring";
+import { resolveCommittedWorld } from "./committed-world";
 import { trackBelongsForWorldRetrieval } from "./editorial/world-belonging-retrieval";
 import {
   applyMusicalWorldPreV3Sampling,
@@ -4373,7 +4374,17 @@ export async function buildPlaylistPipeline<T extends {
     scenePrediction: opts.postScore.scenePrediction,
     prompt: opts.vibe,
   });
-  if (contractAuthorityActive && worldBoundary.hardLock) {
+  const committedWorldForPipeline = resolveCommittedWorld({ prompt: opts.vibe });
+  const atmosphericWorldId =
+    worldBoundary.dominantScene ??
+    (committedWorldForPipeline?.hardLock && isAtmosphericWorld(committedWorldForPipeline.id)
+      ? committedWorldForPipeline.id
+      : null);
+  if (
+    contractAuthorityActive &&
+    worldBoundary.hardLock &&
+    !isAtmosphericWorld(worldBoundary.dominantScene ?? atmosphericWorldId)
+  ) {
     worldBoundary = {
       ...worldBoundary,
       hardLock: false,
@@ -4757,8 +4768,8 @@ export async function buildPlaylistPipeline<T extends {
     : preV3SubgenreScope;
   const minSafePreRankingPoolEarly = Math.min(80, Math.max(opts.playlistLength * 2, 30));
   const atmosphericStructuredDefer =
-    isAtmosphericWorld(worldBoundary.dominantScene) &&
-    intentContract.primarySubgenre &&
+    isAtmosphericWorld(atmosphericWorldId) &&
+    (intentContract.primarySubgenre != null || intentContract.genreFamilies.length > 0) &&
     rescuedSubgenreScope.mode !== "family" &&
     rescuedSubgenreScope.pool.length < minSafePreRankingPoolEarly;
   const effectiveSubgenreScope = atmosphericStructuredDefer
