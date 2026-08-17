@@ -8,7 +8,8 @@ Track progress from **closed beta on your PC** to **production**. Check items of
 
 - [x] Self-host stack: `start.bat`, tunnel, stop script  
 - [x] Health routes: `/api/healthz`, `/api/readyz`, `/status`  
-- [x] **Production candidate:** local branch `v55-committed-world` @ `5fab771` (V55 atmospheric hard-lock routing). GitHub `main` is V38 — deploy from local, not `origin/main`.  
+- [x] **Production candidate:** branch `v55-committed-world` @ `0b647af` (self-host env normalization). Engine: `5fab771` (V55). **Rollback:** `434be42`. GitHub `main` is V38 — deploy from this branch, not `origin/main`.  
+- [x] **Live deploy:** restart via `start.bat` after pulling; verify `/api/readyz` commit + `playlistContract` flags  
 - [x] **Compound-intent flags:** `PLAYLIST_CONTRACT_WORLD_GATE/V40/V41=1` — auto-set on `start.bat` when `KWALIFY_HOST_MODE=selfhost`; verify on `/api/readyz` → `pipelineAuthority.playlistContract`  
 - [ ] **Atmospheric delivery quality:** V55 fixes routing/pool survival; cozy/lo-fi sonic clustering still weak — acceptable for closed beta, not for calling atmospheric "solved"  
 - [x] Daily DB backups + verification script  

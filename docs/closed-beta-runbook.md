@@ -1,19 +1,32 @@
 # Closed beta operations runbook
 
-For 5–20 trusted testers on self-hosted Kwalify. Keep it simple: health checks, logs, and `requestId` tracing.
+For 5–20 trusted testers on self-hosted Kwalify. **Engine frozen at V55** — collect evidence before any retrieval/scoring changes.
+
+**Do not turn beta into an engineering project.** No new analytics dashboards. Use existing logs + observation. Priority: **people using Kwalify**, not infrastructure.
+
+**Branch:** `v55-committed-world` (not `main`). **Candidate:** `0b647af`. **Do not deploy from GitHub `main`** (V38).
 
 ## Before launch
 
 ### 1. Commit and deploy
 
-Ensure `main` includes beta observability (see git log for `generate_complete`, ops summary, status dashboard). Then on the host:
+On the host:
 
 ```powershell
 cd C:\Users\Kwalah\Projects\Kwalify
-git pull
+git pull origin v55-committed-world
 .\stop-kwalify.bat
 .\start.bat
 ```
+
+Verify live matches candidate:
+
+```powershell
+(Invoke-RestMethod https://kwalify.net/api/readyz).commit
+(Invoke-RestMethod https://kwalify.net/api/readyz).pipelineAuthority.playlistContract
+```
+
+Expect `playlistContract.worldGate/v40/v41: true`.
 
 `start.bat` runs startup audits and, if weekly maintenance is due (>7 days since `reports\.maintenance-last-run`), backup/uptime checks before the API starts.
 
@@ -49,7 +62,13 @@ npm run maintenance:test-restore   # run once before beta; marks verified
 
 See `docs/BACKUP-RESTORE.md`.
 
-### 5. Smoke test
+### 5. First beta user (uncoached)
+
+Tell them only: **"Go to kwalify.net and try it."**
+
+Do not explain prompts, buttons, or engine behaviour. Observe hesitation and confusion — log in `docs/beta-evidence-log.md`.
+
+### 6. Smoke test (operator)
 
 Generate one playlist as a real user. Then:
 
@@ -59,7 +78,7 @@ Select-String -Path kwalify-api.log -Pattern "generate_complete" | Select-Object
 
 Confirm one line per generate with `outcome`, `requestId`, and `stages`.
 
-### 6. Watchdog
+### 7. Watchdog
 
 Confirm `kwalify-watchdog.log` is updating and uses `/api/livez` only (not `readyz` during heavy generation).
 

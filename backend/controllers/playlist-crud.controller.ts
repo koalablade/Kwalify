@@ -23,6 +23,12 @@ import { checkRateLimit } from "../lib/rate-limit";
 import { sendApiError } from "../lib/api-error-envelope";
 import { recordUserFeedbackEvent } from "../lib/ops-metrics";
 import { hashedIdTag } from "../lib/pii";
+import {
+  isBetaEvidenceCaptureEnabled,
+  mapFeedbackTypeToVerdict,
+  type BetaEvidenceVerdict,
+} from "../lib/beta-generation-evidence";
+import { appendEvidenceFeedbackFireAndForget } from "../lib/beta-evidence-store";
 import type { Request, Response } from "express";
 
 const router: IRouter = Router();
@@ -448,6 +454,9 @@ const UserFeedbackBodySchema = z.object({
   type: z.enum(["save", "skip", "regenerate", "captured", "missed"]),
   requestId: z.string().min(1).max(120).optional(),
   playlistId: z.union([z.number(), z.string()]).optional(),
+  verdict: z.enum(["good", "mixed", "bad"]).optional(),
+  opinion: z.string().max(2000).optional(),
+  reasons: z.array(z.string().max(80)).max(20).optional(),
 });
 
 router.post("/feedback", async (req, res): Promise<void> => {
@@ -464,17 +473,33 @@ router.post("/feedback", async (req, res): Promise<void> => {
 
   const userId = req.session.spotifyUserId;
   const playlistId = parsed.data.playlistId != null ? String(parsed.data.playlistId) : undefined;
+  const requestId = parsed.data.requestId ?? String(req.id);
   recordUserFeedbackEvent();
   req.log.info(
     {
       event: "user_feedback",
       type: parsed.data.type,
-      requestId: parsed.data.requestId ?? String(req.id),
+      requestId,
       playlistId: playlistId ?? null,
       userId: hashedIdTag(userId),
     },
     "user_feedback",
   );
+  if (isBetaEvidenceCaptureEnabled() && parsed.data.requestId) {
+    const verdict: BetaEvidenceVerdict | null =
+      parsed.data.verdict ?? mapFeedbackTypeToVerdict(parsed.data.type);
+    appendEvidenceFeedbackFireAndForget({
+      kind: "feedback",
+      generationEvidenceId: requestId,
+      requestId,
+      recordedAt: new Date().toISOString(),
+      testerId: hashedIdTag(userId),
+      verdict,
+      reasons: parsed.data.reasons,
+      opinion: parsed.data.opinion ?? null,
+      ratings: { feedbackType: parsed.data.type },
+    });
+  }
   res.json({ success: true });
 });
 

@@ -67,9 +67,11 @@ PLAYLIST_CONTRACT_V41=1
 
 `setup-self-host.bat` and `start.bat` set these on first run. Verify on `/api/readyz` under `pipelineAuthority.playlistContract`.
 
-**Production candidate (local):** branch `v55-committed-world` @ `5fab771` (V55). GitHub `main` is still V38 — deploy from this branch, not `origin/main`.
+**Production candidate (local):** branch `v55-committed-world` @ `0b647af`. Engine checkpoint `5fab771` (V55). **Previous known-good (live):** `434be42`. GitHub `main` is still V38 — deploy from this branch, not `origin/main`.
 
-**V55 note:** Atmospheric prompts now get `musicalWorldId` + `hardLock` end-to-end (V53 admission + V54 survival engage). Compounds unchanged at 23–24 PASS. Cozy/lo-fi deliver depth but sonic clustering is still weak; late night drive may return honest 422 rather than wrong-world filler — aligned with human-curation doctrine.
+**Rollback:** `stop-kwalify.bat` → `git checkout 434be42` (or prior SHA) → `start.bat`. DB restore: `npm run maintenance:test-restore` / `pg_restore` from `backups/`.
+
+**V55 note:** Atmospheric prompts get `musicalWorldId` + `hardLock` end-to-end. Compounds pass at 23–24 tracks. Cozy/lo-fi sonic clustering still weak; late night may honest-422 — acceptable for closed beta.
 
 ---
 

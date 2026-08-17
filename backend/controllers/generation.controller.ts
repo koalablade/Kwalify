@@ -354,6 +354,11 @@ import {
   noteGenerateSuccess,
   updateGenerateObs,
 } from "../lib/generate-complete-log";
+import {
+  buildBetaGenerationEvidence,
+  isBetaEvidenceCaptureEnabled,
+} from "../lib/beta-generation-evidence";
+import { captureBetaFailureEvidenceIfEnabled, captureGenerationEvidenceFireAndForget } from "../lib/beta-evidence-store";
 import { hashedIdTag } from "../lib/pii";
 import {
   effectiveRecoveryArtistLimit,
@@ -701,6 +706,20 @@ function generateFail(
     executionPath: resolvedTrace.executionPath,
     playlistExecutionTrace: resolvedTrace,
     playlistSize: resolvedTrace.trackCounts?.final ?? 0,
+  });
+  const req = res.req as import("express").Request & {
+    session?: { spotifyUserId?: string };
+  };
+  captureBetaFailureEvidenceIfEnabled({
+    requestId: String(extra?.requestId ?? "unknown"),
+    prompt: String(extra?.prompt ?? ""),
+    userTag: hashedIdTag(req.session?.spotifyUserId),
+    mode: typeof extra?.mode === "string" ? extra.mode : undefined,
+    noLibraryMode: extra?.noLibraryMode === true,
+    requestedTrackCount: typeof extra?.requestedTrackCount === "number" ? extra.requestedTrackCount : undefined,
+    tracks: Array.isArray(extra?.tracks) ? (extra.tracks as never[]) : [],
+    playlistExecutionTrace: resolvedTrace,
+    failureCode: code,
   });
   res.status(status).json(payload);
 }
@@ -14688,6 +14707,52 @@ router.post("/generate", async (req, res): Promise<void> => {
 
     setGeneratePhase(generateSessionUserId, requestId, "done");
     setGenerateStageDetail(generateSessionUserId, requestId, "Loading playlist in app");
+    if (isBetaEvidenceCaptureEnabled()) {
+      const spotifyUrl =
+        typeof (spotifyFields as { spotifyPlaylistUrl?: string }).spotifyPlaylistUrl === "string"
+          ? (spotifyFields as { spotifyPlaylistUrl: string }).spotifyPlaylistUrl
+          : null;
+      captureGenerationEvidenceFireAndForget(
+        buildBetaGenerationEvidence({
+          requestId,
+          userTag: hashedIdTag(userId),
+          prompt: vibe,
+          mode,
+          noLibraryMode: !!noLibraryMode,
+          requestedTrackCount: length,
+          tracks: finalApiTracks,
+          playlistTitle: playlistName,
+          honestPartial:
+            thinLibraryPolicy.action === "honest_partial"
+            || finalization.diagnostics["honestPartialPublished"] === true
+            || finalApiTracks.length < length,
+          spotifyPlaylistUrl: spotifyUrl,
+          spotifyPlaylistId: spotifyUrl?.match(/playlist\/([a-zA-Z0-9]+)/)?.[1] ?? null,
+          savedPlaylistId: savedPlaylistId ?? null,
+          playlistExecutionTrace: successExecutionTrace,
+          interpretation: {
+            sceneId: momentPipeline?.canonicalScene?.sceneId ?? null,
+            sceneConfidence: momentPipeline?.canonicalScene?.confidence ?? null,
+            playlistIntent: momentPipeline?.intent?.intent ?? null,
+            emotionalArc: worldUnderstanding?.emotionalArc ?? emotionalArc ?? null,
+            humanNarrative: worldUnderstanding?.humanNarrative ?? null,
+            humanExperience: worldUnderstanding?.humanExperience ?? null,
+            momentUnderstandingLine,
+            committedWorldId: committedWorldPreRetrieval?.id ?? null,
+            committedWorldHardLock: committedWorldPreRetrieval?.hardLock ?? null,
+            musicalWorldId: committedWorldPreRetrieval?.musicalWorldId ?? null,
+            matchQualityLabel: generationTrust.matchQualityLabel,
+            retrievalSignature: generationTrust.retrievalSignature,
+            intentSurvivalSummary: generationTrust.intentSurvivalSummary,
+          },
+          pipelineExtras: {
+            generationMs,
+            librarySize: scoringPool.librarySize ?? null,
+            hybridPoolSize: scoringPool.hybridPoolSize ?? null,
+          },
+        }),
+      );
+    }
     res.json({
       success: true,
       requestId,
