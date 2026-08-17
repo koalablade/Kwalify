@@ -74,6 +74,14 @@ async function spawnApiServer() {
     env,
     stdio: ["ignore", "pipe", "pipe"],
   });
+  const serverLog = join(OUT_DIR, `v53-server-${Date.now()}.log`);
+  mkdirSync(OUT_DIR, { recursive: true });
+  server.stderr?.on("data", (chunk) => {
+    try { writeFileSync(serverLog, chunk, { flag: "a" }); } catch { /* ignore */ }
+  });
+  server.stdout?.on("data", (chunk) => {
+    try { writeFileSync(serverLog, chunk, { flag: "a" }); } catch { /* ignore */ }
+  });
 
   for (let i = 0; i < 90; i += 1) {
     await new Promise((r) => setTimeout(r, 2000));
@@ -129,51 +137,71 @@ async function generateOne(baseUrl, token, prompt) {
   }
 }
 
+async function runOnePrompt(baseUrl, token, prompt, verifyIndependentHumanQuality) {
+  console.log(`[v53-focused] ${prompt}`);
+  const { httpStatus, data } = await generateOne(baseUrl, token, prompt);
+  const tracks = (data.tracks ?? []).map((t) => ({
+    artist: t.artistName ?? t.artist ?? "",
+    track: t.trackName ?? t.name ?? "",
+    energy: t.energy ?? null,
+  }));
+  const mapped = tracks.map((t) => ({
+    trackName: t.track,
+    artistName: t.artist,
+    energy: t.energy,
+  }));
+  const verifier = verifyIndependentHumanQuality(prompt, mapped);
+  const spamHits = tracks.filter((t) =>
+    /\b(?:sped|sp33d|nightcore|phonk|stutter techno|chillhop beats)\b/i.test(t.track),
+  ).length;
+  const misfits = verifier.tracks.filter((t) => t.flag === "misfit").length;
+  const row = {
+    prompt,
+    httpStatus,
+    delivered: tracks.length,
+    spamHits,
+    misfits,
+    verifier: verifier.playlistVerdict,
+    first10: tracks.slice(0, 10).map((t) => `${t.artist} — ${t.track}`),
+    artistRepetition: artistRepetition(tracks),
+    tracks: tracks.map((t) => `${t.artist} — ${t.track}`),
+  };
+  console.log(
+    `  → del=${tracks.length} spam=${spamHits} misfits=${misfits} verifier=${verifier.playlistVerdict}`,
+  );
+  return row;
+}
+
 async function main() {
   const { verifyIndependentHumanQuality } = await import(
     "../dist/core/editorial/independent-human-quality-verifier.js"
   );
   const candidateSha = execSync("git rev-parse HEAD", { cwd: ROOT, encoding: "utf8" }).trim();
-  const { server, baseUrl, token } = await spawnApiServer();
   const results = [];
 
-  try {
-    for (const prompt of FOCUSED_PROMPTS) {
-      console.log(`[v53-focused] ${prompt}`);
-      const { httpStatus, data } = await generateOne(baseUrl, token, prompt);
-      const tracks = (data.tracks ?? []).map((t) => ({
-        artist: t.artistName ?? t.artist ?? "",
-        track: t.trackName ?? t.name ?? "",
-        energy: t.energy ?? null,
-      }));
-      const mapped = tracks.map((t) => ({
-        trackName: t.track,
-        artistName: t.artist,
-        energy: t.energy,
-      }));
-      const verifier = verifyIndependentHumanQuality(prompt, mapped);
-      const spamHits = tracks.filter((t) =>
-        /\b(?:sped|sp33d|nightcore|phonk|stutter techno|chillhop beats)\b/i.test(t.track),
-      ).length;
-      const misfits = verifier.tracks.filter((t) => t.flag === "misfit").length;
-      results.push({
-        prompt,
-        httpStatus,
-        delivered: tracks.length,
-        spamHits,
-        misfits,
-        verifier: verifier.playlistVerdict,
-        first10: tracks.slice(0, 10).map((t) => `${t.artist} — ${t.track}`),
-        artistRepetition: artistRepetition(tracks),
-        tracks: tracks.map((t) => `${t.artist} — ${t.track}`),
-      });
-      console.log(
-        `  → del=${tracks.length} spam=${spamHits} misfits=${misfits} verifier=${verifier.playlistVerdict}`,
-      );
-      await new Promise((r) => setTimeout(r, 3000));
+  for (const prompt of FOCUSED_PROMPTS) {
+    let server;
+    let token;
+    let row = null;
+    for (let attempt = 1; attempt <= 2 && !row; attempt += 1) {
+      try {
+        ({ server, token } = await spawnApiServer());
+        row = await runOnePrompt(
+          `http://127.0.0.1:${DEFAULT_PORT}`,
+          token,
+          prompt,
+          verifyIndependentHumanQuality,
+        );
+      } catch (err) {
+        console.error(`  attempt ${attempt} failed:`, err?.message ?? err);
+        if (attempt >= 2) throw err;
+      } finally {
+        server?.kill("SIGTERM");
+        await killLocalPort(DEFAULT_PORT);
+        await new Promise((r) => setTimeout(r, 4000));
+      }
     }
-  } finally {
-    server.kill("SIGTERM");
+    results.push(row);
   }
 
   const payload = { candidateSha, results };

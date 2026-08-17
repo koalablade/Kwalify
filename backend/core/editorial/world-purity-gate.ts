@@ -364,6 +364,32 @@ export function filterByWorldPurity<T extends WorldIdentityTrack>(
   return { tracks, removed: 0, removedReasons: [], survivorCompositionPositions: [] };
 }
 
+/** V54 — when position-tier purity collapses atmospheric composed sets, rank-survive above a sonic floor. */
+export function recoverAtmosphericPuritySurvivors<T extends WorldIdentityTrack>(
+  tracks: T[],
+  profile: CulturalWorldProfile,
+  requestedLength: number,
+): { tracks: T[]; recovered: number } {
+  if (!isAtmosphericWorld(profile.worldId) || tracks.length === 0) {
+    return { tracks, recovered: 0 };
+  }
+  const target = Math.min(tracks.length, Math.max(requestedLength, Math.ceil(requestedLength * 0.85)));
+  const survivalFloor = 58;
+  const ranked = tracks
+    .map((track, index) => ({ track, index, score: scoreTrackPurityPercent(track, profile) }))
+    .filter(({ track }) => {
+      const artist = String(track.artistName ?? "").trim();
+      return !(artist && matchesAvoidArtist(artist, profile));
+    })
+    .sort((a, b) => b.score - a.score || a.index - b.index);
+  const survivors = ranked.filter((row) => row.score >= survivalFloor).slice(0, target);
+  if (survivors.length === 0) return { tracks, recovered: 0 };
+  return {
+    tracks: survivors.map((row) => row.track),
+    recovered: survivors.length,
+  };
+}
+
 /** Checkpoints that guard opening/first-five belief — tail failures should not truncate honest partials. */
 const EARLY_BELIEF_CHECKPOINT_INDICES = new Set<number>([0, 1, 4]);
 
@@ -500,6 +526,15 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
   const filtered = filterByWorldPurity(working, committed);
   if (filtered.removed > 0 && filtered.tracks.length > 0) {
     working = filtered.tracks;
+  } else if (
+    isAtmosphericWorld(profile.worldId) &&
+    filtered.removed > 0 &&
+    filtered.tracks.length < Math.min(requested, Math.ceil(prePurityCount * 0.5))
+  ) {
+    const recovered = recoverAtmosphericPuritySurvivors(tracks, profile, requested);
+    if (recovered.tracks.length > working.length) {
+      working = recovered.tracks as T[];
+    }
   } else if (filtered.removed > 0 && filtered.tracks.length === 0 && tracks.length > 0) {
     const thesis = selectThesisOpener(tracks, profile);
     if (thesis) {

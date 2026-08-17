@@ -51,6 +51,7 @@ import {
   worldIdentityProfilesForLock,
 } from "./editorial/world-identity-gate";
 import { culturalProfileForCommittedWorld } from "./editorial/cultural-identity-profile";
+import { isAtmosphericWorld } from "./editorial/atmospheric-context-scoring";
 import { trackBelongsForWorldRetrieval } from "./editorial/world-belonging-retrieval";
 import {
   applyMusicalWorldPreV3Sampling,
@@ -4754,7 +4755,25 @@ export async function buildPlaylistPipeline<T extends {
   const rescuedSubgenreScope = preV3SubgenreScope.mode === "family" && contractSafeSubgenreScope.mode !== "family"
     ? contractSafeSubgenreScope
     : preV3SubgenreScope;
-  const rawSubgenreEvidencePool = rescuedSubgenreScope.pool as ScoredLibraryTrack<T>[];
+  const minSafePreRankingPoolEarly = Math.min(80, Math.max(opts.playlistLength * 2, 30));
+  const atmosphericStructuredDefer =
+    isAtmosphericWorld(worldBoundary.dominantScene) &&
+    intentContract.primarySubgenre &&
+    rescuedSubgenreScope.mode !== "family" &&
+    rescuedSubgenreScope.pool.length < minSafePreRankingPoolEarly;
+  const effectiveSubgenreScope = atmosphericStructuredDefer
+    ? {
+        ...rescuedSubgenreScope,
+        pool: contractSafeSubgenreScope.familyCount > 0
+          ? contractSafeSubgenreScope.pool
+          : rescuedSubgenreScope.pool.length > 0
+            ? rescuedSubgenreScope.pool
+            : structuredScopeSource,
+        mode: "family" as const,
+        familyCount: Math.max(rescuedSubgenreScope.familyCount, contractSafeSubgenreScope.familyCount),
+      }
+    : rescuedSubgenreScope;
+  const rawSubgenreEvidencePool = effectiveSubgenreScope.pool as ScoredLibraryTrack<T>[];
   const subgenreEvidencePool = rawSubgenreEvidencePool.filter((track) => {
     if (
       intentContract.genreFamilies.length > 0 &&
@@ -5344,12 +5363,13 @@ export async function buildPlaylistPipeline<T extends {
     structuredRetrieval: {
       source: structuredScopeSource === contractSafePool ? "contract_safe_pool" : "contract_guard_pool",
       rescueUsed: subgenreRescueUsed,
-      mode: rescuedSubgenreScope.mode,
-      primaryCount: rescuedSubgenreScope.primaryCount,
-      relatedCount: rescuedSubgenreScope.relatedCount,
-      familyCount: rescuedSubgenreScope.familyCount,
-      strictMinimum: rescuedSubgenreScope.strictMinimum,
-      relatedMinimum: rescuedSubgenreScope.relatedMinimum,
+      mode: effectiveSubgenreScope.mode,
+      primaryCount: effectiveSubgenreScope.primaryCount,
+      relatedCount: effectiveSubgenreScope.relatedCount,
+      familyCount: effectiveSubgenreScope.familyCount,
+      strictMinimum: effectiveSubgenreScope.strictMinimum,
+      relatedMinimum: effectiveSubgenreScope.relatedMinimum,
+      atmosphericStructuredDefer,
     },
   };
   const intentContractGuardDiagnostics = {

@@ -12,7 +12,9 @@ import { normalizeSessionArtist } from "../../lib/session-artist-gravity";
 import { driveMomentContextPenalty, isSemanticSpamTrack } from "../playlist-contract/contract-axis-scoring";
 import {
   atmosphericLexicalHackPenalty,
+  atmosphericRetrievalAdmissionFit,
   isAtmosphericLexicalHack,
+  passesAtmosphericDeliverableAdmission,
   resolveAtmosphericContext,
   scoreAtmosphericContextFit,
 } from "./atmospheric-context-scoring";
@@ -88,6 +90,33 @@ export function enrichDeliverableTrack<T extends WorldIdentityTrack>(
   } as T;
 }
 
+/** Build atmospheric track features from a world identity track row. */
+function toAtmosphericTrack(track: WorldIdentityTrack): {
+  trackName: string | null | undefined;
+  artistName: string | null | undefined;
+  energy: number | null;
+  valence: number | null;
+  danceability: number | null;
+  acousticness: number | null;
+  instrumentalness: number | null;
+  speechiness: number | null;
+  genreFamily: string | null;
+  genrePrimary: string | null;
+} {
+  return {
+    trackName: track.trackName,
+    artistName: track.artistName,
+    energy: track.energy ?? null,
+    valence: track.valence ?? null,
+    danceability: track.danceability ?? null,
+    acousticness: (track as { acousticness?: number | null }).acousticness ?? null,
+    instrumentalness: track.instrumentalness ?? null,
+    speechiness: (track as { speechiness?: number | null }).speechiness ?? null,
+    genreFamily: track.genreFamily ?? null,
+    genrePrimary: track.genrePrimary ?? null,
+  };
+}
+
 /** Rank survivors by unified world identity — same score family as purity gate. */
 export function rankDeliverableCandidates<T extends WorldIdentityTrack>(
   pool: T[],
@@ -101,27 +130,16 @@ export function rankDeliverableCandidates<T extends WorldIdentityTrack>(
       if (artist && matchesAvoidArtist(artist, profile)) return false;
       if (opts?.isGenreVerified && !opts.isGenreVerified(track)) return false;
       const enriched = opts?.enrichTrack ? opts.enrichTrack(track) : track;
-      if (
-        atmosphericContext &&
-        isAtmosphericLexicalHack(
-          {
-            trackName: enriched.trackName,
-            artistName: enriched.artistName,
-            energy: enriched.energy ?? null,
-            valence: enriched.valence ?? null,
-            danceability: enriched.danceability ?? null,
-            acousticness: (enriched as { acousticness?: number | null }).acousticness ?? null,
-            instrumentalness: enriched.instrumentalness ?? null,
-            speechiness: (enriched as { speechiness?: number | null }).speechiness ?? null,
-            genreFamily: enriched.genreFamily ?? null,
-            genrePrimary: enriched.genrePrimary ?? null,
-          },
-          atmosphericContext,
-        )
-      ) {
+      const atmosphericTrack = toAtmosphericTrack(enriched);
+      if (atmosphericContext && isAtmosphericLexicalHack(atmosphericTrack, atmosphericContext)) {
         return false;
       }
-      return scoreTrackWorldIdentity(enriched, profile) >= 0.5;
+      const identity = scoreTrackWorldIdentity(enriched, profile);
+      if (identity >= 0.5) return true;
+      if (atmosphericContext) {
+        return passesAtmosphericDeliverableAdmission(atmosphericTrack, profile.worldId);
+      }
+      return false;
     })
     .sort((a, b) => {
       const enrichA = opts?.enrichTrack ? opts.enrichTrack(a) : a;
@@ -186,20 +204,9 @@ function passesDeliverableSlot<T extends WorldIdentityTrack>(
   if (isSemanticSpamTrack(candidate)) return false;
   const atmosphericContext = resolveAtmosphericContext(profile.worldId);
   if (atmosphericContext) {
-    const atmosphericTrack = {
-      trackName: candidate.trackName,
-      artistName: candidate.artistName,
-      energy: candidate.energy ?? null,
-      valence: candidate.valence ?? null,
-      danceability: candidate.danceability ?? null,
-      acousticness: (candidate as { acousticness?: number | null }).acousticness ?? null,
-      instrumentalness: candidate.instrumentalness ?? null,
-      speechiness: (candidate as { speechiness?: number | null }).speechiness ?? null,
-      genreFamily: candidate.genreFamily ?? null,
-      genrePrimary: candidate.genrePrimary ?? null,
-    };
+    const atmosphericTrack = toAtmosphericTrack(candidate);
     if (isAtmosphericLexicalHack(atmosphericTrack, atmosphericContext)) return false;
-    if (scoreAtmosphericContextFit(atmosphericTrack, atmosphericContext) < 0.42) return false;
+    if (!passesAtmosphericDeliverableAdmission(atmosphericTrack, profile.worldId)) return false;
   }
   if (opts.prompt) {
     if (

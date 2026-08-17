@@ -9,6 +9,7 @@ import test from "node:test";
 import {
   atmosphericLexicalHackPenalty,
   isAtmosphericLexicalHack,
+  passesAtmosphericDeliverableAdmission,
   resolveAtmosphericContext,
   scoreAtmosphericContextFit,
 } from "../core/editorial/atmospheric-context-scoring";
@@ -106,6 +107,28 @@ test("lofi_focus prefers low-energy instrumental over title-only lofi claims", (
   );
   assert.ok(atmosphericLexicalHackPenalty(lexical, "lofi_focus") >= 0.42);
   assert.ok(!isAtmosphericLexicalHack(focus, "lofi_focus"));
+});
+
+test("passesAtmosphericDeliverableAdmission aligns with retrieval floor", () => {
+  const cinematic = {
+    trackName: "Red Eyes",
+    artistName: "The War on Drugs",
+    energy: 0.55,
+    valence: 0.42,
+    danceability: 0.48,
+    genreFamily: "indie",
+  };
+  const live = {
+    trackName: "Lights & Music - triple j Like A Version",
+    artistName: "The Jungle Giants",
+    energy: 0.68,
+    valence: 0.74,
+    acousticness: 0.22,
+    danceability: 0.66,
+    genreFamily: "indie",
+  };
+  assert.ok(passesAtmosphericDeliverableAdmission(cinematic, "night_drive_world"));
+  assert.ok(!passesAtmosphericDeliverableAdmission(live, "sunday_chill_world"));
 });
 
 test("lexical hack penalty ignores credible non-title sonic matches", () => {

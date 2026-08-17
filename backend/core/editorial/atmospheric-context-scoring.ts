@@ -197,7 +197,7 @@ export function atmosphericRetrievalBoost(
   if (!context) return 0;
   const fit = scoreAtmosphericContextFit(track, context);
   const hack = atmosphericLexicalHackPenalty(track, context);
-  return fit * 0.16 - hack * 0.55;
+  return fit * 0.32 - hack * 0.55;
 }
 
 /** Minimum atmospheric fit to admit a track when world identity is borderline thin. */
@@ -211,7 +211,38 @@ export function atmosphericRetrievalAdmissionFit(
   return scoreAtmosphericContextFit(track, context);
 }
 
+/** Shared admission floor — retrieval, refill, and hard-lock filters use the same sonic bar. */
+export function atmosphericAdmissionFloor(context: AtmosphericContextKind): number {
+  switch (context) {
+    case "lofi_focus":
+      return 0.56;
+    case "cozy_morning":
+      return 0.52;
+    case "night_drive":
+      return 0.5;
+    default:
+      return 0.52;
+  }
+}
+
+export function passesAtmosphericDeliverableAdmission(
+  track: AtmosphericTrackFeatures,
+  worldId: string | null | undefined,
+): boolean {
+  const context = resolveAtmosphericContext(worldId);
+  if (!context) return false;
+  if (isAtmosphericLexicalHack(track, context)) return false;
+  const fit = scoreAtmosphericContextFit(track, context);
+  if (fit < atmosphericAdmissionFloor(context)) return false;
+  if (context === "lofi_focus") {
+    const speech = num(track.speechiness, 0.08);
+    const instrumental = num(track.instrumentalness, 0.15);
+    if (speech > 0.16 && instrumental < 0.12) return false;
+  }
+  return true;
+}
+
 /** Depth multiplier for atmospheric committed worlds — widen candidate pool before composition. */
 export function atmosphericPoolDepthMultiplier(worldId: string | null | undefined): number {
-  return isAtmosphericWorld(worldId) ? 1.35 : 1;
+  return isAtmosphericWorld(worldId) ? 1.85 : 1;
 }

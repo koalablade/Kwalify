@@ -492,7 +492,8 @@ import {
 } from "../core/editorial/world-identity-gate";
 import { openingLockTrackIdsFromTracks } from "../core/editorial/opener-hygiene";
 import { applyWorldSequencing } from "../core/editorial/world-sequencer";
-import { applyWorldPurityGate } from "../core/editorial/world-purity-gate";
+import { applyWorldPurityGate, scoreTrackPurityPercent } from "../core/editorial/world-purity-gate";
+import { isAtmosphericWorld } from "../core/editorial/atmospheric-context-scoring";
 import {
   mergeDeliverableCandidatePools,
   refillDeliverableDepth,
@@ -519,7 +520,7 @@ import {
   diagnoseRetrievalShortfall,
 } from "../core/editorial/retrieval-rejection-trace";
 import { enforceCommittedWorldImmutability } from "../core/editorial/committed-world-guard";
-import { resolveCulturalProfileForCommitted } from "../core/editorial/world-identity-score";
+import { resolveCulturalProfileForCommitted, type WorldIdentityTrack } from "../core/editorial/world-identity-score";
 import {
   countOpenerNegationViolations,
   filterTracksForDeliveryNegation,
@@ -7921,7 +7922,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       );
       return purified.rejected.length;
     };
-    stripDeliveryOffWorld("world_purity_gate", "strip off-world at v3 handoff");
+    if (!deliveryWorldBoundary.hardLock) {
+      stripDeliveryOffWorld("world_purity_gate", "strip off-world at v3 handoff");
+    }
     const checkpointCtx = (extra?: {
       recoveryPoolSize?: number;
       genreEvidenceVerifiedCount?: number;
@@ -10123,6 +10126,20 @@ router.post("/generate", async (req, res): Promise<void> => {
         finalValidation.eraAlignment === "FAIL" ? "eraAlignment" : null,
     ].filter((failure): failure is string => !!failure);
     if (deliveryWorldBoundary.hardLock && finalValidation.genreConsistency === "FAIL" && delivery.tracks.length > 0) {
+      const genreMismatchAtmosphericWorld = isAtmosphericWorld(
+        committedWorldPreRetrieval?.id ?? deliveryWorldBoundary.dominantScene ?? null,
+      );
+      const genreMismatchProfile = genreMismatchAtmosphericWorld
+        ? resolveCulturalProfileForCommitted(committedWorldPreRetrieval)
+        : null;
+      const strongAtmosphericWorldFit =
+        genreMismatchProfile != null &&
+        delivery.tracks.filter((track) =>
+          scoreTrackPurityPercent(track as WorldIdentityTrack, genreMismatchProfile) >= 65,
+        ).length >= Math.ceil(requestedLength * 0.55);
+      if (strongAtmosphericWorldFit) {
+        evidenceRelaxations.push("atmospheric_world_fit_genre_mismatch_survival");
+      } else {
       const genreMismatchCap = Math.min(12, Math.ceil(requestedLength * 0.4));
       if (delivery.tracks.length > genreMismatchCap) {
         assignFT(
@@ -10150,6 +10167,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           { userId, vibe, genreConsistency: finalValidation.genreConsistency, finalCount: delivery.tracks.length },
           "Hard world lock genre mismatch with stub supply",
         );
+      }
       }
     }
     if (delivery.tracks.length > 0 && hardValidationFailures.length > 0) {

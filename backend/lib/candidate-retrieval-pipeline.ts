@@ -37,6 +37,7 @@ import {
   WORLD_BELONGING_RETRIEVAL_MIN,
 } from "../core/editorial/world-belonging-retrieval";
 import {
+  ATMOSPHERIC_ADMISSION_FLOOR,
   atmosphericPoolDepthMultiplier,
   atmosphericRetrievalAdmissionFit,
   atmosphericRetrievalBoost,
@@ -986,7 +987,7 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
           );
           if (
             culturalScore >= WORLD_BELONGING_RETRIEVAL_MIN ||
-            atmosphericAdmission >= 0.54
+            atmosphericAdmission >= ATMOSPHERIC_ADMISSION_FLOOR
           ) {
             eligible.push(track);
             eligibleIds.add(track.trackId);
@@ -1062,7 +1063,7 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
         };
         if (isAtmosphericLexicalHack(enriched, atmosphericContext)) return false;
         const admission = atmosphericRetrievalAdmissionFit(enriched, lockWorldId);
-        return worldFit >= WORLD_BELONGING_RETRIEVAL_MIN || admission >= 0.52;
+        return worldFit >= WORLD_BELONGING_RETRIEVAL_MIN || admission >= ATMOSPHERIC_ADMISSION_FLOOR;
       }
       return worldFit >= WORLD_BELONGING_RETRIEVAL_MIN;
     });
