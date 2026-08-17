@@ -12,6 +12,11 @@ import {
   passesMomentFitForRefill,
 } from "./song-moment-fit";
 import { scoreTrackWorldIdentity } from "./world-identity-score";
+import {
+  resolveAtmosphericContext,
+  scoreAtmosphericContextFit,
+  isAtmosphericLexicalHack,
+} from "./atmospheric-context-scoring";
 import { isSemanticSpamTrack } from "../playlist-contract/contract-axis-scoring";
 
 export type HumanCurationTrack = {
@@ -441,6 +446,25 @@ function passesWorldForReplacement<T extends HumanCurationTrack>(
   minWorld = 0.72,
 ): boolean {
   if (!profile) return true;
+  const context = resolveAtmosphericContext(profile.worldId);
+  if (context) {
+    const atmosphericTrack = {
+      trackName: track.trackName,
+      artistName: track.artistName,
+      energy: track.energy ?? null,
+      valence: (track as { valence?: number | null }).valence ?? null,
+      danceability: (track as { danceability?: number | null }).danceability ?? null,
+      acousticness: (track as { acousticness?: number | null }).acousticness ?? null,
+      instrumentalness: (track as { instrumentalness?: number | null }).instrumentalness ?? null,
+      speechiness: (track as { speechiness?: number | null }).speechiness ?? null,
+      genreFamily: (track as { genreFamily?: string | null }).genreFamily ?? null,
+      genrePrimary: (track as { genrePrimary?: string | null }).genrePrimary ?? null,
+    };
+    if (isAtmosphericLexicalHack(atmosphericTrack, context)) return false;
+    const identity = scoreTrackWorldIdentity(track, profile);
+    const atmospheric = scoreAtmosphericContextFit(atmosphericTrack, context);
+    return identity * 0.55 + atmospheric * 0.45 >= minWorld;
+  }
   return scoreTrackWorldIdentity(track, profile) >= minWorld;
 }
 

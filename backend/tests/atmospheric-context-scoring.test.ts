@@ -67,6 +67,16 @@ test("cozy_morning prefers warm acoustic mellow over live-radio energy", () => {
       scoreAtmosphericContextFit(live, "cozy_morning"),
   );
   assert.ok(isAtmosphericLexicalHack(live, "cozy_morning"));
+  const acousticLive = {
+    trackName: "Sugar - Acoustic",
+    artistName: "Francesco Yates",
+    energy: 0.58,
+    valence: 0.66,
+    acousticness: 0.55,
+    danceability: 0.48,
+    genreFamily: "pop",
+  };
+  assert.ok(atmosphericLexicalHackPenalty(acousticLive, "cozy_morning") >= 0.4);
 });
 
 test("lofi_focus prefers low-energy instrumental over title-only lofi claims", () => {

@@ -16,6 +16,11 @@ import {
   matchesAcceptableAdjacency,
 } from "./cultural-identity-profile";
 import { scoreTrackWorldIdentity, type WorldIdentityTrack } from "./world-identity-score";
+import {
+  atmosphericLexicalHackPenalty,
+  resolveAtmosphericContext,
+  scoreAtmosphericContextFit,
+} from "./atmospheric-context-scoring";
 
 /** Below gate thresholds — retrieval only. Gates still apply at 80/85/90/95. */
 export const WORLD_BELONGING_RETRIEVAL_MIN = 0.35;
@@ -97,5 +102,23 @@ export function scoreWorldBelongingRank(
   let boost = 0;
   if (artistOnWorldRoster(track.artistName ?? "", profile)) boost += 0.12;
   if (trackMatchesWorldInstrumentation(track, profile)) boost += 0.06;
+  const context = resolveAtmosphericContext(profile.worldId);
+  if (context) {
+    const atmosphericTrack = {
+      trackName: track.trackName,
+      artistName: track.artistName,
+      energy: track.energy ?? null,
+      valence: track.valence ?? null,
+      danceability: track.danceability ?? null,
+      acousticness: (track as { acousticness?: number | null }).acousticness ?? null,
+      instrumentalness: track.instrumentalness ?? null,
+      speechiness: (track as { speechiness?: number | null }).speechiness ?? null,
+      genreFamily: track.genreFamily ?? null,
+      genrePrimary: track.genrePrimary ?? null,
+    };
+    const fit = scoreAtmosphericContextFit(atmosphericTrack, context);
+    const hack = atmosphericLexicalHackPenalty(atmosphericTrack, context);
+    boost += fit * 0.14 - hack * 0.35;
+  }
   return Math.min(1, identity + boost);
 }

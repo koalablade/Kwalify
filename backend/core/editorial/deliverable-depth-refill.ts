@@ -199,7 +199,7 @@ function passesDeliverableSlot<T extends WorldIdentityTrack>(
       genrePrimary: candidate.genrePrimary ?? null,
     };
     if (isAtmosphericLexicalHack(atmosphericTrack, atmosphericContext)) return false;
-    if (scoreAtmosphericContextFit(atmosphericTrack, atmosphericContext) < 0.34) return false;
+    if (scoreAtmosphericContextFit(atmosphericTrack, atmosphericContext) < 0.42) return false;
   }
   if (opts.prompt) {
     if (

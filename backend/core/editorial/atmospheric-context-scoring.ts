@@ -167,6 +167,7 @@ export function atmosphericLexicalHackPenalty(
 
   if (context === "cozy_morning") {
     if (LIVE_OR_BROADCAST.test(title)) penalty = Math.max(penalty, 0.52);
+    if (/\b(?:acoustic|live)\b/i.test(title) && energy > 0.48) penalty = Math.max(penalty, 0.4);
     if (/\b(?:bored yet|party|banger|hype)\b/i.test(title)) penalty = Math.max(penalty, 0.45);
     if (energy > 0.62 && valence > 0.72) penalty = Math.max(penalty, 0.35);
   }

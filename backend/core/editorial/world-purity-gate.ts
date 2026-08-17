@@ -23,6 +23,12 @@ import {
   type WorldIdentityTrack,
   type WorldIdentityEvidenceTier,
 } from "./world-identity-score";
+import {
+  isAtmosphericLexicalHack,
+  isAtmosphericWorld,
+  resolveAtmosphericContext,
+  scoreAtmosphericContextFit,
+} from "./atmospheric-context-scoring";
 import { sequenceAfterPurityFilter } from "./world-sequencer";
 import { selectThesisOpener } from "./thesis-opener-gate";
 import { replaceCheckpointFailures } from "./checkpoint-backfill";
@@ -140,17 +146,21 @@ export function purityAwareComposeTarget(
   },
 ): number {
   if (!opts.hardLock || !opts.profile) return requestedLength;
-  const poolCap = Math.min(Math.max(opts.candidatePoolSize ?? 0, requestedLength), 75);
+  const poolCap = Math.min(
+    Math.max(opts.candidatePoolSize ?? 0, requestedLength),
+    isAtmosphericWorld(opts.profile?.worldId) ? 95 : 75,
+  );
   const sampleRetention = opts.sampleTracks?.length
     ? estimatePuritySurvivalRate(opts.sampleTracks, opts.profile)
     : null;
+  const atmospheric = isAtmosphericWorld(opts.profile?.worldId);
   // Sample can overstate survival after calibration — plan with conservative retention.
   const planningRetention = sampleRetention != null
-    ? Math.min(sampleRetention, 0.42)
-    : 0.35;
+    ? Math.min(sampleRetention, atmospheric ? 0.26 : 0.42)
+    : atmospheric ? 0.26 : 0.35;
   const depthNeeded = Math.max(
     Math.ceil(requestedLength / planningRetention),
-    Math.ceil(requestedLength * 1.65),
+    Math.ceil(requestedLength * (atmospheric ? 2.1 : 1.65)),
   );
   return Math.min(poolCap, Math.max(requestedLength, depthNeeded));
 }
@@ -192,9 +202,39 @@ export function effectivePurityThresholdForTrack(
   );
 }
 
-/** World identity score scaled 0–100. */
+/** World identity score scaled 0–100; blends atmospheric sonic fit for mood worlds. */
 export function scoreTrackPurityPercent(track: WorldIdentityTrack, profile: CulturalWorldProfile): number {
-  return Math.round(scoreTrackWorldIdentity(track, profile) * 100);
+  const identity = scoreTrackWorldIdentity(track, profile);
+  const context = resolveAtmosphericContext(profile.worldId);
+  if (!context) return Math.round(identity * 100);
+
+  const atmosphericTrack = {
+    trackName: track.trackName,
+    artistName: track.artistName,
+    energy: track.energy ?? null,
+    valence: track.valence ?? null,
+    danceability: track.danceability ?? null,
+    acousticness: (track as { acousticness?: number | null }).acousticness ?? null,
+    instrumentalness: track.instrumentalness ?? null,
+    speechiness: (track as { speechiness?: number | null }).speechiness ?? null,
+    genreFamily: track.genreFamily ?? null,
+    genrePrimary: track.genrePrimary ?? null,
+  };
+  if (isAtmosphericLexicalHack(atmosphericTrack, context)) return 0;
+  const atmospheric = scoreAtmosphericContextFit(atmosphericTrack, context);
+  const decomp = decomposeTrackWorldIdentity(track, profile);
+  const weakEvidence =
+    decomp.evidenceTier === "weak" ||
+    decomp.evidenceTier === "era_energy" ||
+    decomp.evidenceTier === "instrumentation_token";
+  if (weakEvidence) {
+    if (atmospheric + 0.08 < identity) {
+      return Math.round(Math.min(identity, atmospheric + 0.1) * 100);
+    }
+    return Math.round(identity * 100);
+  }
+  const blended = identity * 0.55 + atmospheric * 0.45;
+  return Math.round(blended * 100);
 }
 
 export function trackPassesWorldPurity(
