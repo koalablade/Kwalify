@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-17T14:09:00.000Z",
+  "labels": [
+    {
+      "requestId": "hq100-mood-melancholic-s1-b25ff699",
+      "prompt": "melancholic",
+      "benchmarkRunId": "hq100-6822d2f0",
+      "verdict": "YES",
+      "tags": [
+        "genuinely good",
+        "would save",
+        "prompt understood"
+      ],
+      "humanClass": "POSITIVE_CONTROL",
+      "protect": true,
+      "opinion": "Genuinely good. Protect this behaviour.",
+      "reviewedAt": "2026-08-17T13:48:00.000Z"
+    },
+    {
+      "requestId": "hq100-mood-nostalgic-s1-adaf25dc",
+      "prompt": "nostalgic",
+      "benchmarkRunId": "hq100-6822d2f0",
+      "verdict": "NO",
+      "tags": [
+        "prompt misunderstood",
+        "would not save",
+        "bad despite automation"
+      ],
+      "humanClass": "VAGUE_MOOD_FAILURE",
+      "protect": false,
+      "opinion": "Bad. Do not assume generic nostalgia classification is sufficient. Future variants: nostalgic 90s / 2000s / 2010s / 2000s dad / UK indie. Do not change the engine solely from this observation.",
+      "reviewedAt": "2026-08-17T13:48:00.000Z"
+    },
+    {
+      "requestId": "hq100-genre-indie-rock-s1-0b9bcb5b",
+      "prompt": "indie rock",
+      "benchmarkRunId": "hq100-6822d2f0",
+      "verdict": "YES",
+      "tags": [
+        "genuinely good",
+        "too short",
+        "prompt understood",
+        "would save"
+      ],
+      "humanClass": "CORRECT_WORLD_UNDERFILL",
+      "protect": false,
+      "opinion": "The 14-track playlist itself is good. Do not classify indie retrieval as a total quality failure. The issue is 14/25 despite substantial library opportunity.",
+      "reviewedAt": "2026-08-17T13:48:00.000Z"
+    },
+    {
+      "requestId": "hq100-era-2000s-s1-41638fc8",
+      "prompt": "2000s indie",
+      "benchmarkRunId": "hq100-6822d2f0",
+      "verdict": "NO",
+      "tags": [
+        "too short",
+        "repetitive",
+        "would not save"
+      ],
+      "humanClass": "SEVERE_UNDERFILL_REPETITION",
+      "protect": false,
+      "opinion": "3 tracks, repetition, substantial relevant library opportunity. High-priority failure.",
+      "reviewedAt": "2026-08-17T13:48:00.000Z"
+    },
+    {
+      "requestId": "hq100-genre-90s-alt-s1-df2fd5ca",
+      "prompt": "90s alternative rock",
+      "benchmarkRunId": "hq100-6822d2f0",
+      "verdict": "NO",
+      "tags": [
+        "wrong genre",
+        "wrong era",
+        "too short",
+        "would not save"
+      ],
+      "humanClass": "WRONG_WORLD",
+      "protect": false,
+      "opinion": "The generated playlist is not 90s alternative rock. Wrong musical world. Automated CLEARLY_BAD was correct. Do not blacklist the default-cluster artists globally; the failure is contextual prompt/world matching.",
+      "reviewedAt": "2026-08-17T14:09:00.000Z"
+    }
+  ]
+}

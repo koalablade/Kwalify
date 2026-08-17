@@ -12,6 +12,16 @@ export * from "./human-review";
 export * from "./calibration";
 export * from "./failure-clustering";
 export * from "./report";
+export * from "./benchmark-100";
+export * from "./world-evidence";
+export * from "./forensic-analysis";
+export * from "./diagnosis-report";
+export * from "./library-opportunity";
+export * from "./library-snapshot";
+export * from "./spotify-qa-adapter";
+export * from "./spotify-qa-registry";
+export * from "./gold-set";
+export * from "./investigation";
 
 import { auditPlaylistAutomated } from "./automated-audit";
 import { evaluateAllBetaEvidence, evaluateFromApiResponse } from "./evidence-ingest";

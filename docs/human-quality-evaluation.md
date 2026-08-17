@@ -29,6 +29,28 @@ Reports written to `reports/human-quality/`.
 
 Human review templates: `reports/human-quality-reviews/`.
 
+## 100-generation forensic diagnosis
+
+The 100-run does **not** create Spotify playlists. It writes tracklists to `reports/human-quality/100-gen/results.jsonl`.
+
+```bat
+npm run eval:human-quality:diagnose
+npm run eval:human-quality:qa -- --dry-run
+npm run eval:human-quality:qa -- --run hq100-6822d2f0
+npm run eval:human-quality:qa -- --list
+npm run eval:human-quality:qa -- --cleanup
+```
+
+`eval:human-quality:qa` screens the JSONL, selects ~12 cases, and creates **new private** Spotify playlists named `Kwalify QA | …`. Dry-run creates none. Cleanup unfollows **only** playlists in `playlist-registry.json`.
+
+Listen on Spotify, fill `reports/human-quality/100-gen/spotify-qa/human-review/*.review.json`, rerun the QA command to compare human vs automation.
+
+Library opportunity is measured from `liked_songs` (not hardcoded). Underfill with HIGH/VERY_HIGH opportunity is treated as candidate/admission failure until disproven. Coherence alone cannot produce CLEARLY_GOOD.
+
+Auth reuses Kwalify: `SPOTIFY_REFRESH_TOKEN`, or a live local session (`DATABASE_URL` + logged-in `playlist-modify-private`). Genome `spotify:oauth-setup` currently requests read scopes only — if create fails with 403, log into the Kwalify app rather than genome OAuth.
+
+Do **not** treat HCS as human quality. Do **not** change the engine from this report.
+
 ## Human review workflow
 
 1. Generate playlist (beta user or yourself)

@@ -117,7 +117,49 @@ export async function evaluateAllBetaEvidence(): Promise<EvaluatedPlaylist[]> {
   );
 }
 
-export function evaluateFromApiResponse(data: Record<string, unknown>): EvaluatedPlaylist {
+export type ApiResponseEvalOptions = {
+  /** Original requested playlist length. Never infer this from delivered track count. */
+  requestedCount?: number;
+};
+
+/**
+ * Resolve requested length from the original request, never from delivered tracks.
+ * API `length` is only used when it disagrees with delivered count (legacy fixture).
+ */
+export function resolveRequestedTrackCount(
+  data: Record<string, unknown>,
+  delivered: number,
+  override?: number,
+): { requested: number; known: boolean } {
+  if (typeof override === "number" && Number.isFinite(override) && override > 0) {
+    return { requested: override, known: true };
+  }
+  const explicit = data.requestedLength ?? data.requestedTrackCount;
+  if (typeof explicit === "number" && Number.isFinite(explicit) && explicit > 0) {
+    return { requested: explicit, known: true };
+  }
+  const len = data.length;
+  if (typeof len === "number" && Number.isFinite(len) && len > 0 && len !== delivered) {
+    return { requested: len, known: true };
+  }
+  return { requested: delivered, known: false };
+}
+
+function pipelineFromApiResponse(data: Record<string, unknown>): Record<string, unknown> {
+  const trace = (data.playlistExecutionTrace as Record<string, unknown> | undefined) ?? {};
+  return {
+    ...trace,
+    ...(data.candidateFunnel ? { candidateFunnel: data.candidateFunnel } : {}),
+    ...(data.deliveryLossFunnel ? { deliveryLossFunnel: data.deliveryLossFunnel } : {}),
+    ...(data.retrievalFunnel ? { retrievalFunnel: data.retrievalFunnel } : {}),
+    ...(data.puritySubFunnel ? { puritySubFunnel: data.puritySubFunnel } : {}),
+  };
+}
+
+export function evaluateFromApiResponse(
+  data: Record<string, unknown>,
+  options?: ApiResponseEvalOptions,
+): EvaluatedPlaylist {
   const requestId = String(data.requestId ?? data.generationEvidenceId ?? "unknown");
   const prompt = String(data.vibe ?? data.prompt ?? "");
   const rawTracks = Array.isArray(data.tracks) ? data.tracks : [];
@@ -134,16 +176,18 @@ export function evaluateFromApiResponse(data: Record<string, unknown>): Evaluate
     acousticness: typeof t.acousticness === "number" ? t.acousticness : null,
   })).filter((t) => t.name);
 
-  const requested = Number(data.length ?? data.requestedLength ?? tracks.length);
   const delivered = tracks.length;
+  const { requested, known } = resolveRequestedTrackCount(data, delivered, options?.requestedCount);
+  const pipeline = pipelineFromApiResponse(data);
   const automated = auditPlaylistAutomated({
     prompt,
     tracks,
     requestedCount: requested,
     deliveredCount: delivered,
-    honestPartial: Boolean(data.honestPartialPublished),
-    outcome: delivered === 0 ? "failure" : delivered < requested ? "partial" : "success",
-    pipeline: (data.playlistExecutionTrace as Record<string, unknown>) ?? {},
+    requestedKnown: known,
+    honestPartial: Boolean(data.honestPartialPublished) || (known && delivered > 0 && delivered < requested),
+    outcome: delivered === 0 ? "failure" : !known ? "unknown_request_length" : delivered < requested ? "partial" : "success",
+    pipeline,
   });
 
   return {
@@ -158,7 +202,7 @@ export function evaluateFromApiResponse(data: Record<string, unknown>): Evaluate
       humanNarrative: data.humanNarrative ?? null,
       matchQualityLabel: data.matchQualityLabel ?? null,
     },
-    pipeline: (data.playlistExecutionTrace as Record<string, unknown>) ?? {},
+    pipeline,
     tracks,
     userFeedback: null,
     automated,

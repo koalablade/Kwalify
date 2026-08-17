@@ -437,6 +437,15 @@ import {
   type DeliveryTrackSnap,
   type PuritySubFunnel,
 } from "../lib/delivery-underfill-forensics";
+import {
+  buildCandidateFunnelFromGenerationAudit,
+  createCandidateFunnelObserver,
+  observeArtistCapDropped,
+  observeDuplicateRemovals,
+  observeRefillAttempt,
+  playlistUrisFromTracks,
+  type CandidateFunnelObserver,
+} from "../lib/candidate-funnel-trace";
 import { filterEmbarrassingTracks } from "../lib/human-embarrassment-filter";
 import { buildFallbackUxPayload } from "../lib/fallback-ux-payload";
 import {
@@ -3642,12 +3651,15 @@ function applyArtistCapAtCheckpoint<T extends { trackId: string; artistName?: st
     playlistSize: number;
     promptCentralArtists: ReadonlySet<string>;
     defaultCap: number;
+    funnelObserver?: CandidateFunnelObserver | null;
   },
 ): { tracks: T[]; diagnostics: ReturnType<typeof applyDeliveryPerPlaylistArtistCap>["diagnostics"] } {
-  const capped = applyFinalDeliveryArtistCap([...delivery.getTracks()], opts);
+  const { funnelObserver, ...capOpts } = opts;
+  const capped = applyFinalDeliveryArtistCap([...delivery.getTracks()], capOpts);
   if (capped.diagnostics.applied) {
     delivery.replaceTracks(checkpoint, "artist_cap_authoritative", capped.tracks);
   }
+  observeArtistCapDropped(funnelObserver, capped.diagnostics.dropped);
   return { tracks: [...delivery.getTracks()] as T[], diagnostics: capped.diagnostics };
 }
 
@@ -5261,6 +5273,7 @@ router.post("/generate", async (req, res): Promise<void> => {
   let requestHardTimeoutMs = REQUEST_HARD_TIMEOUT_MS;
   let deliveryLossFunnel: DeliveryLossFunnel | null = null;
   let puritySubFunnel: PuritySubFunnel | null = null;
+  let candidateFunnelObserver: CandidateFunnelObserver | null = null;
   let hardRejectOffWorldSinceV3Composed = 0;
   try {
     startTimelineStage(productionTimeline, startMs, "request_validation");
@@ -7350,6 +7363,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       ? createEmptyDeliveryLossFunnel()
       : null;
     puritySubFunnel = auditMode ? createEmptyPuritySubFunnel() : null;
+    candidateFunnelObserver = auditMode ? createCandidateFunnelObserver() : null;
     if (deliveryLossFunnel) {
       deliveryLossFunnel.orchestratorFinal = readOrchestratorFinalFromRetrievalFunnel(retrievalFunnelTrace);
     }
@@ -7873,6 +7887,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       playlistSize: length,
       promptCentralArtists: promptCentralArtistsForCap,
       defaultCap: maxPerArtist,
+      funnelObserver: candidateFunnelObserver,
     };
     const delivery = createPipelineDeliveryBuffer<PlaylistTrack>(pipelineAuthority);
     delivery.init(
@@ -8387,6 +8402,10 @@ router.post("/generate", async (req, res): Promise<void> => {
               : {}),
           },
         };
+        observeDuplicateRemovals(
+          candidateFunnelObserver,
+          Math.max(0, duplicateIdentityCountBeforeFinalize - countDuplicateSongIdentities(recovered.tracks)),
+        );
         finalizationTimeMs += Date.now() - underfillStartedAt;
         finalValidation = validateLockedIntentOutput(
           delivery.tracks,
@@ -8464,6 +8483,10 @@ router.post("/generate", async (req, res): Promise<void> => {
               underfillRecoveryExpandedPoolSize: expandedUnderfillPool.length,
             },
           };
+          observeDuplicateRemovals(
+            candidateFunnelObserver,
+            Math.max(0, duplicateIdentityCountBeforeFinalize - countDuplicateSongIdentities(relaxedRecovered.tracks)),
+          );
           finalizationTimeMs += Date.now() - underfillStartedAt;
           finalValidation = validateLockedIntentOutput(
             delivery.tracks,
@@ -9578,6 +9601,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           fallbackChain,
           { targetLength: requestedLength, maxPerArtist },
         );
+        observeRefillAttempt(candidateFunnelObserver, filled.added);
         if (filled.added > 0) {
           assignFT("genre_evidence_guard", `fallback_chain_${fallbackChain.id}`, filled.tracks);
           finalization = {
@@ -10033,6 +10057,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             enrichTrack: enrichForWorld,
           },
         );
+        observeRefillAttempt(candidateFunnelObserver, refilled.diagnostics.refilledCount);
         if (refilled.diagnostics.refilledCount > 0 || refilled.tracks.length > delivery.tracks.length) {
           const refilledTracks = assignFT(
             "deliverable_depth_refill",
@@ -12367,6 +12392,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             maxPoolSize: deliverableSurvivorPoolLimit,
           },
         );
+        observeRefillAttempt(candidateFunnelObserver, artistCapRefill.diagnostics.refilledCount);
         if (artistCapRefill.diagnostics.refilledCount > 0 || artistCapRefill.tracks.length > delivery.tracks.length) {
           assignFT(
             "artist_cap_diverse_refill",
@@ -12431,6 +12457,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           fallbackChain,
           { targetLength: requestedLength, maxPerArtist: refillCap },
         );
+        observeRefillAttempt(candidateFunnelObserver, filled.added);
         if (filled.added > 0) {
           assignFT(
             "api_refill",
@@ -12669,6 +12696,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               enrichTrack: enrichForWorld,
             },
           );
+          observeRefillAttempt(candidateFunnelObserver, postPurityRefill.diagnostics.refilledCount);
           if (postPurityRefill.diagnostics.refilledCount > 0 || postPurityRefill.tracks.length > delivery.tracks.length) {
             const refilledTracks = assignFT(
               "deliverable_depth_refill",
@@ -13644,6 +13672,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           fallbackChain,
           { targetLength: requestedLength, maxPerArtist: Math.min(7, maxPerArtist + 1) },
         );
+        observeRefillAttempt(candidateFunnelObserver, filled.added);
         if (filled.added > 0) {
           // Mutate before freezeTerminal — still within terminal_delivery stage.
           assignFT(
@@ -14591,6 +14620,19 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (deliveryLossFunnel) {
         deliveryLossFunnel.finalDelivered = finalApiTracks.length;
       }
+      const candidateFunnel = buildCandidateFunnelFromGenerationAudit({
+        requestedLength: length,
+        deliveredLength: finalApiTracks.length,
+        librarySize: likedSongs.length,
+        retrievalFunnel: (retrievalFunnelTrace as { stages?: Record<string, unknown> } | null) ?? null,
+        deliveryLossFunnel,
+        puritySubFunnel,
+        validCandidateSupply,
+        retrievedFallback: orchestratorTracks.length,
+        observer: candidateFunnelObserver,
+        observerActive: candidateFunnelObserver != null,
+        finalTrackUris: playlistUrisFromTracks(finalApiTracks),
+      });
       const auditGenerationDiagnostics = {
         ...generationDiagnosticsWithTimeline,
         stageProfile: liveStageProfiler.snapshot(),
@@ -14671,6 +14713,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             }
           : {}),
         playlistExecutionTrace: successExecutionTrace,
+        candidateFunnel,
         ...(retrievalFunnelTrace ? { retrievalFunnel: retrievalFunnelTrace } : {}),
         ...(retrievalConfidenceResult ? { retrievalConfidence: retrievalConfidenceResult } : {}),
         ...(deliveryLossFunnel ? { deliveryLossFunnel } : {}),

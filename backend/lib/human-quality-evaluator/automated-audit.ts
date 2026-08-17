@@ -38,6 +38,8 @@ export type AuditInput = {
   }>;
   requestedCount?: number;
   deliveredCount?: number;
+  /** False when requested length could not be read from the original request. */
+  requestedKnown?: boolean;
   honestPartial?: boolean;
   outcome?: string;
   pipeline?: Record<string, unknown>;
@@ -229,19 +231,31 @@ export function auditPlaylistAutomated(input: AuditInput): AutomatedAuditResult 
     }));
 
   const artistDiversity = buildArtistDiversity(tracks);
+  const requestedKnown = input.requestedKnown !== false && input.requestedCount != null;
   const requested = input.requestedCount ?? tracks.length;
   const delivered = input.deliveredCount ?? tracks.length;
-  const outcome = input.outcome ?? (delivered === 0 ? "failure" : delivered < requested ? "partial" : "success");
+  const outcome =
+    input.outcome
+    ?? (delivered === 0
+      ? "failure"
+      : !requestedKnown
+        ? "unknown_request_length"
+        : delivered < requested
+          ? "partial"
+          : "success");
 
   const underfill: AutomatedAuditResult["underfill"] = {
     requested,
     delivered,
-    honestPartial: input.honestPartial === true || (delivered > 0 && delivered < requested),
+    honestPartial: input.honestPartial === true || (requestedKnown && delivered > 0 && delivered < requested),
     outcome,
-    note:
-      delivered < requested && input.pipeline?.funnelCollapseStage
+    note: !requestedKnown
+      ? "Requested length unknown — not treated as full success from delivered count"
+      : delivered < requested && input.pipeline?.funnelCollapseStage
         ? `Pipeline funnel collapse stage: ${String(input.pipeline.funnelCollapseStage)}`
-        : undefined,
+        : delivered < requested
+          ? `Underfill ${delivered}/${requested} (${requested - delivered} missing)`
+          : undefined,
   };
 
   const misfitCount = verifier.tracks.filter((t) => t.flag === "misfit").length;
@@ -260,7 +274,12 @@ export function auditPlaylistAutomated(input: AuditInput): AutomatedAuditResult 
   const musicalCoherence = verifierToCoherence(verifier.playlistVerdict);
   const taste = hcs.wouldSave === "YES" ? "strong" : hcs.wouldSave === "MAYBE" ? "mixed" : "weak";
   const sequencing = scoreToBand(hcs.dimensions.sequencing.score, 14, 9);
-  const reliability = outcome === "failure" ? "weak" : outcome === "partial" ? "mixed" : "strong";
+  const reliability =
+    outcome === "failure"
+      ? "weak"
+      : outcome === "partial" || outcome === "unknown_request_length"
+        ? "mixed"
+        : "strong";
 
   return {
     evaluatorVersion: EVALUATOR_VERSION,

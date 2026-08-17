@@ -22,13 +22,16 @@ export const HUMAN_QUALITY_PROMPT_CORPUS: CorpusPrompt[] = [
   { id: "genre-indie-rock", prompt: "indie rock", category: "genre", difficulty: "easy", tags: ["genre"] },
   { id: "genre-grime", prompt: "grime", category: "genre", difficulty: "hard", tags: ["genre", "uk"] },
   { id: "genre-shoegaze", prompt: "shoegaze", category: "genre", difficulty: "hard", tags: ["genre", "niche"] },
-  { id: "genre-britpop", prompt: "britpop", category: "genre", difficulty: "normal", tags: ["genre", "uk"] },
+  { id: "genre-bedroom-pop", prompt: "bedroom pop", category: "genre", difficulty: "normal", tags: ["genre"] },
+  { id: "genre-post-punk", prompt: "post-punk", category: "genre", difficulty: "normal", tags: ["genre"] },
+  { id: "genre-garage-rock", prompt: "garage rock", category: "genre", difficulty: "normal", tags: ["genre"] },
 
   // Mood
   { id: "mood-melancholic", prompt: "melancholic", category: "mood", difficulty: "easy", tags: ["mood"] },
   { id: "mood-nostalgic", prompt: "nostalgic", category: "mood", difficulty: "easy", tags: ["mood"] },
   { id: "mood-euphoric", prompt: "euphoric", category: "mood", difficulty: "normal", tags: ["mood", "energy"] },
-  { id: "mood-peaceful", prompt: "peaceful", category: "mood", difficulty: "easy", tags: ["mood", "low_energy"] },
+  { id: "mood-angry", prompt: "angry", category: "mood", difficulty: "normal", tags: ["mood"] },
+  { id: "mood-lonely", prompt: "lonely", category: "mood", difficulty: "easy", tags: ["mood"] },
 
   // Activity
   { id: "act-late-night-drive", prompt: "late night drive", category: "activity", difficulty: "normal", tags: ["driving", "night"] },
@@ -45,7 +48,8 @@ export const HUMAN_QUALITY_PROMPT_CORPUS: CorpusPrompt[] = [
   { id: "atm-2am-bedroom", prompt: "2am bedroom", category: "atmosphere", difficulty: "hard", tags: ["atmospheric", "night"] },
 
   // Era
-  { id: "era-80s", prompt: "80s synthpop", category: "era", difficulty: "normal", tags: ["era", "genre"] },
+  { id: "era-70s", prompt: "70s soul", category: "era", difficulty: "normal", tags: ["era", "genre"] },
+  { id: "era-2010s", prompt: "2010s indie", category: "era", difficulty: "normal", tags: ["era", "genre"] },
   { id: "era-2000s", prompt: "2000s indie", category: "era", difficulty: "normal", tags: ["era", "genre"] },
 
   // Compound
@@ -59,7 +63,8 @@ export const HUMAN_QUALITY_PROMPT_CORPUS: CorpusPrompt[] = [
   // Negative constraints
   { id: "neg-not-cheesy", prompt: "chill party music but not cheesy", category: "negative_constraint", difficulty: "hard", tags: ["negation"] },
   { id: "neg-no-mainstream", prompt: "indie vibes no mainstream hits", category: "negative_constraint", difficulty: "hard", tags: ["negation"] },
-  { id: "neg-not-too-slow", prompt: "relaxed but not too slow", category: "negative_constraint", difficulty: "normal", tags: ["negation"] },
+  { id: "neg-no-pop", prompt: "indie no pop", category: "negative_constraint", difficulty: "hard", tags: ["negation"] },
+  { id: "neg-no-rap", prompt: "rock no rap", category: "negative_constraint", difficulty: "normal", tags: ["negation"] },
 
   // Vague
   { id: "vag-something-tonight", prompt: "something for tonight", category: "vague", difficulty: "ambiguous", tags: ["vague"] },
