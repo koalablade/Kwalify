@@ -44,6 +44,9 @@ export type GenerateObsState = {
   startMs: number;
   requestId: string;
   userId?: string;
+  prompt?: string;
+  mode?: string;
+  noLibraryMode?: boolean;
   emitted: boolean;
   outcome?: GenerateCompleteOutcome;
   failureCode?: string | null;
@@ -90,6 +93,22 @@ export function updateGenerateObs(req: Request, patch: Partial<GenerateObsState>
   const state = obsStore(req);
   Object.assign(state, patch);
   if (patch.requestId) state.requestId = patch.requestId;
+}
+
+/** Read-only snapshot for closed-beta evidence correlation on failure paths. */
+export function getGenerateObsContext(req: Request): Pick<
+  GenerateObsState,
+  "requestId" | "userId" | "prompt" | "mode" | "noLibraryMode" | "requestedLength"
+> {
+  const state = obsStore(req);
+  return {
+    requestId: state.requestId,
+    userId: state.userId,
+    prompt: state.prompt,
+    mode: state.mode,
+    noLibraryMode: state.noLibraryMode,
+    requestedLength: state.requestedLength,
+  };
 }
 
 export function noteGenerateFailure(

@@ -10,7 +10,9 @@ import {
   isBetaEvidenceCaptureEnabled,
 } from "./beta-generation-evidence";
 import { hashedIdTag } from "./pii";
+import type { Request } from "express";
 import type { PlaylistExecutionTrace } from "../core/observability/playlist-execution-trace";
+import { getGenerateObsContext } from "./generate-complete-log";
 
 const DEFAULT_DIR = join(process.cwd(), "reports", "beta-generations");
 
@@ -121,4 +123,48 @@ export function captureBetaFailureEvidenceIfEnabled(input: {
       pipelineExtras: { failureCode: input.failureCode ?? null },
     }),
   );
+}
+
+/** Resolve failure evidence from generate exit helpers (obs context + trace + extra). */
+export function captureBetaFailureEvidenceFromGenerateExit(
+  req: Request,
+  input: {
+    failureCode: string;
+    trace: PlaylistExecutionTrace;
+    extra?: Record<string, unknown>;
+    userTag?: string | null;
+    tracks?: ApiTrack[];
+  },
+): void {
+  const obs = getGenerateObsContext(req);
+  const traceRequestId = input.trace.requestId?.trim();
+  const tracePrompt = input.trace.prompt?.trim();
+  const requestId = String(
+    input.extra?.requestId
+      ?? (traceRequestId && traceRequestId !== "unknown" ? traceRequestId : undefined)
+      ?? obs.requestId
+      ?? "unknown",
+  );
+  const prompt = String(
+    input.extra?.prompt
+      ?? (tracePrompt ? tracePrompt : undefined)
+      ?? obs.prompt
+      ?? "",
+  );
+  captureBetaFailureEvidenceIfEnabled({
+    requestId,
+    prompt,
+    userTag: input.userTag,
+    mode: typeof input.extra?.mode === "string" ? input.extra.mode : obs.mode,
+    noLibraryMode: input.extra?.noLibraryMode === true || obs.noLibraryMode === true,
+    requestedTrackCount:
+      typeof input.extra?.requestedTrackCount === "number"
+        ? input.extra.requestedTrackCount
+        : typeof obs.requestedLength === "number"
+          ? obs.requestedLength
+          : undefined,
+    tracks: Array.isArray(input.extra?.tracks) ? (input.extra.tracks as ApiTrack[]) : input.tracks ?? [],
+    playlistExecutionTrace: input.trace,
+    failureCode: input.failureCode,
+  });
 }

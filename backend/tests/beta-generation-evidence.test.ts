@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import type { Request } from "express";
 import {
   buildArtistDiversity,
   buildBetaGenerationEvidence,
@@ -7,6 +8,8 @@ import {
   mapApiTracksToEvidence,
   mapFeedbackTypeToVerdict,
 } from "../lib/beta-generation-evidence";
+import { captureBetaFailureEvidenceFromGenerateExit } from "../lib/beta-evidence-store";
+import { initGenerateObs, updateGenerateObs } from "../lib/generate-complete-log";
 
 test("mapApiTracksToEvidence preserves full ordered list", () => {
   const tracks = mapApiTracksToEvidence([
@@ -105,4 +108,55 @@ test("formatEvidenceMarkdown includes feedback verdict and reasons", () => {
   assert.match(md, /verdict: mixed/);
   assert.match(md, /reasons: tail, sequencing/);
   assert.match(md, /sha256:feedface0001/);
+});
+
+test("captureBetaFailureEvidenceFromGenerateExit falls back to generate obs context", async () => {
+  process.env.BETA_EVIDENCE_CAPTURE = "1";
+  process.env.BETA_EVIDENCE_DIR = "reports/beta-generations-test-unit";
+  const req = { id: "req-fallback" } as Request;
+  initGenerateObs(req, Date.now());
+  updateGenerateObs(req, {
+    requestId: "gen-req-fallback-001",
+    prompt: "empty pool failure prompt",
+    mode: "balanced",
+    noLibraryMode: false,
+    requestedLength: 25,
+  });
+
+  const { readFile, rm } = await import("node:fs/promises");
+  const { join } = await import("node:path");
+  const dir = process.env.BETA_EVIDENCE_DIR!;
+  await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+
+  captureBetaFailureEvidenceFromGenerateExit(req, {
+    failureCode: "EMPTY_PLAYLIST",
+    trace: {
+      requestId: "unknown",
+      prompt: "",
+      seed: null,
+      executionPath: "full_pipeline",
+      humanSaveable: false,
+      stageAttribution: {} as never,
+      dominantCluster: null,
+      openingTenClusterTrace: [],
+      rejectionReasons: ["empty_final_pool"],
+      funnelCollapseStage: "final_filter",
+      fastFallbackUsed: false,
+      curatorScore: null,
+      editorialLayer: null,
+      editorialStabiliser: null,
+      intentCollapseLayer: null,
+      trackCounts: { retrieved: 100, after_world: 20, after_sampler: 0, final: 0 },
+      debugFlags: { gateExecuted: true, gateBypassed: false, timeoutOccurred: false },
+    },
+    userTag: "sha256:testuser01",
+  });
+
+  await new Promise((r) => setTimeout(r, 300));
+  const raw = await readFile(join(dir, "evidence.jsonl"), "utf8");
+  const row = JSON.parse(raw.trim().split(/\r?\n/).at(-1)!);
+  assert.equal(row.requestId, "gen-req-fallback-001");
+  assert.equal(row.prompt.raw, "empty pool failure prompt");
+  assert.equal(row.playlist.outcome, "failure");
+  assert.equal(row.pipeline.failureCode, "EMPTY_PLAYLIST");
 });

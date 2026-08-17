@@ -358,7 +358,7 @@ import {
   buildBetaGenerationEvidence,
   isBetaEvidenceCaptureEnabled,
 } from "../lib/beta-generation-evidence";
-import { captureBetaFailureEvidenceIfEnabled, captureGenerationEvidenceFireAndForget } from "../lib/beta-evidence-store";
+import { captureBetaFailureEvidenceFromGenerateExit, captureGenerationEvidenceFireAndForget } from "../lib/beta-evidence-store";
 import { hashedIdTag } from "../lib/pii";
 import {
   effectiveRecoveryArtistLimit,
@@ -710,16 +710,11 @@ function generateFail(
   const req = res.req as import("express").Request & {
     session?: { spotifyUserId?: string };
   };
-  captureBetaFailureEvidenceIfEnabled({
-    requestId: String(extra?.requestId ?? "unknown"),
-    prompt: String(extra?.prompt ?? ""),
-    userTag: hashedIdTag(req.session?.spotifyUserId),
-    mode: typeof extra?.mode === "string" ? extra.mode : undefined,
-    noLibraryMode: extra?.noLibraryMode === true,
-    requestedTrackCount: typeof extra?.requestedTrackCount === "number" ? extra.requestedTrackCount : undefined,
-    tracks: Array.isArray(extra?.tracks) ? (extra.tracks as never[]) : [],
-    playlistExecutionTrace: resolvedTrace,
+  captureBetaFailureEvidenceFromGenerateExit(req, {
     failureCode: code,
+    trace: resolvedTrace,
+    extra,
+    userTag: hashedIdTag(req.session?.spotifyUserId),
   });
   res.status(status).json(payload);
 }
@@ -738,6 +733,16 @@ function jsonWithExecutionTrace(
     executionPath: trace.executionPath,
     playlistExecutionTrace: trace,
     playlistSize: trace.trackCounts?.final ?? 0,
+  });
+  const req = res.req as import("express").Request & {
+    session?: { spotifyUserId?: string };
+  };
+  captureBetaFailureEvidenceFromGenerateExit(req, {
+    failureCode: typeof body.code === "string" ? body.code : "REQUEST_FAILED",
+    trace,
+    extra: body,
+    userTag: hashedIdTag(req.session?.spotifyUserId),
+    tracks: Array.isArray(body.tracks) ? (body.tracks as never[]) : [],
   });
   res.status(status).json({
     ...body,
@@ -5439,6 +5444,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     const { vibe, mode, length: requestedLength, referencePlaylist, varietyBoost, sceneId, noLibraryMode, familiarity, failureSessionId: parsedFailureSessionId } = parsed.data;
     generateVibe = vibe;
     let length = requestedLength;
+    updateGenerateObs(req, { prompt: vibe, mode, noLibraryMode: !!noLibraryMode, requestedLength: length });
     const moodSceneId = sceneId?.trim() || null;
     const noLibraryParsedIntent = noLibraryMode ? buildCsspLockedIntent(vibe) : null;
     const noLibraryExplicitFamilies = noLibraryParsedIntent?.genreFamilies ?? [];
@@ -5586,6 +5592,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     markTimeline(productionTimeline, startMs, "worker_acquired");
     requestId = acquired;
     sessionUserId = generateSessionUserId;
+    updateGenerateObs(req, { requestId });
     req.log.info(
       {
         event: "generation_started",
