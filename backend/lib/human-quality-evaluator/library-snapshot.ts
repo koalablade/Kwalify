@@ -92,6 +92,7 @@ export async function loadQaLibrarySnapshotFromDb(): Promise<QaLibrarySnapshot |
       loadedAt: new Date().toISOString(),
       librarySize: tracks.length,
       tracks,
+      source: "postgresql_liked_songs",
     };
   } finally {
     await client.end();
@@ -115,9 +116,23 @@ export async function loadQaLibrarySnapshotFromFile(path: string): Promise<QaLib
 }
 
 export async function resolveQaLibrarySnapshot(cachePath: string): Promise<QaLibrarySnapshot | null> {
-  const cached = await loadQaLibrarySnapshotFromFile(cachePath);
-  if (cached && cached.tracks.length > 0) return cached;
   const fresh = await loadQaLibrarySnapshotFromDb();
-  if (fresh) await saveQaLibrarySnapshot(cachePath, fresh);
-  return fresh;
+  if (fresh && fresh.tracks.length > 0) {
+    const cached = await loadQaLibrarySnapshotFromFile(cachePath);
+    const fileIsStale =
+      !cached
+      || cached.librarySize !== fresh.librarySize
+      || cached.userId !== fresh.userId;
+    if (fileIsStale) await saveQaLibrarySnapshot(cachePath, fresh);
+    return fresh;
+  }
+  const cached = await loadQaLibrarySnapshotFromFile(cachePath);
+  if (cached && cached.tracks.length > 0) {
+    return {
+      ...cached,
+      source: "file_snapshot",
+      sourcePath: cachePath,
+    };
+  }
+  return null;
 }

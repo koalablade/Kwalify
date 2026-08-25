@@ -30,6 +30,7 @@ test("vague lifestyle prompts auto-commit one everyday world", () => {
     ["coffee shop laptop session", "coffee_soft_focus_world"],
     ["driving home after work", "evening_drive_world"],
     ["nostalgic driving", "evening_drive_world"],
+    ["nostalgic", "nostalgia_warm_world"],
     ["cozy Sunday morning", "sunday_chill_world"],
   ];
   for (const [prompt, world] of cases) {

@@ -308,6 +308,8 @@ export interface BuildPlaylistPipelineOpts<T extends {
   contractComposition?: ContractCompositionContext;
   /** V41: contract-authoritative retrieval output (preserved before scoring-shape overrides). */
   contractRetrievalPool?: Array<T & { trackId: string }>;
+  /** Audit-only hybrid-cap watch IDs. Observational; never affects selection. */
+  forensicsWatchIds?: ReadonlySet<string>;
 }
 
 export interface BuildPlaylistPipelineResult<T extends { trackId: string }> {
@@ -4069,6 +4071,11 @@ function buildV3CandidatePool<T extends {
     duplicateSuppressionReasons(tracks),
   ));
   forensicPreV3Trace.push(preV3StageTrace("final candidate pool count", intentReady.length, tracks.length));
+  const candidatePoolIdSet = new Set(tracks.map((track) => track.trackId));
+  const prefilterDropReasons = countPreV3Reasons(
+    sorted.filter((track) => !candidatePoolIdSet.has(track.trackId)),
+    (track) => lockedIntentRejectionReasonCache.get(track.trackId) ?? "matched_but_not_in_window",
+  );
   const summary = preV3Summary(forensicPreV3Trace, tracks.length);
   // Fill-floor used for starvation flag: compound prompts use effective floor;
   // post-rescue/rawIntentReady must clear a stale shortfall from the selected ladder step.
@@ -4127,6 +4134,9 @@ function buildV3CandidatePool<T extends {
       preV3Summary: summary,
       v11Uncollapse: uncollapsed.diagnostics,
       contractCompositionPoolSelection: contractPoolSelectionDiagnostics,
+      // Observational copies only. Never read back into selection.
+      candidatePoolTrackIds: tracks.map((track) => track.trackId),
+      prefilterDropReasons,
     },
   };
 }
@@ -4251,6 +4261,7 @@ export async function buildPlaylistPipeline<T extends {
         mainstreamSuppressionScale: policy?.mainstreamSuppression,
       },
       preserveContractRetrievalPool: contractAuthorityActive,
+      forensicsWatchIds: opts.forensicsWatchIds,
     });
   } finally {
     endScoringProfile?.();

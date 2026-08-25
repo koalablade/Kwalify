@@ -53,6 +53,8 @@ export type QaLibrarySnapshot = {
   loadedAt: string;
   librarySize: number;
   tracks: ClassifiedLibraryTrack[];
+  source?: "postgresql_liked_songs" | "file_snapshot";
+  sourcePath?: string;
 };
 
 export type RelevanceSpec = {
@@ -368,4 +370,14 @@ export function assessLibraryForPrompt(input: {
 
 export function underfillHighOpportunity(a: PromptLibraryAssessment): boolean {
   return a.underfillVsOpportunity === "suspicious" && a.opportunity !== "UNKNOWN";
+}
+
+/** Track IDs graded strong for a prompt. Measurement only — does not drive generation. */
+export function strongRelevantTrackIds(snapshot: QaLibrarySnapshot, prompt: string): string[] {
+  const spec = buildRelevanceSpec(prompt);
+  if (!spec.specific) return snapshot.tracks.map((t) => t.trackId).filter(Boolean);
+  return snapshot.tracks
+    .filter((t) => gradeTrackRelevance(t, spec) === "strong")
+    .map((t) => t.trackId)
+    .filter(Boolean);
 }

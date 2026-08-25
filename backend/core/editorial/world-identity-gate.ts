@@ -217,7 +217,7 @@ export const SAFETY_BLANKET_ARTISTS: SafetyBlanketArtist[] = [
   {
     id: "the_killers",
     pattern: /\bthe\s+killers\b/i,
-    naturalWorlds: ["nostalgia_warm_world", "older_sibling_world", "britpop_world"],
+    naturalWorlds: ["nostalgia_warm_world", "older_sibling_world", "britpop_world", "indie_dream_world"],
   },
   {
     id: "mitski",
@@ -1520,6 +1520,26 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   }
   if (/\b(?:cool\s+older\s+sibling|older\s+sibling)\b/i.test(p)) {
     ids.push("older_sibling_world");
+  }
+  // Named indie / era+indie / alt-rock — never leave these to vague sunday_chill.
+  if (
+    /\b(?:2000s?|noughties|00s)\s+indie\b|\bindie\b.*\b(?:2000s?|noughties|00s)\b|\bindie\s+(?:from\s+the\s+)?(?:2000s?|noughties)\b/i.test(
+      p,
+    )
+  ) {
+    if (!ids.includes("indie_dream_world")) ids.push("indie_dream_world");
+    if (!ids.includes("nostalgia_warm_world")) ids.push("nostalgia_warm_world");
+  } else if (/\b(?:90s?|nineties)\s+alternative\s+rock\b|\balternative\s+rock\b|\b90s?\s+alt(?:ernative)?\s+rock\b/i.test(p)) {
+    if (!ids.includes("grunge_world")) ids.push("grunge_world");
+    if (!ids.includes("nostalgia_warm_world")) ids.push("nostalgia_warm_world");
+    if (!ids.includes("indie_dream_world")) ids.push("indie_dream_world");
+  } else if (/\bindie\s+rock\b|\bindie\s+pop\b/i.test(p)) {
+    if (!ids.includes("indie_dream_world")) ids.push("indie_dream_world");
+  } else if (
+    /\bindie\b/i.test(p) &&
+    !/\b(?:sunday|cozy\s+morning|coffee\s+shop|lo-?fi\s+study)\b/i.test(p)
+  ) {
+    if (!ids.includes("indie_dream_world")) ids.push("indie_dream_world");
   }
   if (/\blatin\b/i.test(p) && /\b(?:summer|rooftop|drinks?)\b/i.test(p)) {
     ids.push("latin_summer_rooftop_world");

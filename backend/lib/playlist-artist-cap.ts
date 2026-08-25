@@ -12,8 +12,16 @@ export function hasExplicitArtistPlaylistRequest(vibe: string): boolean {
 const NICHE_DANCEFLOOR_ARTIST_CAP =
   /\b(?:disco|latin|reggaeton|salsa|bachata|uk\s*garage|ukg|french\s*house|synthwave|city\s*pop|liquid\s*(?:dnb|drum)|shoegaze|dream\s*pop)\b/i;
 
+/** Named genre/era prompts where library opportunity is deep — cap=2 collapses honest depth. */
+const NAMED_GENRE_ERA_ARTIST_CAP =
+  /\b(?:indie(?:\s+rock|\s+pop)?|2000s?\s+indie|noughties\s+indie|alternative\s+rock|alt(?:ernative)?\s+rock|90s?\s+alt|grunge|britpop|pop[-\s]?punk|madchester|nostalgic)\b/i;
+
 export function isNicheDancefloorArtistCapPrompt(vibe: string): boolean {
   return NICHE_DANCEFLOOR_ARTIST_CAP.test(vibe);
+}
+
+export function isNamedGenreEraArtistCapPrompt(vibe: string): boolean {
+  return NAMED_GENRE_ERA_ARTIST_CAP.test(vibe);
 }
 
 export function defaultPerPlaylistArtistCap(playlistSize: number, vibe: string): number {
@@ -21,6 +29,10 @@ export function defaultPerPlaylistArtistCap(playlistSize: number, vibe: string):
   const base = playlistSize >= 30 ? 3 : 2;
   if (isNicheDancefloorArtistCapPrompt(vibe) && playlistSize >= 20) {
     return Math.max(base, Math.min(5, Math.ceil(playlistSize * 0.16)));
+  }
+  if (isNamedGenreEraArtistCapPrompt(vibe) && playlistSize >= 20) {
+    // Deep genre/era libraries need room for a few anchors without collapsing to a stub.
+    return Math.max(base, playlistSize >= 25 ? 4 : 3);
   }
   return base;
 }

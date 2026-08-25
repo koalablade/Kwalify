@@ -154,6 +154,7 @@ async function main() {
         evaluated: evaluateRecordFromResponse(runItem, { ...data, requestId: runItem.requestId }, httpStatus),
         rawResponse: {
           candidateFunnel: data.candidateFunnel ?? null,
+          candidateLineage: data.candidateLineage ?? null,
           deliveryLossFunnel: data.deliveryLossFunnel ?? null,
           retrievalFunnel: data.retrievalFunnel ?? null,
           puritySubFunnel: data.puritySubFunnel ?? null,

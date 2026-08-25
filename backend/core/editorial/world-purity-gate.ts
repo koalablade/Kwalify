@@ -648,9 +648,9 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
 
   const coverageCap =
     coverageTier != null
-      ? getDeliveryCap(coverageTier, requested)
+      ? getDeliveryCap(coverageTier, requested, working.length)
       : coverageLevel != null
-        ? coverageLevelToMaxTracks(coverageLevel, requested)
+        ? coverageLevelToMaxTracks(coverageLevel, requested, working.length)
         : requested;
   const honestPartial = working.length < requested;
   let salvageableCount = working.length;

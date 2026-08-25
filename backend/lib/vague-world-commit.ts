@@ -282,7 +282,7 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
     label: "warm nostalgia",
     priority: 7,
     patterns: [
-      /\b(?:nostalgic 2000s|throwback night|feel like the 2014|memory lane|nostalgia)\b/i,
+      /\b(?:nostalgic(?:\s+2000s)?|throwback night|feel like the 2014|memory lane|nostalgia)\b/i,
     ],
   },
   {
@@ -295,7 +295,7 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
 ];
 
 const NAMED_WORLD_RE =
-  /\b(?:goth|grunge|disco|synthwave|retrowave|neon|lo-?fi|lofi|ambient|metal|pop[-\s]?punk|uk\s*garage|ukg|grime|shoegaze|darkwave|post[-\s]?punk|boss\s+fight|classic\s+rock|red\s+dirt|drum\s+and\s+bass|dnb|britpop|r&b|hyperpop|jazz|folk|emo|reggaeton|salsa|bachata|cumbia|garage\s+workshop)\b/i;
+  /\b(?:goth|grunge|disco|synthwave|retrowave|neon|lo-?fi|lofi|ambient|metal|pop[-\s]?punk|uk\s*garage|ukg|grime|shoegaze|darkwave|post[-\s]?punk|boss\s+fight|classic\s+rock|red\s+dirt|drum\s+and\s+bass|dnb|britpop|r&b|hyperpop|jazz|folk|emo|reggaeton|salsa|bachata|cumbia|garage\s+workshop|indie(?:\s+rock|\s+pop)?|alternative\s+rock|alt(?:ernative)?\s+rock|2000s?\s+indie|noughties\s+indie)\b/i;
 
 function scoreMatch(prompt: string, world: EverydayWorld): number {
   let hits = 0;

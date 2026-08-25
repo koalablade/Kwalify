@@ -11,6 +11,7 @@ import {
   likedSongsTable,
   playlistHistoryTable,
   savedPlaylistsTable,
+  syncStatusTable,
 } from "../db";
 import {
   createSpotifyPlaylist,
@@ -173,6 +174,7 @@ import {
 import {
   applyDeliveryPerPlaylistArtistCap,
   defaultPerPlaylistArtistCap,
+  isNamedGenreEraArtistCapPrompt,
 } from "../lib/playlist-artist-cap";
 import {
   createPipelineAuthoritySession,
@@ -446,6 +448,7 @@ import {
   playlistUrisFromTracks,
   type CandidateFunnelObserver,
 } from "../lib/candidate-funnel-trace";
+import { assembleCandidateLineage, copyTrackIds, copyV3PrefilterIds } from "../lib/candidate-lineage-trace";
 import { filterEmbarrassingTracks } from "../lib/human-embarrassment-filter";
 import { buildFallbackUxPayload } from "../lib/fallback-ux-payload";
 import {
@@ -5274,6 +5277,16 @@ router.post("/generate", async (req, res): Promise<void> => {
   let deliveryLossFunnel: DeliveryLossFunnel | null = null;
   let puritySubFunnel: PuritySubFunnel | null = null;
   let candidateFunnelObserver: CandidateFunnelObserver | null = null;
+  let lineageScoringPoolIds: string[] | null = null;
+  let lineageV3PrefilterIds: string[] | null = null;
+  let lineagePostPurityIds: string[] | null = null;
+  let lineagePostTerminalIds: string[] | null = null;
+  let lineageBeforeHygieneIds: string[] | null = null;
+  let lineageAfterHygieneIds: string[] | null = null;
+  let lineageAfterLateHqgIds: string[] | null = null;
+  let lineageTerminalHqg: { action?: string; salvageableCount?: number; reasons?: string[] } | null = null;
+  let lineageLateHqg: { action?: string; salvageableCount?: number; reasons?: string[] } | null = null;
+  let lineageOpenerHygiene: Record<string, unknown> | null = null;
   let hardRejectOffWorldSinceV3Composed = 0;
   try {
     startTimelineStage(productionTimeline, startMs, "request_validation");
@@ -5965,7 +5978,18 @@ router.post("/generate", async (req, res): Promise<void> => {
       return;
     }
     const snapshotLikedRows = fullSessionSnapshotHit ? sessionSnapshot?.likedSongs ?? null : null;
-    let cachedLikedRows = devMode || snapshotLikedRows ? null : getCachedLikedSongs(userId);
+    let librarySyncedAtMs: number | null = null;
+    if (!devMode && !snapshotLikedRows) {
+      const [syncRow] = await db
+        .select({ lastSyncedAt: syncStatusTable.lastSyncedAt })
+        .from(syncStatusTable)
+        .where(eq(syncStatusTable.spotifyUserId, userId))
+        .limit(1);
+      librarySyncedAtMs = syncRow?.lastSyncedAt ? syncRow.lastSyncedAt.getTime() : null;
+    }
+    let cachedLikedRows = devMode || snapshotLikedRows
+      ? null
+      : getCachedLikedSongs(userId, { minSyncedAtMs: librarySyncedAtMs });
     const likedSongsCacheHit = !!snapshotLikedRows || !!cachedLikedRows;
     const endLikedSongsProfile = liveStageProfiler.start(
       "preV3.likedSongs",
@@ -5979,7 +6003,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         likedRowsRaw = snapshotLikedRows;
       } else if (!noLibraryMode) {
         const hydration = await runSessionHydrationSingleFlight(`${userId}:${sessionSnapshotId}`, async () => {
-          const likedRowsFromCache = getCachedLikedSongs(userId);
+          const likedRowsFromCache = getCachedLikedSongs(userId, { minSyncedAtMs: librarySyncedAtMs });
           const [loadedLikedRows, loadedPlaylists, loadedFeedbackMemory] = await Promise.all([
             likedRowsFromCache ??
               loadLikedSongsBatched(userId),
@@ -5991,7 +6015,7 @@ router.post("/generate", async (req, res): Promise<void> => {
               .limit(25),
             getFeedbackMemory(userId),
           ]);
-          if (!likedRowsFromCache) setCachedLikedSongs(userId, loadedLikedRows);
+          if (!likedRowsFromCache) setCachedLikedSongs(userId, loadedLikedRows, librarySyncedAtMs);
           return {
             snapshot: mergeSessionSnapshot<
               typeof likedSongsTable.$inferSelect,
@@ -6018,7 +6042,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       endLikedSongsProfile();
     }
     if (!devMode && noLibraryMode && likedRowsRaw.length > 0 && !snapshotLikedRows && !cachedLikedRows) {
-      setCachedLikedSongs(userId, likedRowsRaw);
+      setCachedLikedSongs(userId, likedRowsRaw, librarySyncedAtMs);
     }
     if (!snapshotLikedRows && !cachedLikedRows && !devMode && noLibraryMode && likedRowsRaw.length > 0) {
       dbHydrationOccurred = true;
@@ -6129,9 +6153,10 @@ router.post("/generate", async (req, res): Promise<void> => {
             likedSongs = spotifyCandidates;
           } else {
             if (likedSongs.length === 0) {
-              const fallbackRows = getCachedLikedSongs(userId) ?? await loadLikedSongsBatched(userId);
+              const fallbackRows = getCachedLikedSongs(userId, { minSyncedAtMs: librarySyncedAtMs })
+                ?? await loadLikedSongsBatched(userId);
               if (fallbackRows.length > 0) {
-                setCachedLikedSongs(userId, fallbackRows);
+                setCachedLikedSongs(userId, fallbackRows, librarySyncedAtMs);
                 likedRowsRaw = fallbackRows;
                 likedSongs = sanitizeLikedSongs(fallbackRows).valid;
               }
@@ -10640,7 +10665,13 @@ router.post("/generate", async (req, res): Promise<void> => {
       hybridPoolSize?: number;
       poolCapped?: boolean;
     };
+    if (auditMode) {
+      lineageScoringPoolIds = copyTrackIds(pipeline.sorted ?? []);
+    }
     const v3PipelineDiagnostics = ((scoringDiagnostics as Record<string, unknown>).v3Pipeline ?? {}) as Record<string, unknown>;
+    if (auditMode) {
+      lineageV3PrefilterIds = copyV3PrefilterIds(v3PipelineDiagnostics);
+    }
     if (deliveryLossFunnel) {
       deliveryLossFunnel.v3PreFilterSurvivors = readV3PreFilterSurvivors(v3PipelineDiagnostics);
     }
@@ -12416,7 +12447,11 @@ router.post("/generate", async (req, res): Promise<void> => {
       const fallbackChain = resolveSceneFallbackChain(vibe, lockedIntent.genreFamilies);
       const underfilledAfterCap =
         delivery.tracks.length < Math.ceil(requestedLength * 0.75);
-      if (fallbackChain && underfilledAfterCap && !deliveryWorldBoundary.hardLock) {
+      if (
+        fallbackChain &&
+        underfilledAfterCap &&
+        (!deliveryWorldBoundary.hardLock || isNamedGenreEraArtistCapPrompt(vibe))
+      ) {
         const classMap = userGenreProfile.trackClassifications;
         const poolMap = new Map<string, PlaylistTrack>();
         for (const track of delivery.tracks) poolMap.set(track.trackId, track);
@@ -12734,8 +12769,14 @@ router.post("/generate", async (req, res): Promise<void> => {
         if (deliveryLossFunnel) {
           deliveryLossFunnel.postPurity = delivery.tracks.length;
         }
+        if (auditMode) {
+          lineagePostPurityIds = copyTrackIds(delivery.tracks);
+        }
       } else if (deliveryLossFunnel) {
         deliveryLossFunnel.postPurity = delivery.tracks.length;
+      }
+      if (auditMode && lineagePostPurityIds == null) {
+        lineagePostPurityIds = copyTrackIds(delivery.tracks);
       }
       const worldProof = evaluateWorldProof({
         tracks: delivery.tracks.map((t) => ({
@@ -13075,6 +13116,16 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
       if (deliveryLossFunnel) {
         deliveryLossFunnel.postTerminal = delivery.tracks.length;
+      }
+      if (auditMode) {
+        lineagePostTerminalIds = copyTrackIds(delivery.tracks);
+        if (terminalHqg) {
+          lineageTerminalHqg = {
+            action: terminalHqg.action,
+            salvageableCount: terminalHqg.salvageableCount,
+            reasons: [...(terminalHqg.reasons ?? [])],
+          };
+        }
       }
     }
     const tryEmptyPlaylistRecoveryFloor = (): boolean => {
@@ -13643,7 +13694,11 @@ router.post("/generate", async (req, res): Promise<void> => {
     {
       const fallbackChain = resolveSceneFallbackChain(vibe, lockedIntent.genreFamilies);
       const stillThin = delivery.tracks.length < Math.ceil(requestedLength * 0.75);
-      if (fallbackChain && stillThin && !deliveryWorldBoundary.hardLock) {
+      if (
+        fallbackChain &&
+        stillThin &&
+        (!deliveryWorldBoundary.hardLock || isNamedGenreEraArtistCapPrompt(vibe))
+      ) {
         const classMap = userGenreProfile.trackClassifications;
         const poolMap = new Map<string, PlaylistTrack>();
         for (const track of delivery.tracks) poolMap.set(track.trackId, track);
@@ -14101,6 +14156,9 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
     {
+      if (auditMode) {
+        lineageBeforeHygieneIds = copyTrackIds(finalApiTracks);
+      }
       const hygiene = applyFinalApiOpenerHygiene(finalApiTracks, inferredWorldIds, {
         minKeep: HONEST_PARTIAL_MIN,
         prompt: vibe,
@@ -14108,6 +14166,10 @@ router.post("/generate", async (req, res): Promise<void> => {
       finalApiTracks = hygiene.tracks;
       deliveredTracks = syncTracksToApiOrder(deliveredTracks, finalApiTracks);
       postFreezeOpenerDiagnostics = hygiene.diagnostics;
+      if (auditMode) {
+        lineageAfterHygieneIds = copyTrackIds(finalApiTracks);
+        lineageOpenerHygiene = { ...hygiene.diagnostics };
+      }
       if (Object.keys(hygiene.diagnostics).length > 0) {
         finalization = {
           tracks: delivery.tracks as PlaylistTrack[],
@@ -14282,6 +14344,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             : null,
         postPurityValidatedDepth,
         worldVerifiedCount: lateIntentFidelity.worldVerifiedCount,
+        coverageLevel: worldCoverageAssessment?.score ?? null,
       });
       finalization = {
         tracks: delivery.tracks as PlaylistTrack[],
@@ -14320,7 +14383,10 @@ router.post("/generate", async (req, res): Promise<void> => {
         !skipLateIntentFidelityCap &&
         (
           lateHqg.reasons.includes("intent_fidelity_failed") ||
-          finalApiTracks.length < Math.ceil(requestedLength * 0.85)
+          lateHqg.reasons.includes("world_proof_failed") ||
+          lateHqg.reasons.includes("human_save_failed") ||
+          lateHqg.reasons.includes("psych_indie_opener_chain") ||
+          lateHqg.reasons.includes("seasonal_leakage")
         )
       ) {
         if (lateHqg.reasons.includes("intent_fidelity_failed") && lateCommittedWorld?.hardLock) {
@@ -14339,6 +14405,14 @@ router.post("/generate", async (req, res): Promise<void> => {
           finalApiTracks = finalApiTracks.slice(0, lateHqg.salvageableCount);
           deliveredTracks = syncTracksToApiOrder(deliveredTracks, finalApiTracks);
         }
+      }
+      if (auditMode) {
+        lineageLateHqg = {
+          action: lateHqg.action,
+          salvageableCount: lateHqg.salvageableCount,
+          reasons: [...(lateHqg.reasons ?? [])],
+        };
+        lineageAfterLateHqgIds = copyTrackIds(finalApiTracks);
       }
     }
     // Response-only spam strip — pipeline frozen; human curation/refill can reintroduce title spam.
@@ -14714,6 +14788,40 @@ router.post("/generate", async (req, res): Promise<void> => {
           : {}),
         playlistExecutionTrace: successExecutionTrace,
         candidateFunnel,
+        ...(auditMode
+          ? {
+              candidateLineage: assembleCandidateLineage({
+                prompt: vibe,
+                requestedLength: length,
+                deliveredLength: finalApiTracks.length,
+                committedWorld: committedWorldPreRetrieval,
+                lockedIntent: {
+                  genreFamilies: lockedIntent.genreFamilies ?? [],
+                  eraRange: lockedIntent.eraRange ?? null,
+                  activity: lockedIntent.activity ?? null,
+                  mood: lockedIntent.mood ?? [],
+                },
+                scoringPoolIds: lineageScoringPoolIds,
+                v3PrefilterIds: lineageV3PrefilterIds,
+                composedIds: auditMode ? copyTrackIds(deliveryPipelineExitSnap) : null,
+                postPurityIds: lineagePostPurityIds,
+                postTerminalIds: lineagePostTerminalIds,
+                beforeHygieneIds: lineageBeforeHygieneIds,
+                afterHygieneIds: lineageAfterHygieneIds,
+                afterLateHqgIds: lineageAfterLateHqgIds,
+                finalIds: copyTrackIds(finalApiTracks),
+                v3Diagnostics: v3PipelineDiagnostics,
+                terminalHqg: lineageTerminalHqg,
+                lateHqg: lineageLateHqg,
+                openerHygiene: lineageOpenerHygiene,
+                humanSaveable: typeof successExecutionTrace.humanSaveable === "boolean"
+                  ? successExecutionTrace.humanSaveable
+                  : null,
+                executionPath: successExecutionTrace.executionPath ?? null,
+                curatorScore: successExecutionTrace.curatorScore ?? null,
+              }),
+            }
+          : {}),
         ...(retrievalFunnelTrace ? { retrievalFunnel: retrievalFunnelTrace } : {}),
         ...(retrievalConfidenceResult ? { retrievalConfidence: retrievalConfidenceResult } : {}),
         ...(deliveryLossFunnel ? { deliveryLossFunnel } : {}),

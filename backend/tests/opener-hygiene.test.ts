@@ -14,20 +14,24 @@ import { applyFinalApiOpenerHygiene, demoteOpenerFillerTracks } from "../core/ed
 test("maxPsychIndieOpenersForWorlds is zero for film-ending and dad-secret worlds", () => {
   assert.equal(maxPsychIndieOpenersForWorlds(["film_ending_world"]), 0);
   assert.equal(maxPsychIndieOpenersForWorlds(["dad_secret_world"]), 0);
-  assert.equal(maxPsychIndieOpenersForWorlds(["indie_dream_world"]), 1);
+  assert.equal(maxPsychIndieOpenersForWorlds(["indie_dream_world"]), 3);
+  assert.equal(maxPsychIndieOpenersForWorlds(["grunge_world", "nostalgia_warm_world"]), 3);
+  assert.equal(maxPsychIndieOpenersForWorlds(["grunge_world"]), 0);
 });
 
-test("sanitizePsychIndieOpenerChain caps opener psych-indie fillers to one", () => {
+test("sanitizePsychIndieOpenerChain clears hard landfill from openers", () => {
   const tracks = [
     { artist: "Tame Impala" },
     { artist: "Kasabian" },
     { artist: "Q Lazzarus" },
     { artist: "Franz Ferdinand" },
     { artist: "Interpol" },
+    { artist: "LCD Soundsystem" },
   ];
   const out = sanitizePsychIndieOpenerChain(tracks, 3, 1);
-  assert.equal(countOpenerFillerPatternMatches(out.tracks, 3), 1);
-  assert.ok(!/kasabian|q lazzarus/i.test(String(out.tracks[0]!.artist)));
+  const openers = out.tracks.slice(0, 3).map((t) => String(t.artist)).join(" ");
+  assert.equal(countOpenerFillerPatternMatches(out.tracks, 3), 0);
+  assert.ok(!/kasabian|q lazzarus|tame impala/i.test(openers));
 });
 
 test("sanitizePsychIndieOpenerChain removes all psych openers when max is zero", () => {
@@ -42,6 +46,22 @@ test("sanitizePsychIndieOpenerChain removes all psych openers when max is zero",
   const out = sanitizePsychIndieOpenerChain(tracks, 3, 0);
   assert.equal(countOpenerFillerPatternMatches(out.tracks, 3), 0);
   assert.ok(!OPENER_FILLER_PATTERN.test(String(out.tracks[0]!.artist)));
+});
+
+test("indie belonging worlds keep Arctic Monkeys openers; hard landfill still demoted", () => {
+  const tracks = [
+    { artist: "Arctic Monkeys" },
+    { artist: "The Killers" },
+    { artist: "Jake Bugg" },
+    { artist: "Kasabian" },
+    { artist: "Franz Ferdinand" },
+  ];
+  const max = maxPsychIndieOpenersForWorlds(["indie_dream_world", "nostalgia_warm_world"]);
+  const out = sanitizePsychIndieOpenerChain(tracks, 3, max);
+  const openers = out.tracks.slice(0, 3).map((t) => String(t.artist));
+  assert.ok(openers.includes("Arctic Monkeys"));
+  assert.ok(openers.includes("The Killers"));
+  assert.ok(!openers.includes("Kasabian"));
 });
 
 test("shouldSuppressVagueLandfillOpeners blocks landfill on lifestyle prompts without sad mood", () => {

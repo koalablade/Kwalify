@@ -21,7 +21,19 @@ describe("V37 intent fidelity depth cap", () => {
     assert.equal(cap, 20);
   });
 
-  it("resolveFidelityDeliveryCap keeps 40% stub when opener fails", () => {
+  it("resolveFidelityDeliveryCap keeps 40% stub when verified depth is thin", () => {
+    const cap = resolveFidelityDeliveryCap({
+      requestedLength: 25,
+      verifiedCount: 8,
+      trackCount: 25,
+      openerPassed: false,
+      fidelityScore: 0.72,
+      honestPartialCap: 10,
+    });
+    assert.equal(cap, 10);
+  });
+
+  it("resolveFidelityDeliveryCap publishes verified majority even if opener fails", () => {
     const cap = resolveFidelityDeliveryCap({
       requestedLength: 25,
       verifiedCount: 20,
@@ -30,7 +42,7 @@ describe("V37 intent fidelity depth cap", () => {
       fidelityScore: 0.72,
       honestPartialCap: 10,
     });
-    assert.equal(cap, 10);
+    assert.equal(cap, 20);
   });
 
   it("filterTracksByWorldIdentity uses deliveryCap not 40% stub when depth validated", () => {

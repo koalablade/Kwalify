@@ -28,6 +28,14 @@ import {
   termRegex,
 } from "../../lib/expanded-intent-vocabulary";
 import { trackHasEraEvidence } from "../../lib/era-evidence";
+import {
+  classifyHybridCapDrop,
+  countByDropReason,
+  type HybridCapFitComponents,
+  type HybridCapForensicsSummary,
+  type HybridCapReserveLane,
+  type HybridCapTrackForensic,
+} from "../../lib/hybrid-cap-forensics";
 
 const ROOT_GENRE_TERMS: Record<string, string[]> = {
   country: ["country", "americana", "cowboy", "red dirt"],
@@ -250,6 +258,11 @@ export function capTracksForHybridScoring<T extends {
     };
     /** Contract defer: retrieval pool already contract-shaped — do not emotion-trim. */
     preserveContractRetrievalPool?: boolean;
+    /**
+     * Audit-only: compute per-track hybrid-cap forensics for these IDs.
+     * Never read back into selection. Output pool is identical with or without this set.
+     */
+    forensicsWatchIds?: ReadonlySet<string>;
   }
 ): {
   pool: T[];
@@ -260,11 +273,81 @@ export function capTracksForHybridScoring<T extends {
   /** 0 = no scene, 1 = full gate (L1), 2 = adjacency bridges (L2), 3 = emergency anti-genre-only (L3) */
   adjacencyLevelUsed: 0 | 1 | 2 | 3;
   intentPreservedCount: number;
+  /** Observational only — undefined unless forensicsWatchIds was provided. */
+  forensics?: HybridCapForensicsSummary;
 } {
   const originalCount = tracks.length;
   const libSize = opts.librarySize ?? originalCount;
+  const watchIds = opts.forensicsWatchIds;
+
+  const buildForensics = (input: {
+    path: HybridCapForensicsSummary["path"];
+    max: number;
+    pool: T[];
+    candidateCount: number;
+    poolCapped: boolean;
+    compoundPrompt: boolean;
+    explicitFamilies: Set<string>;
+    explicitEra: { start: number; end: number } | null;
+    ranked?: Array<{ t: T; fit: number; components: HybridCapFitComponents }>;
+    reserveLanes?: Map<string, HybridCapReserveLane>;
+  }): HybridCapForensicsSummary | undefined => {
+    if (!watchIds || watchIds.size === 0) return undefined;
+    const inputIds = new Set(tracks.map((t) => t.trackId));
+    const survivedIds = new Set(input.pool.map((t) => t.trackId));
+    const rankById = new Map<string, number>();
+    const fitById = new Map<string, { fit: number; components: HybridCapFitComponents }>();
+    if (input.ranked) {
+      input.ranked.forEach((item, index) => {
+        rankById.set(item.t.trackId, index + 1);
+        fitById.set(item.t.trackId, { fit: item.fit, components: item.components });
+      });
+    }
+    const forensicTracks: HybridCapTrackForensic[] = [];
+    for (const trackId of watchIds) {
+      const inInput = inputIds.has(trackId);
+      const survived = survivedIds.has(trackId);
+      const scored = fitById.get(trackId) ?? null;
+      const reserveLane: HybridCapReserveLane = !inInput
+        ? "not_in_input"
+        : input.reserveLanes?.get(trackId)
+          ?? (input.path === "uncapped" || input.path === "preserve_contract"
+            ? "uncapped_passthrough"
+            : "unknown");
+      forensicTracks.push({
+        trackId,
+        inInput,
+        fit: scored?.fit ?? null,
+        preCapRank: rankById.get(trackId) ?? null,
+        survived,
+        reserveLane,
+        dropReason: classifyHybridCapDrop({ inInput, survived }),
+        components: scored?.components ?? null,
+      });
+    }
+    return {
+      version: 1,
+      observational: true,
+      path: input.path,
+      originalCount,
+      candidateCount: input.candidateCount,
+      max: input.max,
+      outputCount: input.pool.length,
+      poolCapped: input.poolCapped,
+      compoundPrompt: input.compoundPrompt,
+      explicitFamilies: [...input.explicitFamilies],
+      explicitEra: input.explicitEra,
+      watchIdsRequested: watchIds.size,
+      watchInInput: forensicTracks.filter((t) => t.inInput).length,
+      watchSurvived: forensicTracks.filter((t) => t.survived).length,
+      dropReasonCounts: countByDropReason(forensicTracks),
+      tracks: forensicTracks,
+    };
+  };
 
   if (opts.preserveContractRetrievalPool && originalCount <= 450) {
+    const explicitFamiliesEarly = explicitGenreFamilies(opts.vibe);
+    const explicitEraEarly = explicitEraRange(opts.vibe);
     return {
       pool: tracks,
       originalCount,
@@ -273,6 +356,16 @@ export function capTracksForHybridScoring<T extends {
       preFilterRejectedCount: 0,
       adjacencyLevelUsed: 0,
       intentPreservedCount: originalCount,
+      forensics: buildForensics({
+        path: "preserve_contract",
+        max: originalCount,
+        pool: tracks,
+        candidateCount: originalCount,
+        poolCapped: false,
+        compoundPrompt: explicitFamiliesEarly.size > 0 && !!explicitEraEarly,
+        explicitFamilies: explicitFamiliesEarly,
+        explicitEra: explicitEraEarly,
+      }),
     };
   }
 
@@ -313,6 +406,16 @@ export function capTracksForHybridScoring<T extends {
       preFilterRejectedCount,
       adjacencyLevelUsed,
       intentPreservedCount: 0,
+      forensics: buildForensics({
+        path: "uncapped",
+        max,
+        pool: workingTracks,
+        candidateCount: workingTracks.length,
+        poolCapped: false,
+        compoundPrompt,
+        explicitFamilies,
+        explicitEra,
+      }),
     };
   }
 
@@ -330,11 +433,39 @@ export function capTracksForHybridScoring<T extends {
       preFilterRejectedCount,
       adjacencyLevelUsed,
       intentPreservedCount: 0,
+      forensics: buildForensics({
+        path: "empty",
+        max,
+        pool: [],
+        candidateCount: 0,
+        poolCapped: false,
+        compoundPrompt,
+        explicitFamilies,
+        explicitEra,
+      }),
     };
   }
 
   if (originalCount <= max && workingTracks === tracks) {
-    return { pool: tracks, originalCount, poolCapped: false, candidateCount: originalCount, preFilterRejectedCount, adjacencyLevelUsed, intentPreservedCount: 0 };
+    return {
+      pool: tracks,
+      originalCount,
+      poolCapped: false,
+      candidateCount: originalCount,
+      preFilterRejectedCount,
+      adjacencyLevelUsed,
+      intentPreservedCount: 0,
+      forensics: buildForensics({
+        path: "uncapped",
+        max,
+        pool: tracks,
+        candidateCount: originalCount,
+        poolCapped: false,
+        compoundPrompt,
+        explicitFamilies,
+        explicitEra,
+      }),
+    };
   }
 
   // Fast path for 500+ libraries — skip era-balanced reshuffle (maps/sorts entire library).
@@ -359,17 +490,39 @@ export function capTracksForHybridScoring<T extends {
       .map((t) => {
         const recentPen = opts.recentTrackPenalty?.get(t.trackId) ?? 0;
         const classification = opts.classifications.get(t.trackId);
-        const explicitBoost = matchesExplicitFamily(classification, explicitFamilies) ? 0.35 : 0;
+        const matchesFamily = matchesExplicitFamily(classification, explicitFamilies);
+        const matchesEra = matchesExplicitEra(t, explicitEra);
+        // Compound era+genre: prefer true-era likes over modern family-only filler.
+        const explicitBoost = matchesFamily ? 0.35 : 0;
         const technoIdentityBoost = technoIdentityActive && matchesTechnoIdentity(classification) ? 0.28 : 0;
-        const antiGenrePenalty = explicitFamilyPenalty(classification, explicitFamilies);
-        const eraBoost = matchesExplicitEra(t, explicitEra) ? 0.25 : 0;
+        const rawAntiGenre = explicitFamilyPenalty(classification, explicitFamilies);
+        const antiGenrePenalty =
+          compoundPrompt && matchesEra ? rawAntiGenre * 0.4 : rawAntiGenre;
+        const eraBoost = matchesEra ? (compoundPrompt ? 0.42 : 0.25) : 0;
+        const jointEraGenreBoost =
+          compoundPrompt && matchesFamily && matchesEra ? 0.18 : 0;
         const emotionFit = quickEmotionFit(t, opts.emotionProfile) * emotionWeight;
+        const jitter = seededJitter(t.trackId, seed) * (softPrompt ? 0.06 : 0.018);
         const reuseDampener = 1 - Math.min(0.72, recentPen * 1.12);
         const fit =
-          (emotionFit + seededJitter(t.trackId, seed) * (softPrompt ? 0.06 : 0.018)) *
-          reuseDampener +
-          explicitBoost + technoIdentityBoost + eraBoost - antiGenrePenalty;
-        return { t, fit };
+          (emotionFit + jitter) * reuseDampener +
+          explicitBoost + technoIdentityBoost + eraBoost + jointEraGenreBoost - antiGenrePenalty;
+        const components: HybridCapFitComponents = {
+          emotionFit,
+          jitter,
+          reuseDampener,
+          explicitBoost: explicitBoost + jointEraGenreBoost,
+          technoIdentityBoost,
+          eraBoost,
+          antiGenrePenalty,
+          matchesExplicitFamily: matchesFamily,
+          matchesExplicitEra: matchesEra,
+          genreFamily: classification?.genreFamily ?? null,
+          releaseYear: t.releaseYear ?? null,
+          artistName: t.artistName ?? null,
+          trackName: t.trackName ?? null,
+        };
+        return { t, fit, components };
       })
       .sort((a, b) => b.fit - a.fit);
     const technoIdentityRanked = technoIdentityActive
@@ -402,22 +555,48 @@ export function capTracksForHybridScoring<T extends {
         ),
       )
       : 0;
+    const jointEraGenreRanked =
+      compoundPrompt
+        ? ranked.filter(
+            (item) =>
+              matchesExplicitFamily(opts.classifications.get(item.t.trackId), explicitFamilies) &&
+              matchesExplicitEra(item.t, explicitEra),
+          )
+        : [];
+    const jointReserveTarget = jointEraGenreRanked.length > 0
+      ? Math.min(
+          jointEraGenreRanked.length,
+          Math.max(40, Math.floor(max * 0.32)),
+        )
+      : 0;
     const picked: T[] = [];
     const seen = new Set<string>();
+    const reserveLanes = new Map<string, HybridCapReserveLane>();
     for (const item of technoIdentityRanked.slice(0, technoIdentityReserveTarget)) {
       seen.add(item.t.trackId);
       picked.push(item.t);
+      reserveLanes.set(item.t.trackId, "techno_identity");
     }
-    for (const item of explicitRanked.slice(0, reserveTarget)) {
+    // Era∩genre first under compound prompts, then era, then family — era honesty over modern filler.
+    for (const item of jointEraGenreRanked.slice(0, jointReserveTarget)) {
       if (seen.has(item.t.trackId)) continue;
       seen.add(item.t.trackId);
       picked.push(item.t);
+      reserveLanes.set(item.t.trackId, compoundPrompt ? "explicit_era" : "explicit_family");
     }
     for (const item of eraRanked.slice(0, eraReserveTarget)) {
       if (picked.length >= max) break;
       if (seen.has(item.t.trackId)) continue;
       seen.add(item.t.trackId);
       picked.push(item.t);
+      reserveLanes.set(item.t.trackId, "explicit_era");
+    }
+    for (const item of explicitRanked.slice(0, reserveTarget)) {
+      if (picked.length >= max) break;
+      if (seen.has(item.t.trackId)) continue;
+      seen.add(item.t.trackId);
+      picked.push(item.t);
+      reserveLanes.set(item.t.trackId, "explicit_family");
     }
     const remaining = stratifiedPoolPick(
       ranked.filter((item) => !seen.has(item.t.trackId)),
@@ -430,6 +609,7 @@ export function capTracksForHybridScoring<T extends {
       if (seen.has(track.trackId)) continue;
       seen.add(track.trackId);
       picked.push(track);
+      reserveLanes.set(track.trackId, "stratified");
     }
     return {
       pool: picked,
@@ -439,6 +619,18 @@ export function capTracksForHybridScoring<T extends {
       preFilterRejectedCount,
       adjacencyLevelUsed,
       intentPreservedCount: technoIdentityReserveTarget + reserveTarget + eraReserveTarget,
+      forensics: buildForensics({
+        path: "fast_large_library",
+        max,
+        pool: picked,
+        candidateCount: candidates.length,
+        poolCapped: true,
+        compoundPrompt,
+        explicitFamilies,
+        explicitEra,
+        ranked,
+        reserveLanes,
+      }),
     };
   }
 
@@ -463,23 +655,45 @@ export function capTracksForHybridScoring<T extends {
     opts.libraryEraMode ?? detectLibraryEraMode(opts.vibe ?? "");
   const ranked = candidates.map((t) => {
     const recentPen = opts.recentTrackPenalty?.get(t.trackId) ?? 0;
-    const eraBoost = libraryEraScoreBoost(t.addedAt ?? null, eraMode);
+    const libraryEraBoost = libraryEraScoreBoost(t.addedAt ?? null, eraMode);
     const classification = opts.classifications.get(t.trackId);
-    const explicitBoost = matchesExplicitFamily(classification, explicitFamilies) ? 0.25 : 0;
+    const matchesFamily = matchesExplicitFamily(classification, explicitFamilies);
+    const matchesEra = matchesExplicitEra(t, explicitEra);
+    const explicitBoost = matchesFamily ? 0.25 : 0;
     const technoIdentityBoost = technoIdentityActive && matchesTechnoIdentity(classification) ? 0.24 : 0;
-    const antiGenrePenalty = explicitFamilyPenalty(classification, explicitFamilies);
-    const explicitEraBoost = matchesExplicitEra(t, explicitEra) ? 0.20 : 0;
+    const rawAntiGenre = explicitFamilyPenalty(classification, explicitFamilies);
+    const antiGenrePenalty =
+      compoundPrompt && matchesEra ? rawAntiGenre * 0.4 : rawAntiGenre;
+    const explicitEraBoost = matchesEra ? (compoundPrompt ? 0.34 : 0.20) : 0;
+    const jointEraGenreBoost =
+      compoundPrompt && matchesFamily && matchesEra ? 0.14 : 0;
     const emotionFit = quickEmotionFit(t, opts.emotionProfile) * emotionWeight;
+    const jitter = seededJitter(t.trackId, seed) * (softPrompt ? 0.06 : 0.018);
     const reuseDampener = 1 - Math.min(0.72, recentPen * 1.12);
     const fit =
-      (emotionFit + seededJitter(t.trackId, seed) * (softPrompt ? 0.06 : 0.018)) *
-      reuseDampener +
-      eraBoost +
+      (emotionFit + jitter) * reuseDampener +
+      libraryEraBoost +
       explicitBoost +
       technoIdentityBoost +
-      explicitEraBoost -
+      explicitEraBoost +
+      jointEraGenreBoost -
       antiGenrePenalty;
-    return { t, fit };
+    const components: HybridCapFitComponents = {
+      emotionFit,
+      jitter,
+      reuseDampener,
+      explicitBoost: explicitBoost + jointEraGenreBoost,
+      technoIdentityBoost,
+      eraBoost: explicitEraBoost + libraryEraBoost,
+      antiGenrePenalty,
+      matchesExplicitFamily: matchesFamily,
+      matchesExplicitEra: matchesEra,
+      genreFamily: classification?.genreFamily ?? null,
+      releaseYear: t.releaseYear ?? null,
+      artistName: t.artistName ?? null,
+      trackName: t.trackName ?? null,
+    };
+    return { t, fit, components };
   });
   ranked.sort((a, b) => b.fit - a.fit);
 
@@ -569,5 +783,17 @@ export function capTracksForHybridScoring<T extends {
     intentPreservedCount: picked.filter((track) =>
       matchesExplicitFamily(opts.classifications.get(track.trackId), explicitFamilies)
     ).length,
+    forensics: buildForensics({
+      path: "small_library_era_balanced",
+      max,
+      pool: picked,
+      candidateCount: candidates.length,
+      poolCapped: true,
+      compoundPrompt,
+      explicitFamilies,
+      explicitEra,
+      ranked,
+      reserveLanes: new Map(picked.map((track) => [track.trackId, "fill" as HybridCapReserveLane])),
+    }),
   };
 }

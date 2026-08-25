@@ -11,6 +11,7 @@ import { likedSongsTable, syncStatusTable } from "../db";
 import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import {
   fetchLikedSongs,
+  fetchSavedTrackInventory,
   fetchAudioFeatures,
   fetchAlbumMetadata,
   fetchArtistGenres,
@@ -26,6 +27,10 @@ import {
   warmGenreProfileCache,
 } from "../lib/genre-profile-cache";
 import { invalidateLikedSongsCache, setCachedLikedSongs } from "../lib/liked-songs-cache";
+import {
+  isCompleteSavedTracksSummary,
+  planLikedLibraryReconcile,
+} from "../lib/liked-library-integrity";
 import { invalidateGenerateResultCache } from "../lib/generate-result-cache";
 import { enrichTrackSemanticProfile } from "../lib/track-semantic-enrichment";
 import { SEMANTIC_ENRICHMENT_VERSION } from "../lib/track-semantic-types";
@@ -280,8 +285,9 @@ export async function runSync(
 
     let newTracks: SpotifyTrack[] = [];
     let grandTotal = 0;
+    let unlikeTrackIds: string[] = [];
 
-    await fetchLikedSongs(
+    const fetchResult = await fetchLikedSongs(
       accessToken,
       async (tracks, total, offset) => {
         newTracks.push(...tracks);
@@ -315,10 +321,69 @@ export async function runSync(
       lastSyncedAt ?? undefined
     );
 
+    if (!isIncremental) {
+      const completeness = isCompleteSavedTracksSummary({
+        spotifyTotal: fetchResult.spotifyTotal,
+        rawItemCount: fetchResult.rawItemCount,
+        localOrNullCount: fetchResult.localOrNullCount,
+        usableCount: fetchResult.usableCount,
+      });
+      if (!completeness.complete) {
+        throw new Error(
+          `LIKED_LIBRARY_INTEGRITY_FIX: refusing to replace liked_songs with a partial Spotify fetch (${completeness.reason})`,
+        );
+      }
+    }
+
     if (isIncremental) {
+      const inventory = await fetchSavedTrackInventory(accessToken);
+      const completeness = isCompleteSavedTracksSummary({
+        spotifyTotal: inventory.spotifyTotal,
+        rawItemCount: inventory.rawItemCount,
+        localOrNullCount: inventory.localOrNullCount,
+        usableCount: inventory.usableCount,
+      });
+      if (!completeness.complete) {
+        throw new Error(
+          `LIKED_LIBRARY_INTEGRITY_FIX: refusing incremental reconcile with incomplete Spotify inventory (${completeness.reason})`,
+        );
+      }
+      grandTotal = inventory.spotifyTotal;
+      const existingRows = await db
+        .select({
+          trackId: likedSongsTable.trackId,
+          trackName: likedSongsTable.trackName,
+          artistName: likedSongsTable.artistName,
+        })
+        .from(likedSongsTable)
+        .where(eq(likedSongsTable.spotifyUserId, userId));
+      const plan = planLikedLibraryReconcile(
+        existingRows.map((row) => row.trackId),
+        inventory.ids,
+      );
+      const blankIds = new Set(
+        existingRows
+          .filter((row) => !String(row.trackName ?? "").trim() || !String(row.artistName ?? "").trim())
+          .map((row) => row.trackId),
+      );
+      const insertSet = new Set(plan.toInsert);
+      unlikeTrackIds = plan.toDelete;
+      const fetchedIds = new Set(newTracks.map((track) => track.id));
+      for (const track of inventory.tracks) {
+        if ((insertSet.has(track.id) || blankIds.has(track.id)) && !fetchedIds.has(track.id)) {
+          newTracks.push(track);
+          fetchedIds.add(track.id);
+        }
+      }
       logger.info(
-        { userId, newTrackCount: newTracks.length, lastSyncedAt },
-        `[sync] Incremental sync: found ${newTracks.length} new tracks since lastSyncedAt`
+        {
+          userId,
+          newTrackCount: plan.toInsert.length,
+          unlikeCount: unlikeTrackIds.length,
+          blankMetadataRepairs: blankIds.size,
+          lastSyncedAt,
+        },
+        `[sync] Incremental reconcile: ${plan.toInsert.length} new likes, ${unlikeTrackIds.length} unlikes`,
       );
     }
     newTracks = [...new Map(newTracks.map((track) => [track.id, track])).values()];
@@ -490,16 +555,17 @@ export async function runSync(
     await db.transaction(async (tx) => {
       if (!isIncremental) {
         await tx.delete(likedSongsTable).where(eq(likedSongsTable.spotifyUserId, userId));
-      } else if (rowsToInsert.length > 0) {
-        const trackIds = rowsToInsert.map((row) => row.trackId);
+      } else {
+        const trackIdsToReplace = rowsToInsert.map((row) => row.trackId);
+        const deleteIds = [...new Set([...trackIdsToReplace, ...unlikeTrackIds])];
         const deleteBatchSize = 500;
-        for (let i = 0; i < trackIds.length; i += deleteBatchSize) {
+        for (let i = 0; i < deleteIds.length; i += deleteBatchSize) {
           await tx
             .delete(likedSongsTable)
             .where(
               and(
                 eq(likedSongsTable.spotifyUserId, userId),
-                inArray(likedSongsTable.trackId, trackIds.slice(i, i + deleteBatchSize))
+                inArray(likedSongsTable.trackId, deleteIds.slice(i, i + deleteBatchSize))
               )
             );
         }
@@ -539,7 +605,7 @@ export async function runSync(
       .select()
       .from(likedSongsTable)
       .where(eq(likedSongsTable.spotifyUserId, userId));
-    setCachedLikedSongs(userId, allRows);
+    setCachedLikedSongs(userId, allRows, Date.now());
     warmGenreProfileCache(
       userId,
       allRows.map((s) => ({

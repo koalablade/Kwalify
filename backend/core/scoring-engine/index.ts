@@ -282,6 +282,8 @@ export interface RunScoringPipelineOpts<T extends {
   semanticMomentFingerprint?: import("../../lib/world-understanding/moment-representation").SemanticMomentFingerprint | null;
   /** When true, hybrid pool cap preserves contract-bounded retrieval without emotion-rank trimming. */
   preserveContractRetrievalPool?: boolean;
+  /** Audit-only watch set for hybrid-cap forensics. Never affects selection. */
+  forensicsWatchIds?: ReadonlySet<string>;
 }
 
 
@@ -380,6 +382,7 @@ export function runScoringPipeline<T extends {
       ? { vector: earlySemanticResolution.vector, sceneConfidence: earlySemanticResolution.confidence }
       : undefined,
     preserveContractRetrievalPool: opts.preserveContractRetrievalPool,
+    forensicsWatchIds: opts.forensicsWatchIds,
   });
 
   logScoringStage(log, "Candidate pool capped", t, {
@@ -390,6 +393,8 @@ export function runScoringPipeline<T extends {
     preFilterRejected: poolCap.preFilterRejectedCount,
     adjacencyLevelUsed: poolCap.adjacencyLevelUsed,
     intentPreservedCount: poolCap.intentPreservedCount,
+    hybridCapForensicsWatchInInput: poolCap.forensics?.watchInInput,
+    hybridCapForensicsWatchSurvived: poolCap.forensics?.watchSurvived,
   });
 
   t = Date.now();
@@ -808,6 +813,8 @@ export function runScoringPipeline<T extends {
         intentPreservedCount: poolCap.intentPreservedCount,
         postScoreFiltered: postScoreFilteredCount,
         forbiddenRejectionCount: gateRejected.length,
+        /** Observational only — present when forensicsWatchIds was supplied. */
+        hybridCapForensics: poolCap.forensics ?? null,
       },
       noveltyDiagnostics,
       noveltyPenaltyAuditSample: noveltyAuditOut.slice(0, 20),

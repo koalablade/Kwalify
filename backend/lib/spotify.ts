@@ -423,14 +423,31 @@ export async function getSpotifyUser(accessToken: string): Promise<any> {
   return response.data;
 }
 
+export type LikedSongsFetchResult = {
+  spotifyTotal: number;
+  rawItemCount: number;
+  localOrNullCount: number;
+  usableCount: number;
+  pages: number;
+};
+
+export type SavedTrackInventory = LikedSongsFetchResult & {
+  ids: string[];
+  tracks: SpotifyTrack[];
+};
+
 export async function fetchLikedSongs(
   accessToken: string,
   onBatch: (tracks: SpotifyTrack[], total: number, offset: number) => Promise<void>,
   stopBefore?: Date
-): Promise<void> {
+): Promise<LikedSongsFetchResult> {
   let offset = 0;
   const limit = 50;
   let total = 0;
+  let rawItemCount = 0;
+  let localOrNullCount = 0;
+  let usableCount = 0;
+  let pages = 0;
 
   do {
     const response = await spotifyRequest<any>({
@@ -442,11 +459,15 @@ export async function fetchLikedSongs(
 
     const data = response.data;
     total = data.total;
+    const items = Array.isArray(data.items) ? data.items : [];
+    rawItemCount += items.length;
+    pages += 1;
 
     // Attach added_at to each track so callers can use it for incremental sync
-    let tracks: SpotifyTrack[] = data.items
+    let tracks: SpotifyTrack[] = items
       .filter((item: any) => item.track && !item.track.is_local)
       .map((item: any) => ({ ...item.track, addedAt: item.added_at as string | undefined }));
+    localOrNullCount += items.length - tracks.length;
 
     // Incremental stop: Spotify returns tracks newest-first.
     // If stopBefore is set, drop tracks that were added before the cutoff.
@@ -460,13 +481,21 @@ export async function fetchLikedSongs(
       if (newTracks.length < tracks.length) {
         // Hit the boundary — emit new tracks from this page and bail out
         if (newTracks.length > 0) {
+          usableCount += newTracks.length;
           await onBatch(newTracks, total, offset);
         }
-        return;
+        return {
+          spotifyTotal: total,
+          rawItemCount,
+          localOrNullCount,
+          usableCount,
+          pages,
+        };
       }
       tracks = newTracks;
     }
 
+    usableCount += tracks.length;
     await onBatch(tracks, total, offset);
     offset += limit;
 
@@ -474,6 +503,30 @@ export async function fetchLikedSongs(
       await new Promise((r) => setTimeout(r, 100));
     }
   } while (offset < total);
+
+  return {
+    spotifyTotal: total,
+    rawItemCount,
+    localOrNullCount,
+    usableCount,
+    pages,
+  };
+}
+
+/** Full saved-track ID inventory. Does not stop at lastSyncedAt. */
+export async function fetchSavedTrackInventory(accessToken: string): Promise<SavedTrackInventory> {
+  const ids: string[] = [];
+  const tracks: SpotifyTrack[] = [];
+  const seen = new Set<string>();
+  const fetch = await fetchLikedSongs(accessToken, async (batch) => {
+    for (const track of batch) {
+      if (!track?.id || seen.has(track.id)) continue;
+      seen.add(track.id);
+      ids.push(track.id);
+      tracks.push(track);
+    }
+  });
+  return { ...fetch, ids, tracks };
 }
 
 export async function searchSpotifyTracks(

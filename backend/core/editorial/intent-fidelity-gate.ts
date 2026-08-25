@@ -62,6 +62,10 @@ export function resolveFidelityDeliveryCap(opts: {
 }): number {
   const minHonestDepth = Math.ceil(opts.requestedLength * 0.5);
   const verifiedShare = opts.trackCount > 0 ? opts.verifiedCount / opts.trackCount : 0;
+  // Verified majority: publish depth even if opener failed (opener demotion is separate).
+  if (opts.verifiedCount >= minHonestDepth && verifiedShare >= 0.5) {
+    return Math.min(opts.verifiedCount, opts.requestedLength);
+  }
   if (
     opts.openerPassed &&
     opts.verifiedCount >= minHonestDepth &&

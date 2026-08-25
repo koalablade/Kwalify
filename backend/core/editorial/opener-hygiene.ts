@@ -7,6 +7,10 @@
 export const OPENER_FILLER_PATTERN =
   /\b(?:kasabian|q\s+lazzarus|tame\s+impala|glenn\s+frey|arctic\s+monkeys|the\s+weeknd|bon\s+iver|clairo|noah\s+kahan|dayglow|gregory\s+alan\s+isakov|badbadnotgood|sufjan\s+stevens|phoebe\s+bridgers|mitski|beach\s+house|jake\s+bugg|joji|mac\s+demarco|fleet\s+foxes|iron\s+(?:&|and)\s+wine|the\s+killers)\b/i;
 
+/** Always-wrong opener landfill — demote even on indie/nostalgia belonging worlds. */
+export const HARD_LANDFILL_OPENER_PATTERN =
+  /\b(?:kasabian|q\s+lazzarus|tame\s+impala|glenn\s+frey)\b/i;
+
 export function trackArtistName(track: { artistName?: string | null; artist?: string | null }): string {
   return String(track.artistName ?? track.artist ?? "").trim();
 }
@@ -18,7 +22,7 @@ export const REMIX_EDIT_BAIT_TITLE =
 export const UK_SCENE_WORLD_IDS = new Set(["britpop_world"]);
 
 const NAMED_WORLD_LANGUAGE =
-  /\b(?:goth|grunge|disco|synthwave|retrowave|neon|lo-?fi|lofi|ambient|metal|pop[-\s]?punk|uk\s*garage|ukg|grime|shoegaze|darkwave|post[-\s]?punk|boss\s+fight|classic\s+rock|red\s+dirt|drum\s+and\s+bass|dnb|britpop|r&b|hyperpop|jazz|folk|emo|reggaeton|salsa|bachata|cumbia|garage\s+workshop|madchester)\b/i;
+  /\b(?:goth|grunge|disco|synthwave|retrowave|neon|lo-?fi|lofi|ambient|metal|pop[-\s]?punk|uk\s*garage|ukg|grime|shoegaze|darkwave|post[-\s]?punk|boss\s+fight|classic\s+rock|red\s+dirt|drum\s+and\s+bass|dnb|britpop|r&b|hyperpop|jazz|folk|emo|reggaeton|salsa|bachata|cumbia|garage\s+workshop|madchester|indie(?:\s+rock|\s+pop)?|alternative\s+rock|alt(?:ernative)?\s+rock|2000s?\s+indie|noughties\s+indie)\b/i;
 
 /** True when the user explicitly asked for sad-indie / tender melancholy (Bon Iver-adjacent is OK). */
 export function hasExplicitSadIndieMood(prompt: string): boolean {
@@ -96,9 +100,23 @@ const ZERO_PSYCH_OPENER_WORLDS = new Set([
   "heavy_gym_world",
 ]);
 
+/** Worlds where psych-indie artists are the thesis — openers should belong, not demote. */
+const BELONGING_PSYCH_OPENER_WORLDS = new Set([
+  "indie_dream_world",
+  "nostalgia_warm_world",
+  "sunday_chill_world",
+  "soft_sad_world",
+  "indie_bedroom_world",
+  "acoustic_sunday_world",
+  "rainy_reading_world",
+  "chill_rainy_world",
+]);
+
 /** Max psych-indie opener fillers allowed in slots 1–3 for these worlds. */
 export function maxPsychIndieOpenersForWorlds(activeWorldIds: string[]): number {
   if (activeWorldIds.length === 0) return 1;
+  // Belonging wins over zero-psych co-locks (e.g. grunge + nostalgia for 90s alt).
+  if (activeWorldIds.some((id) => BELONGING_PSYCH_OPENER_WORLDS.has(id))) return 3;
   if (activeWorldIds.some((id) => ZERO_PSYCH_OPENER_WORLDS.has(id))) return 0;
   return 1;
 }
@@ -111,6 +129,7 @@ export function isZeroPsychOpenerWorld(activeWorldId: string | null | undefined)
 /**
  * Hard opener cap — Tame → Kasabian → Q chains are never acceptable as openers.
  * Keeps at most `maxOpeners` psych-indie fillers in the first `openerSlots` positions.
+ * Hard landfill (Kasabian/Q/Tame/Glenn Frey) is always demoted from the opener window.
  */
 export function sanitizePsychIndieOpenerChain<T extends { artistName?: string | null; artist?: string | null }>(
   tracks: T[],
@@ -124,10 +143,38 @@ export function sanitizePsychIndieOpenerChain<T extends { artistName?: string | 
   const demoted: Array<{ artist: string; fromIndex: number; toIndex: number }> = [];
   const limit = Math.min(openerSlots, out.length);
 
+  const isHardLandfill = (track: T): boolean => {
+    const artist = trackArtistName(track);
+    return !!artist && HARD_LANDFILL_OPENER_PATTERN.test(artist);
+  };
   const isFiller = (track: T): boolean => {
     const artist = trackArtistName(track);
     return !!artist && OPENER_FILLER_PATTERN.test(artist);
   };
+
+  // Always clear hard landfill from opener slots first (stable partition — no cycle).
+  {
+    const soft: T[] = [];
+    const hard: T[] = [];
+    for (let i = 0; i < out.length; i++) {
+      const track = out[i]!;
+      if (isHardLandfill(track)) {
+        if (i < limit) {
+          demoted.push({ artist: trackArtistName(track), fromIndex: i, toIndex: -1 });
+        }
+        hard.push(track);
+      } else {
+        soft.push(track);
+      }
+    }
+    out.length = 0;
+    out.push(...soft, ...hard);
+    for (const row of demoted) {
+      if (row.toIndex === -1) {
+        row.toIndex = out.findIndex((t) => trackArtistName(t) === row.artist);
+      }
+    }
+  }
 
   if (maxOpeners <= 0) {
     const clean: T[] = [];

@@ -437,6 +437,17 @@ const PRIMARY_MUSICAL_WORLD: Array<{ pattern: RegExp; id: string }> = [
       /\b(?:cozy\s+sunday|sunday\s+morning|cozy\s+morning)\b.*\b(?:coffee|tea)\b|\b(?:coffee|tea)\b.*\b(?:cozy\s+sunday|sunday\s+morning|cozy\s+morning)\b|\bcozy\s+sunday\s+morning\b/i,
     id: "sunday_chill_world",
   },
+  // Era + indie/alt before bare indie — must not fall through to vague sunday_chill.
+  {
+    pattern:
+      /\b(?:2000s?|noughties|00s)\s+indie\b|\bindie\b.*\b(?:2000s?|noughties|00s)\b|\bindie\s+(?:from\s+the\s+)?(?:2000s?|noughties)\b/i,
+    id: "indie_dream_world",
+  },
+  {
+    pattern: /\b(?:90s?|nineties)\s+alternative\s+rock\b|\balternative\s+rock\b|\b90s?\s+alt(?:ernative)?\s+rock\b/i,
+    id: "grunge_world",
+  },
+  { pattern: /\bindie\s+rock\b|\bindie\s+pop\b|\bindie\b/i, id: "indie_dream_world" },
   { pattern: /\b(?:rainy|rain)\s+motorway\b/i, id: "rainy_motorway_world" },
   { pattern: /\broad\s+trip\b.*\b(?:sing|singalong|anthem)\b/i, id: "road_trip_singalong_world" },
   { pattern: /\bpetrol\s+station\b.*\b2\s*am\b/i, id: "petrol_station_2am_world" },
@@ -494,6 +505,10 @@ const MUSICAL_WORLD_IDS = new Set([
   "late_night_calm_world",
   "ambient_world",
   "chill_rainy_world",
+  "indie_dream_world",
+  "nostalgia_warm_world",
+  "soft_sad_world",
+  "feel_good_world",
 ]);
 
 const EXPLICIT_SCENE_WORLD: Array<{ pattern: RegExp; id: string }> = [
@@ -664,6 +679,24 @@ export function resolveCommittedWorld(opts: {
     !worldIds.includes("coffee_soft_focus_world")
   ) {
     worldIds.push("coffee_soft_focus_world");
+  }
+  // 2000s/era indie: keep nostalgia_warm active so Killers/AM-era artists aren't blanket-stripped.
+  if (
+    (id === "indie_dream_world" || inferred.includes("indie_dream_world")) &&
+    /\b(?:2000s?|noughties|00s|nostalg)/i.test(prompt) &&
+    !worldIds.includes("nostalgia_warm_world")
+  ) {
+    worldIds.push("nostalgia_warm_world");
+  }
+  // 90s alt rock (not pure grunge): nostalgia + indie_dream for non-Seattle alt supply.
+  if (
+    (id === "grunge_world" || inferred.includes("grunge_world")) &&
+    /\b(?:90s?|nineties)\s+alternative\s+rock\b|\balternative\s+rock\b|\b90s?\s+alt(?:ernative)?\s+rock\b/i.test(
+      prompt,
+    )
+  ) {
+    if (!worldIds.includes("nostalgia_warm_world")) worldIds.push("nostalgia_warm_world");
+    if (!worldIds.includes("indie_dream_world")) worldIds.push("indie_dream_world");
   }
   const source = sourceFromBoundary(
     boundary,

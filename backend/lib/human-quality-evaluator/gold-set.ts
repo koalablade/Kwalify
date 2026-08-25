@@ -38,20 +38,32 @@ export type GoldSet = {
   labels: GoldLabel[];
 };
 
-export const DEFAULT_GOLD_SET_PATH = join(process.cwd(), "backend", "data", "human-quality-gold-set.json");
+/** Resolve gold-set path from repo root or backend cwd (tests often run from backend/). */
+export function resolveGoldSetPath(cwd = process.cwd()): string {
+  const candidates = [
+    join(cwd, "backend", "data", "human-quality-gold-set.json"),
+    join(cwd, "data", "human-quality-gold-set.json"),
+  ];
+  for (const path of candidates) {
+    if (existsSync(path)) return path;
+  }
+  return candidates[0]!;
+}
+
+export const DEFAULT_GOLD_SET_PATH = resolveGoldSetPath();
 
 export function emptyGoldSet(): GoldSet {
   return { version: 1, updatedAt: new Date().toISOString(), labels: [] };
 }
 
-export function loadGoldSetSync(path = DEFAULT_GOLD_SET_PATH): GoldSet {
+export function loadGoldSetSync(path = resolveGoldSetPath()): GoldSet {
   if (!existsSync(path)) return emptyGoldSet();
   const raw = JSON.parse(readFileSync(path, "utf8")) as GoldSet;
   if (raw.version !== 1 || !Array.isArray(raw.labels)) return emptyGoldSet();
   return raw;
 }
 
-export async function loadGoldSet(path = DEFAULT_GOLD_SET_PATH): Promise<GoldSet> {
+export async function loadGoldSet(path = resolveGoldSetPath()): Promise<GoldSet> {
   try {
     const raw = JSON.parse(await readFile(path, "utf8")) as GoldSet;
     if (raw.version !== 1 || !Array.isArray(raw.labels)) return emptyGoldSet();
@@ -119,7 +131,7 @@ export function goldLabelFromReview(raw: Record<string, unknown>, benchmarkRunId
   };
 }
 
-export async function saveGoldSet(gold: GoldSet, path = DEFAULT_GOLD_SET_PATH): Promise<void> {
+export async function saveGoldSet(gold: GoldSet, path = resolveGoldSetPath()): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(gold, null, 2)}\n`);
 }
