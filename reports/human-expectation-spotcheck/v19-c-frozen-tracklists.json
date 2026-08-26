@@ -1,0 +1,100 @@
+[
+  {
+    "id": "country_cowboy",
+    "prompt": "country cowboy road trip",
+    "source": "V19-C frozen Aug 2026 backend/scripts/v19-saveability-rescore.mjs",
+    "tracks": [
+      "Johnny Cash \u2014 Jackson",
+      "Luke Combs \u2014 Dive - Recorded At Sound Stage Nashville",
+      "Zach Bryan \u2014 Oklahoma Smokeshow",
+      "Luke Combs \u2014 Beautiful Crazy",
+      "Zach Bryan \u2014 Pink Skies",
+      "Zach Bryan \u2014 Condemned",
+      "Waylon Jennings \u2014 Mammas Don't Let Your Babies Grow up to Be Cowboys"
+    ]
+  },
+  {
+    "id": "dad_rock_bbq",
+    "prompt": "dad rock BBQ with beers",
+    "source": "V19-C frozen",
+    "tracks": [
+      "AC/DC \u2014 T.N.T.",
+      "AC/DC \u2014 Back In Black",
+      "Fleetwood Mac \u2014 Silver Springs - 2004 Remaster",
+      "AC/DC \u2014 It's a Long Way to the Top (If You Wanna Rock 'N' Roll)",
+      "Fleetwood Mac \u2014 Hypnotized",
+      "Tom Petty and the Heartbreakers \u2014 Breakdown - Remastered",
+      "Tom Petty and the Heartbreakers \u2014 Into The Great Wide Open",
+      "Led Zeppelin \u2014 Stairway to Heaven - 1990 Remaster",
+      "Led Zeppelin \u2014 Tangerine - Remaster"
+    ]
+  },
+  {
+    "id": "motorway_rain",
+    "prompt": "empty motorway at midnight rain on the windscreen",
+    "source": "V19-C frozen",
+    "tracks": [
+      "New Order \u2014 Blue Monday '88",
+      "Chromatics \u2014 Cherry",
+      "The Cure \u2014 The Lovecats",
+      "The Cure \u2014 Boys Don't Cry",
+      "Tears For Fears \u2014 Head Over Heels"
+    ]
+  },
+  {
+    "id": "gym",
+    "prompt": "heavy gym workout aggressive",
+    "source": "V19-C frozen",
+    "tracks": [
+      "AC/DC \u2014 Back In Black",
+      "AC/DC \u2014 T.N.T.",
+      "Guns N' Roses \u2014 Welcome To The Jungle"
+    ]
+  },
+  {
+    "id": "no_rap_gym",
+    "prompt": "no rap gym workout",
+    "source": "V19-C frozen",
+    "tracks": [
+      "Black Sabbath \u2014 Paranoid",
+      "Black Sabbath \u2014 Rat Salad",
+      "Iron Maiden \u2014 Fear of the Dark",
+      "Nirvana \u2014 In Bloom",
+      "Black Sabbath \u2014 Iron Man"
+    ]
+  },
+  {
+    "id": "madchester",
+    "prompt": "madchester pub walk",
+    "source": "V19-C frozen",
+    "tracks": [
+      "The Stone Roses \u2014 Made of Stone - Remastered 2009",
+      "Oasis \u2014 Wonderwall",
+      "Oasis \u2014 Champagne Supernova",
+      "Blur \u2014 Song 2 - 2012 Remaster"
+    ]
+  },
+  {
+    "id": "disco",
+    "prompt": "disco rooftop party 1978",
+    "source": "V19-C frozen",
+    "tracks": [
+      "Michael Jackson \u2014 Rock with You - Single Version",
+      "ABBA \u2014 Gimme! Gimme! Gimme! (A Man After Midnight)"
+    ]
+  },
+  {
+    "id": "80s_night_drive",
+    "prompt": "80s night drive",
+    "source": "V19-C frozen",
+    "tracks": [
+      "The Cure \u2014 The Lovecats",
+      "Tears For Fears \u2014 Everybody Wants To Rule The World",
+      "Tears For Fears \u2014 Head Over Heels - Dave Bascombe 7\\\" N.Mix",
+      "Gary Numan \u2014 Cars",
+      "The Human League \u2014 Don't You Want Me",
+      "Tears For Fears \u2014 Head Over Heels",
+      "Pet Shop Boys \u2014 West End Girls - 2001 Remaster"
+    ]
+  }
+]
