@@ -62,7 +62,7 @@ export function loadLocalEnvFile(): LocalEnvLoadResult {
   const parsed = parseEnvFile(readFileSync(envPath, "utf8"));
   let appliedKeys = 0;
   for (const [key, value] of Object.entries(parsed)) {
-    if (process.env[key] == null || process.env[key] === "") {
+    if (process.env[key] == null) {
       process.env[key] = value;
       appliedKeys += 1;
     }
