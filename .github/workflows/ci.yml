@@ -120,9 +120,15 @@ jobs:
           base-url: https://kwalify.net
           require-secrets: "true"
       - run: npm ci && npm run build
+      # Self-host production may be powered off. Do not fail the PR for that;
+      # scheduled nightly-eval still fails closed.
       - name: Validate benchmark environment
+        id: validate-prod
+        env:
+          ALLOW_UNREACHABLE_PRODUCTION: "1"
         run: npm run validate:benchmark-env
       - name: Deploy smoke (production)
+        if: steps.validate-prod.outputs.production_reachable == 'true'
         run: npm run smoke:deploy
 
   coherence-live:
@@ -142,8 +148,12 @@ jobs:
           require-secrets: "true"
       - run: npm ci && npm run build
       - name: Validate benchmark environment
+        id: validate-prod
+        env:
+          ALLOW_UNREACHABLE_PRODUCTION: "1"
         run: npm run validate:benchmark-env
       - name: Live coherence regression
+        if: steps.validate-prod.outputs.production_reachable == 'true'
         run: npm run regression:coherence-live
 
   nightly-eval:

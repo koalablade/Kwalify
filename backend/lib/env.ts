@@ -49,7 +49,11 @@ let _features: AppFeatures | null = null;
 
 function requireEnv(key: string): string {
   const val = process.env[key];
-  if (!val) throw new Error(`[env] ${key} is required but was not set`);
+  if (!val) {
+    throw new Error(
+      `[env] ${key} is required but was not set. Copy .env.example to .env and fill in DATABASE_URL, SESSION_SECRET, and PORT (Spotify credentials are optional until you want login).`,
+    );
+  }
   return val;
 }
 

@@ -15,13 +15,24 @@ Single reference for running Kwalify from a terminal when Cursor (or any IDE) is
 ```powershell
 cd path\to\Kwalify
 # Or just double-click start.bat (handles npm ci, build, certs, hosts)
+Copy-Item .env.example .env   # if the launcher has not created one yet
 npm ci
 npm run build
 ```
 
-Optional: `create-kwalify-shortcuts.bat` for Desktop Start/Stop icons.
+Linux/macOS (or any machine without the Windows launcher):
 
-Copy `.env.example` to `.env` if the launcher has not created one yet.
+```bash
+cp .env.example .env
+docker compose up -d
+npm ci
+npm run build
+npm start
+```
+
+`npm start` loads `.env`. Spotify login still needs credentials in `.env` and a matching redirect URI.
+
+Optional: `create-kwalify-shortcuts.bat` for Desktop Start/Stop icons.
 
 ---
 

@@ -1,10 +1,15 @@
 # Load repo-root .env into the current PowerShell process (.env wins over stale shell vars).
 param(
-  [string]$Root = (Split-Path -Parent $PSScriptRoot)
+  [string]$Root = (Split-Path -Parent $PSScriptRoot),
+  [switch]$Optional
 )
 
 $envFile = Join-Path $Root ".env"
 if (-not (Test-Path $envFile)) {
+  if ($Optional) {
+    Write-Host "  .env not found — skipping (copy .env.example to configure)"
+    return
+  }
   throw ".env not found at $envFile - copy .env.example and configure it first."
 }
 

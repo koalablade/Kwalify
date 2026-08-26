@@ -179,15 +179,15 @@ describe("V10 world coverage", () => {
     assert.ok(thesis.openerScore >= 0.8);
   });
 
-  it("coverage-aware HQG caps tracks by coverage level", () => {
+  it("coverage-aware HQG no longer uses LOW/MEDIUM as terminal length caps", () => {
     const highCap = coverageLevelToMaxTracks("HIGH", 25);
     const mediumCap = coverageLevelToMaxTracks("MEDIUM", 25);
     const lowCap = coverageLevelToMaxTracks("LOW", 25);
     const veryLowCap = coverageLevelToMaxTracks("VERY_LOW", 25);
 
     assert.equal(highCap, 25);
-    assert.ok(mediumCap >= 15 && mediumCap <= 20);
-    assert.ok(lowCap >= 8 && lowCap <= 12);
+    assert.equal(mediumCap, 25);
+    assert.equal(lowCap, 25);
     assert.ok(veryLowCap <= 5);
 
     const lowHqg = evaluateHumanQualityGate({
@@ -196,8 +196,11 @@ describe("V10 world coverage", () => {
       committedWorldHardLock: true,
       coverageLevel: "LOW",
     });
-    assert.equal(lowHqg.action, "honest_partial");
-    assert.ok(lowHqg.salvageableCount <= 12);
+    assert.notEqual(lowHqg.action, "refuse");
+    assert.ok(
+      lowHqg.action === "pass" || lowHqg.salvageableCount >= 20,
+      `LOW coverage must keep validated depth, got action=${lowHqg.action} salvageable=${lowHqg.salvageableCount}`,
+    );
   });
 
   it("coverage user messages are honest", () => {

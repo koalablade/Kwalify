@@ -1,4 +1,5 @@
 import { validateEnv, type AppEnv } from "./lib/env";
+import { loadLocalEnvFile } from "./lib/load-local-env";
 import { initPool, SESSION_TABLE_DDL } from "./lib/pg-pool";
 import { initDb } from "./db";
 import type pg from "pg";
@@ -259,6 +260,13 @@ async function bootstrap(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const localEnv = loadLocalEnvFile();
+  if (localEnv.missing && process.env["CI"] !== "true" && process.env["GITHUB_ACTIONS"] !== "true") {
+    logger.warn(
+      { envPath: localEnv.envPath },
+      "[boot] No .env file found — copy .env.example to .env, or export DATABASE_URL, SESSION_SECRET, and PORT",
+    );
+  }
   // Sentry must be live before process-safety handlers so early rejections/crashes are captured.
   await initSentryIfConfigured();
   installProcessSafetyHandlers();

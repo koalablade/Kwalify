@@ -24,15 +24,19 @@ Logs on failure: `kwalify-start.log` in the project root.
 ## Build & run (manual)
 
 ```bash
+cp .env.example .env
+docker compose up -d
 npm ci
 npm run build
 npm start
 ```
 
-1. `npm run build` — compiles TypeScript to `backend/dist/` (see `scripts/prepare-dist.mjs`).
-2. `npm start` — runs `node backend/dist/server.js`.
+1. Copy `.env.example` to `.env` and set `DATABASE_URL`, `SESSION_SECRET`, and `PORT`. Spotify credentials can wait; without them the site boots but login/generate return 503.
+2. Start PostgreSQL (`docker compose up -d` matches the example `DATABASE_URL`).
+3. `npm run build` — compiles TypeScript to `backend/dist/` (see `scripts/prepare-dist.mjs`).
+4. `npm start` — loads `.env` and runs `node backend/dist/server.js`.
 
-Node **20.x** is the supported engine (see `.nvmrc`). `npm run test:smoke` is a quick pre-flight (12 tests, no DB).
+Node **20.x** is the supported engine (see `.nvmrc`). `npm run test:smoke` is a quick pre-flight (no DB).
 
 ---
 

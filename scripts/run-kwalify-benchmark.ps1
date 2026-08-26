@@ -398,6 +398,9 @@ function Run-Suite {
 
   switch ($Id) {
     "status" {
+      Write-Host ""
+      Write-Host "  KWALIFY BENCHMARK STATUS" -ForegroundColor Magenta
+      Write-Host ""
       Show-BenchmarkStatus | Out-Null
       Write-Host ""
       Write-Host "  Opening live web dashboard..." -ForegroundColor Cyan
@@ -495,6 +498,18 @@ function Run-Suite {
 # --- main ---
 if ($Help) { Show-Help; exit 0 }
 
+# Status is a read-only local report. Do not take the benchmark lock, create
+# desktop shortcuts, or require PLAYLIST_EVAL_TOKEN — CI and "is the launcher
+# healthy?" checks use this path.
+$requestedSuite = if ($Suite) { $Suite.Trim().ToLower() } else { "" }
+if ($requestedSuite -eq "status") {
+  Write-Host ""
+  Write-Host "  KWALIFY BENCHMARK STATUS" -ForegroundColor Magenta
+  Write-Host ""
+  try { Show-BenchmarkStatus | Out-Null } catch { Write-WarnLine $_.Exception.Message }
+  exit 0
+}
+
 Rotate-Log
 try {
   Start-Transcript -Path $logPath -Append | Out-Null
@@ -504,12 +519,18 @@ try {
 
 Acquire-Lock
 
-$sc = Join-Path $PSScriptRoot "create-kwalify-shortcuts.ps1"
-if (Test-Path $sc) { & powershell -NoProfile -ExecutionPolicy Bypass -File $sc -Root $root 2>$null | Out-Null }
+if ($env:GITHUB_ACTIONS -ne "true") {
+  try {
+    $sc = Join-Path $PSScriptRoot "create-kwalify-shortcuts.ps1"
+    if (Test-Path $sc) { & powershell -NoProfile -ExecutionPolicy Bypass -File $sc -Root $root 2>$null | Out-Null }
+  } catch {
+    Write-WarnLine "Could not refresh desktop shortcuts"
+  }
+}
 
 if (-not (Test-Path (Join-Path $root "package.json"))) { Exit-Benchmark 1 "Run from Kwalify project root." }
 
-. "$PSScriptRoot\load-dotenv.ps1" -Root $root
+. "$PSScriptRoot\load-dotenv.ps1" -Root $root -Optional
 if (-not $env:SMOKE_SPOTIFY_USER_ID) { $env:SMOKE_SPOTIFY_USER_ID = "koalablade" }
 
 if (-not $Production -and -not $PSBoundParameters.ContainsKey('SpawnLocal')) { $SpawnLocal = $true }
