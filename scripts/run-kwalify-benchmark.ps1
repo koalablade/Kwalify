@@ -398,6 +398,9 @@ function Run-Suite {
 
   switch ($Id) {
     "status" {
+      Write-Host ""
+      Write-Host "  KWALIFY BENCHMARK STATUS" -ForegroundColor Magenta
+      Write-Host ""
       Show-BenchmarkStatus | Out-Null
       Write-Host ""
       Write-Host "  Opening live web dashboard..." -ForegroundColor Cyan
@@ -504,8 +507,14 @@ try {
 
 Acquire-Lock
 
-$sc = Join-Path $PSScriptRoot "create-kwalify-shortcuts.ps1"
-if (Test-Path $sc) { & powershell -NoProfile -ExecutionPolicy Bypass -File $sc -Root $root 2>$null | Out-Null }
+if ($env:GITHUB_ACTIONS -ne "true") {
+  try {
+    $sc = Join-Path $PSScriptRoot "create-kwalify-shortcuts.ps1"
+    if (Test-Path $sc) { & powershell -NoProfile -ExecutionPolicy Bypass -File $sc -Root $root 2>$null | Out-Null }
+  } catch {
+    Write-WarnLine "Could not refresh desktop shortcuts"
+  }
+}
 
 if (-not (Test-Path (Join-Path $root "package.json"))) { Exit-Benchmark 1 "Run from Kwalify project root." }
 
