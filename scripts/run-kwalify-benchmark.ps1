@@ -498,6 +498,18 @@ function Run-Suite {
 # --- main ---
 if ($Help) { Show-Help; exit 0 }
 
+# Status is a read-only local report. Do not take the benchmark lock, create
+# desktop shortcuts, or require PLAYLIST_EVAL_TOKEN — CI and "is the launcher
+# healthy?" checks use this path.
+$requestedSuite = if ($Suite) { $Suite.Trim().ToLower() } else { "" }
+if ($requestedSuite -eq "status") {
+  Write-Host ""
+  Write-Host "  KWALIFY BENCHMARK STATUS" -ForegroundColor Magenta
+  Write-Host ""
+  try { Show-BenchmarkStatus | Out-Null } catch { Write-WarnLine $_.Exception.Message }
+  exit 0
+}
+
 Rotate-Log
 try {
   Start-Transcript -Path $logPath -Append | Out-Null

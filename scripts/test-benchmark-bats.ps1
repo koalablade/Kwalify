@@ -75,9 +75,11 @@ if ($LASTEXITCODE -eq 0 -and ($help -join "`n") -match "HUMAN PROMPT BENCHMARK")
 
 # --- 5. Status suite ---
 $status = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\run-kwalify-benchmark.ps1") -Suite status -NoMenu 2>&1
-if ($LASTEXITCODE -eq 0 -and ($status -join "`n") -match "KWALIFY BENCHMARK STATUS") {
+$statusText = $status -join "`n"
+if ($LASTEXITCODE -eq 0 -and $statusText -match "KWALIFY BENCHMARK STATUS") {
   Pass "suite status"
 } else {
+  Write-Host $statusText
   Fail "suite status (exit $LASTEXITCODE)"
 }
 
