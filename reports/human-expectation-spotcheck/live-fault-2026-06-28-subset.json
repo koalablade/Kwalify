@@ -1,0 +1,1282 @@
+{
+  "source": "2026-06-28T04:36:32.326Z",
+  "commit": "f27f3d1e37c0b8f956ee37ca23a6ce7dd1389be0",
+  "baseUrl": "https://kwalify.net",
+  "user": "koalablade",
+  "picked": [
+    {
+      "promptId": "chill-cozy-rain",
+      "prompt": "cozy rainy night chill",
+      "category": "chill",
+      "httpStatus": 200,
+      "error": null,
+      "trackCount": 25,
+      "requestedLength": 25,
+      "humanSaveable": true,
+      "curatorScore": 0.9999999999999999,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "human_saveable:passed"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.6735908267077847,
+        "humanPatternScore": 0.8384952,
+        "gateCuratorScore": 0.4754612096706595,
+        "combinedScore": 0.6735908267077847,
+        "humanSaveable": false,
+        "strictMode": true,
+        "humanPatternBreakdown": {
+          "artistSpacing": 1,
+          "artistDiversity": 1,
+          "discoveryRatio": 0.64,
+          "energyArc": 0.45568,
+          "transitions": 1,
+          "energyJumps": 1,
+          "popularityCurve": 0.7091666666666665,
+          "decadeBalance": 1,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.475 < 0.86",
+          "strict mode: genre families soundtrack, hip_hop, classical mix across primary world"
+        ]
+      },
+      "firstTen": [
+        "Heikki Mustonen \u2014 Routainen Maa (My Summer Car Soundtrack)",
+        "Fugazi \u2014 I'm So Tired",
+        "Chad VanGaalen \u2014 Stuttering Light",
+        "Will Varley \u2014 King for a King",
+        "Karen O \u2014 Igloo",
+        "Lola Young \u2014 Not Like That Anymore",
+        "Debbie Harry \u2014 Rush Rush",
+        "Oasis \u2014 Morning Glory - Remastered",
+        "Madness \u2014 Embarrassment - 2010 Remaster",
+        "Deftones \u2014 Sextape"
+      ],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "success_full",
+      "executionPath": "full_pipeline",
+      "fillRatio": 1,
+      "gateBypassed": false,
+      "pairwiseSelection": {
+        "selectionMethod": "pairwise_tournament",
+        "candidateCount": 8
+      }
+    },
+    {
+      "promptId": "launch-calibration-047",
+      "prompt": "winter but no christmas obviously",
+      "category": "chill",
+      "httpStatus": 409,
+      "error": "This playlist did not pass coherence validation in Strict mode. Try Balanced mode or broaden the prompt.",
+      "trackCount": 0,
+      "requestedLength": 30,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "unknown_exit:COHERENCE_GATE_FAILED"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.11225724835955057,
+        "humanPatternScore": 0.623651379775281,
+        "gateCuratorScore": 0,
+        "combinedScore": 0.11225724835955057,
+        "humanSaveable": false,
+        "strictMode": false,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0.7503121098626717,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 0,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 0.62,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.000 < 0.86"
+        ]
+      },
+      "firstTen": [],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "fault_conflict",
+      "executionPath": "unknown_exit",
+      "fillRatio": 0,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "launch-calibration-112",
+      "prompt": "not christmas winter warmth",
+      "category": "chill",
+      "httpStatus": 409,
+      "error": "This playlist did not pass coherence validation in Strict mode. Try Balanced mode or broaden the prompt.",
+      "trackCount": 0,
+      "requestedLength": 30,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "unknown_exit:COHERENCE_GATE_FAILED"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.11225724835955057,
+        "humanPatternScore": 0.623651379775281,
+        "gateCuratorScore": 0,
+        "combinedScore": 0.11225724835955057,
+        "humanSaveable": false,
+        "strictMode": false,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0.7503121098626717,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 0,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 0.62,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.000 < 0.86"
+        ]
+      },
+      "firstTen": [],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "fault_conflict",
+      "executionPath": "unknown_exit",
+      "fillRatio": 0,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "drive-late-garage",
+      "prompt": "late night uk garage drive",
+      "category": "driving",
+      "httpStatus": 422,
+      "error": "insufficient_intent_pool:33<38",
+      "trackCount": 0,
+      "requestedLength": 25,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": "focus_study",
+      "rejectionReasons": [
+        "insufficient_intent_pool:post_filter=33"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.11225724835955057,
+        "humanPatternScore": 0.623651379775281,
+        "gateCuratorScore": 0,
+        "combinedScore": 0.11225724835955057,
+        "humanSaveable": false,
+        "strictMode": true,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0.7503121098626717,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 0,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 0.62,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.000 < 0.86"
+        ]
+      },
+      "firstTen": [],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "fault_intent_pool_collapse",
+      "executionPath": "partial_pipeline",
+      "fillRatio": 0,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "drive-rainy-highway",
+      "prompt": "rainy highway driving",
+      "category": "driving",
+      "httpStatus": 200,
+      "error": null,
+      "trackCount": 30,
+      "requestedLength": 25,
+      "humanSaveable": true,
+      "curatorScore": 0.9999999999999999,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "human_saveable:passed"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.6327532300015318,
+        "humanPatternScore": 0.8077494857142857,
+        "gateCuratorScore": 0.43753820194309995,
+        "combinedScore": 0.6327532300015318,
+        "humanSaveable": false,
+        "strictMode": true,
+        "humanPatternBreakdown": {
+          "artistSpacing": 1,
+          "artistDiversity": 1,
+          "discoveryRatio": 0.5,
+          "energyArc": 0.45568,
+          "transitions": 1,
+          "energyJumps": 1,
+          "popularityCurve": 0.6162857142857143,
+          "decadeBalance": 1,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.438 < 0.86",
+          "strict mode: genre families soundtrack, hip_hop mix across primary world"
+        ]
+      },
+      "firstTen": [
+        "Heikki Mustonen \u2014 Routainen Maa (My Summer Car Soundtrack)",
+        "Fugazi \u2014 I'm So Tired",
+        "Bloc Party \u2014 Positive Tension",
+        "Noah Kahan \u2014 Your Needs, My Needs",
+        "Oasis \u2014 Champagne Supernova - Remastered",
+        "Dexter and The Moonrocks \u2014 Freakin\u2019 Out",
+        "Steely Dan \u2014 Only A Fool Would Say That",
+        "Baltazar Lora \u2014 There She Goes",
+        "Val Texas \u2014 JEAN SHORTS",
+        "Malcolm Todd \u2014 Sweet Boy"
+      ],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "success_full",
+      "executionPath": "full_pipeline",
+      "fillRatio": 1.2,
+      "gateBypassed": false,
+      "pairwiseSelection": {
+        "selectionMethod": "pairwise_tournament",
+        "candidateCount": 8
+      }
+    },
+    {
+      "promptId": "edge-4",
+      "prompt": "winter cozy not christmas",
+      "category": "edge_case",
+      "httpStatus": 409,
+      "error": "This generation was superseded or cancelled. Try again if you need a new playlist.",
+      "trackCount": 0,
+      "requestedLength": 25,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "unknown_exit:GENERATION_CANCELLED"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.11225724835955057,
+        "humanPatternScore": 0.623651379775281,
+        "gateCuratorScore": 0,
+        "combinedScore": 0.11225724835955057,
+        "humanSaveable": false,
+        "strictMode": true,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0.7503121098626717,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 0,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 0.62,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.000 < 0.86"
+        ]
+      },
+      "firstTen": [],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "fault_conflict",
+      "executionPath": "unknown_exit",
+      "fillRatio": 0,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "focus_coding",
+      "prompt": "deep focus coding session late evening electronic ambient",
+      "category": "editorial",
+      "httpStatus": 200,
+      "error": null,
+      "trackCount": 25,
+      "requestedLength": 25,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "gate_not_executed:timeout_fallback:cancelled_timeout_fallback"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.5819589947157694,
+        "humanPatternScore": 0.6237952000000001,
+        "gateCuratorScore": 0.4790359525563189,
+        "combinedScore": 0.5819589947157694,
+        "humanSaveable": false,
+        "strictMode": true,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 1,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 1,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.479 < 0.86"
+        ]
+      },
+      "firstTen": [
+        "M\u00d8RTY \u2014 ENTER THE RAVE",
+        "Sonny Wern \u2014 Dance For Me (1, 2, 3) - Stutter Techno",
+        "Spencer Ramsay \u2014 Beat Goes On - DnB Flip",
+        "Jax Jones \u2014 House Work",
+        "KegOne \u2014 Run Wi D Riddim",
+        "Macky Gee \u2014 Rave To The Grave",
+        "STUTTER TECHNO \u2014 WE ARE THE PEOPLE - STUTTER",
+        "Tiny Little Houses \u2014 Garbage Bin",
+        "System Of A Down \u2014 Aerials",
+        "YONAKA \u2014 Don't Wait 'Til Tomorrow"
+      ],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "success_full",
+      "executionPath": "timeout_fallback",
+      "fillRatio": 1,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "gym_boost",
+      "prompt": "gym confidence boost high energy workout",
+      "category": "editorial",
+      "httpStatus": 422,
+      "error": "Human saveability gate failed after 2 retries: wouldSaveScore 0.769 < 0.78; strict opening world requires 5 dominant-cluster tracks, found 2; interleaver audit failed: opening cluster purity degraded",
+      "trackCount": 0,
+      "requestedLength": 25,
+      "humanSaveable": false,
+      "curatorScore": 0.9999999999999999,
+      "editorialWorldTag": "gym_boost",
+      "rejectionReasons": [
+        "wouldSaveScore 0.769 < 0.78",
+        "strict opening world requires 5 dominant-cluster tracks, found 2",
+        "interleaver audit failed: opening cluster purity degraded"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.11225724835955057,
+        "humanPatternScore": 0.623651379775281,
+        "gateCuratorScore": 0,
+        "combinedScore": 0.11225724835955057,
+        "humanSaveable": false,
+        "strictMode": true,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0.7503121098626717,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 0,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 0.62,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.000 < 0.86"
+        ]
+      },
+      "firstTen": [],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "fault_422_other",
+      "executionPath": "gate_failure",
+      "fillRatio": 0,
+      "gateBypassed": false,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "rainy_walk",
+      "prompt": "rainy city morning walk with reflective mood",
+      "category": "editorial",
+      "httpStatus": 422,
+      "error": "Human saveability gate failed after 0 retries: interleaver audit failed: opening cluster purity degraded",
+      "trackCount": 0,
+      "requestedLength": 25,
+      "humanSaveable": false,
+      "curatorScore": 0.9999999999999999,
+      "editorialWorldTag": "indie_folk_rain_walk",
+      "rejectionReasons": [
+        "interleaver audit failed: opening cluster purity degraded"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.11225724835955057,
+        "humanPatternScore": 0.623651379775281,
+        "gateCuratorScore": 0,
+        "combinedScore": 0.11225724835955057,
+        "humanSaveable": false,
+        "strictMode": true,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0.7503121098626717,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 0,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 0.62,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.000 < 0.86"
+        ]
+      },
+      "firstTen": [],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "fault_422_other",
+      "executionPath": "gate_failure",
+      "fillRatio": 0,
+      "gateBypassed": false,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "study_session",
+      "prompt": "music for thinking and study session focus",
+      "category": "editorial",
+      "httpStatus": 200,
+      "error": null,
+      "trackCount": 30,
+      "requestedLength": 25,
+      "humanSaveable": true,
+      "curatorScore": 0.9999999999999999,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "human_saveable:passed"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.5783738154825699,
+        "humanPatternScore": 0.6867689827715356,
+        "gateCuratorScore": 0.3812761403059754,
+        "combinedScore": 0.5783738154825699,
+        "humanSaveable": false,
+        "strictMode": true,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0.3757802746566792,
+          "artistDiversity": 1,
+          "discoveryRatio": 0.9666666666666667,
+          "energyArc": 0.45568,
+          "transitions": 1,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 1,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.381 < 0.86",
+          "strict mode: genre families indie, soundtrack, electronic mix across primary world"
+        ]
+      },
+      "firstTen": [
+        "Wallows \u2014 Remember When",
+        "The Jungle Giants \u2014 Lights & Music - triple j Like A Version",
+        "General Levy \u2014 Jah Jah Bless",
+        "Beach House \u2014 Master of None",
+        "Title Fight \u2014 Safe In Your Skin",
+        "Deftones \u2014 Sextape",
+        "Bon Iver \u2014 Rosyln",
+        "Saliva \u2014 Click Click Boom",
+        "The Mar\u00edas \u2014 Hush - Still Woozy Remix",
+        "Heikki Mustonen \u2014 Routainen Maa (My Summer Car Soundtrack)"
+      ],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "success_full",
+      "executionPath": "full_pipeline",
+      "fillRatio": 1.2,
+      "gateBypassed": false,
+      "pairwiseSelection": {
+        "selectionMethod": "pairwise_tournament",
+        "candidateCount": 8
+      }
+    },
+    {
+      "promptId": "summer_morning",
+      "prompt": "Feel-good summer morning music to hype yourself up for the day, getting ready, and commuting to work.",
+      "category": "editorial",
+      "httpStatus": 200,
+      "error": null,
+      "trackCount": 25,
+      "requestedLength": 25,
+      "humanSaveable": true,
+      "curatorScore": 0.9999999999999999,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "human_saveable:passed"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.6176572960061157,
+        "humanPatternScore": 0.8510732898876404,
+        "gateCuratorScore": 0.3649118732389939,
+        "combinedScore": 0.6176572960061157,
+        "humanSaveable": false,
+        "strictMode": true,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0.8751560549313359,
+          "artistDiversity": 1,
+          "discoveryRatio": 0.96,
+          "energyArc": 0.45568,
+          "transitions": 1,
+          "energyJumps": 1,
+          "popularityCurve": 0.6279166666666663,
+          "decadeBalance": 1,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.365 < 0.86",
+          "strict mode: genre families soundtrack, hip_hop mix across primary world"
+        ]
+      },
+      "firstTen": [
+        "Heikki Mustonen \u2014 Routainen Maa (My Summer Car Soundtrack)",
+        "Fugazi \u2014 I'm So Tired",
+        "Oasis \u2014 Don't Look Back In Anger - Remastered",
+        "Oasis \u2014 Champagne Supernova - Remastered",
+        "Oasis \u2014 Morning Glory - Remastered",
+        "Eminem \u2014 Lose Yourself - From \"8 Mile\" Soundtrack",
+        "Gang Starr \u2014 Work",
+        "Chad VanGaalen \u2014 Stuttering Light",
+        "Will Varley \u2014 King for a King",
+        "Madness \u2014 Embarrassment - 2010 Remaster"
+      ],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "success_full",
+      "executionPath": "full_pipeline",
+      "fillRatio": 1,
+      "gateBypassed": false,
+      "pairwiseSelection": {
+        "selectionMethod": "pairwise_tournament",
+        "candidateCount": 8
+      }
+    },
+    {
+      "promptId": "era-8",
+      "prompt": "old school hip hop",
+      "category": "era_specific",
+      "httpStatus": 200,
+      "error": null,
+      "trackCount": 25,
+      "requestedLength": 25,
+      "humanSaveable": true,
+      "curatorScore": 0.9999999999999999,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "human_saveable:passed"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.8003199581765651,
+        "humanPatternScore": 0.7246504166934191,
+        "gateCuratorScore": 0.9999999999999999,
+        "combinedScore": 0.8003199581765651,
+        "humanSaveable": true,
+        "strictMode": false,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0.5006242197253433,
+          "artistDiversity": 1,
+          "discoveryRatio": 0.6,
+          "energyArc": 0.45568,
+          "transitions": 1,
+          "energyJumps": 1,
+          "popularityCurve": 0.5561904761904763,
+          "decadeBalance": 1,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": []
+      },
+      "firstTen": [
+        "gnash \u2014 Tell Me It's Okay",
+        "ArrDee \u2014 Oliver Twist",
+        "Jonas Brothers \u2014 Sucker",
+        "Chelsea Wolfe \u2014 Advice & Vices",
+        "Common Courtesy \u2014 I Can't Say I Meant It When I Said I'm Fine",
+        "Skepta \u2014 Back 2 Back",
+        "Nas \u2014 N.Y. State of Mind",
+        "ProdMarvin \u2014 Otra Vez",
+        "Headie One \u2014 18HUNNA (feat. Dave) - Four Tet Remix",
+        "Harvey Whyte \u2014 Mocktails and Weed"
+      ],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "success_full",
+      "executionPath": "full_pipeline",
+      "fillRatio": 1,
+      "gateBypassed": false,
+      "pairwiseSelection": {
+        "selectionMethod": "pairwise_tournament",
+        "candidateCount": 8
+      }
+    },
+    {
+      "promptId": "focus-coding",
+      "prompt": "calm coding focus",
+      "category": "focus",
+      "httpStatus": 200,
+      "error": null,
+      "trackCount": 30,
+      "requestedLength": 30,
+      "humanSaveable": true,
+      "curatorScore": 0.9999999999999999,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "human_saveable:passed"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.6232882541471093,
+        "humanPatternScore": 0.7991285333333333,
+        "gateCuratorScore": 0.38751323964103646,
+        "combinedScore": 0.6232882541471093,
+        "humanSaveable": false,
+        "strictMode": false,
+        "humanPatternBreakdown": {
+          "artistSpacing": 1,
+          "artistDiversity": 1,
+          "discoveryRatio": 0.9666666666666667,
+          "energyArc": 0.45568,
+          "transitions": 1,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 1,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.388 < 0.86"
+        ]
+      },
+      "firstTen": [
+        "The Killers \u2014 Glamorous Indie Rock & Roll",
+        "Oasis \u2014 Champagne Supernova - Remastered",
+        "Arctic Monkeys \u2014 Fluorescent Adolescent",
+        "Local H \u2014 Bound For The Floor",
+        "Bon Iver \u2014 Rosyln",
+        "Bloc Party \u2014 Positive Tension",
+        "Beach House \u2014 Space Song",
+        "Amy Winehouse \u2014 Valerie - BBC Radio 1 Live Lounge",
+        "MGMT \u2014 Little Dark Age",
+        "Madness \u2014 One Step Beyond - 2009 Remaster"
+      ],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "success_full",
+      "executionPath": "full_pipeline",
+      "fillRatio": 1,
+      "gateBypassed": false,
+      "pairwiseSelection": {
+        "selectionMethod": "pairwise_tournament",
+        "candidateCount": 8
+      }
+    },
+    {
+      "promptId": "genre-red-dirt",
+      "prompt": "american country cowboy red dirt",
+      "category": "genre_specific",
+      "httpStatus": 200,
+      "error": null,
+      "trackCount": 30,
+      "requestedLength": 30,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "gate_not_executed:timeout_fallback:express_timeout_fallback"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.8344289280000001,
+        "humanPatternScore": 0.8037952,
+        "gateCuratorScore": 0.9999999999999999,
+        "combinedScore": 0.8344289280000001,
+        "humanSaveable": true,
+        "strictMode": false,
+        "humanPatternBreakdown": {
+          "artistSpacing": 1,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 1,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 1,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": []
+      },
+      "firstTen": [
+        "Chris Stapleton \u2014 Tennessee Whiskey",
+        "49 Winchester \u2014 Annabel",
+        "Luke Combs \u2014 Beer Never Broke My Heart",
+        "Tyler Childers \u2014 Shake the Frost (Live)",
+        "Treaty Oak Revival \u2014 Missed Call",
+        "Kenny Chesney \u2014 Knowing You",
+        "Luke Combs \u2014 Beautiful Crazy",
+        "Tyler Childers \u2014 Feathered Indians",
+        "Sierra Ferrell \u2014 I Could Drive You Crazy",
+        "Colter Wall \u2014 Living on the Sand"
+      ],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "success_full",
+      "executionPath": "timeout_fallback",
+      "fillRatio": 1,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "genre-uk-garage",
+      "prompt": "late night uk garage",
+      "category": "genre_specific",
+      "httpStatus": 200,
+      "error": null,
+      "trackCount": 11,
+      "requestedLength": 25,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "gate_not_executed:timeout_fallback:express_timeout_fallback"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.7839905280000001,
+        "humanPatternScore": 0.8037952,
+        "gateCuratorScore": 0.9999999999999999,
+        "combinedScore": 0.7839905280000001,
+        "humanSaveable": false,
+        "strictMode": true,
+        "humanPatternBreakdown": {
+          "artistSpacing": 1,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 1,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 1,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "offending track rank 1: low scene cluster support (0.75) (Craig David)"
+        ]
+      },
+      "firstTen": [
+        "Craig David \u2014 Rewind",
+        "KURUPT FM \u2014 Dreaming (feat. Jaykae & MIST)",
+        "KURUPT FM \u2014 Blaze It (feat. Big Narstie)",
+        "Conducta \u2014 Whippet",
+        "Craig David \u2014 When the Bassline Drops",
+        "KURUPT FM \u2014 Your Mum Loves Garage",
+        "Artful Dodger \u2014 Re-Rewind (feat. Craig David)",
+        "Sweet Female Attitude \u2014 Flowers - Sunship Radio Edit",
+        "MJ Cole \u2014 Pictures In My Head - High Contrast Remix",
+        "ALEXYS \u2014 Wasting My Time - Speed Garage"
+      ],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "success_sparse",
+      "executionPath": "timeout_fallback",
+      "fillRatio": 0.44,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "launch-calibration-071",
+      "prompt": "grime walk through estate",
+      "category": "genre_specific",
+      "httpStatus": 422,
+      "error": "insufficient_intent_pool:12<45",
+      "trackCount": 0,
+      "requestedLength": 30,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": "gym_boost",
+      "rejectionReasons": [
+        "insufficient_intent_pool:post_filter=12"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.11225724835955057,
+        "humanPatternScore": 0.623651379775281,
+        "gateCuratorScore": 0,
+        "combinedScore": 0.11225724835955057,
+        "humanSaveable": false,
+        "strictMode": true,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0.7503121098626717,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 0,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 0.62,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.000 < 0.86"
+        ]
+      },
+      "firstTen": [],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "fault_intent_pool_collapse",
+      "executionPath": "partial_pipeline",
+      "fillRatio": 0,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "launch-calibration-085",
+      "prompt": "goth but danceable",
+      "category": "genre_specific",
+      "httpStatus": 409,
+      "error": "This playlist did not pass coherence validation in Strict mode. Try Balanced mode or broaden the prompt.",
+      "trackCount": 0,
+      "requestedLength": 30,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "unknown_exit:COHERENCE_GATE_FAILED"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.11225724835955057,
+        "humanPatternScore": 0.623651379775281,
+        "gateCuratorScore": 0,
+        "combinedScore": 0.11225724835955057,
+        "humanSaveable": false,
+        "strictMode": false,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0.7503121098626717,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 0,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 0.62,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.000 < 0.86"
+        ]
+      },
+      "firstTen": [],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "fault_conflict",
+      "executionPath": "unknown_exit",
+      "fillRatio": 0,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "golden-13",
+      "prompt": "underground hip hop",
+      "category": "golden_regression",
+      "httpStatus": 200,
+      "error": null,
+      "trackCount": 30,
+      "requestedLength": 30,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "gate_not_executed:timeout_fallback:cancelled_timeout_fallback"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.5886599132880106,
+        "humanPatternScore": 0.6237952000000001,
+        "gateCuratorScore": 0.5029678046000376,
+        "combinedScore": 0.5886599132880106,
+        "humanSaveable": false,
+        "strictMode": false,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 1,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 1,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.503 < 0.86"
+        ]
+      },
+      "firstTen": [
+        "Gang Starr \u2014 What I'm Here 4",
+        "Unknown T \u2014 Goodums - Sammy Virji Remix",
+        "Nirvana \u2014 Come As You Are",
+        "Rapsody \u2014 Believe Her",
+        "Machine Girl \u2014 Frenesi - Machine Girl GabberTrap Mix",
+        "Lil Nas X \u2014 THATS WHAT I WANT",
+        "System Of A Down \u2014 Aerials",
+        "YONAKA \u2014 Don't Wait 'Til Tomorrow",
+        "Indo \u2014 R U Sleeping - Bump 'N' Flex Remix",
+        "M|O|O|N \u2014 Hydrogen"
+      ],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "success_full",
+      "executionPath": "timeout_fallback",
+      "fillRatio": 1,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "golden-2",
+      "prompt": "hard techno gym",
+      "category": "golden_regression",
+      "httpStatus": 200,
+      "error": null,
+      "trackCount": 30,
+      "requestedLength": 30,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "gate_not_executed:timeout_fallback:absolute_watchdog_timeout_fallback"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.751643012387373,
+        "humanPatternScore": 0.6816794589620119,
+        "gateCuratorScore": 0.9999999999999999,
+        "combinedScore": 0.751643012387373,
+        "humanSaveable": false,
+        "strictMode": true,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0.3757802746566792,
+          "artistDiversity": 1,
+          "discoveryRatio": 0.8333333333333334,
+          "energyArc": 0.45568,
+          "transitions": 1,
+          "energyJumps": 1,
+          "popularityCurve": 0.11314285714285723,
+          "decadeBalance": 1,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "offending track rank 1: low scene cluster support (0.75) (Oliver Heldens)"
+        ]
+      },
+      "firstTen": [
+        "Oliver Heldens \u2014 Gecko (Overdrive)",
+        "TEKKNO \u2014 ilomilo tekkno",
+        "Tchami \u2014 Move Your Body (Future House)",
+        "Fred again.. \u2014 Jungle",
+        "Wankelmut \u2014 My Head Is A Jungle - MK Remix / Radio Edit",
+        "TECHNO N TEQUILLA \u2014 WINGS (TECHNO)",
+        "TommyMuzzic \u2014 Dance For Me Tekkno - TikTok Remix",
+        "Dimi Darko \u2014 Riddim is a Killa",
+        "Sweet Female Attitude \u2014 Flowers - Sunship Radio Edit",
+        "Craig David \u2014 When the Bassline Drops"
+      ],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "success_full",
+      "executionPath": "timeout_fallback",
+      "fillRatio": 1,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "gym-2000s-pop-punk",
+      "prompt": "2000s pop punk gym workout",
+      "category": "gym",
+      "httpStatus": 200,
+      "error": null,
+      "trackCount": 30,
+      "requestedLength": 30,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "gate_not_executed:timeout_fallback:cancelled_timeout_fallback"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.7279905280000001,
+        "humanPatternScore": 0.8037952,
+        "gateCuratorScore": 0.7999999999999999,
+        "combinedScore": 0.7279905280000001,
+        "humanSaveable": false,
+        "strictMode": true,
+        "humanPatternBreakdown": {
+          "artistSpacing": 1,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 1,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 1,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.800 < 0.86"
+        ]
+      },
+      "firstTen": [
+        "Mogwai \u2014 Take Me Somewhere Nice",
+        "The Hellacopters \u2014 Murder On My Mind",
+        "Iggy Pop \u2014 The Passenger",
+        "Jack Stauber \u2014 Buttercup",
+        "The Hellacopters \u2014 I'm In The Band",
+        "Jack Stauber \u2014 Oh Klahoma",
+        "Poppy \u2014 I Disagree",
+        "BROCKHAMPTON \u2014 SUGAR",
+        "Jim Legxacy \u2014 candy reign (!)",
+        "System Of A Down \u2014 Aerials"
+      ],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "success_full",
+      "executionPath": "timeout_fallback",
+      "fillRatio": 1,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "launch-calibration-114",
+      "prompt": "no rap just heavy workout",
+      "category": "gym",
+      "httpStatus": 422,
+      "error": "insufficient_intent_pool:opening_eligible=4<5",
+      "trackCount": 0,
+      "requestedLength": 30,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": "gym_boost",
+      "rejectionReasons": [
+        "insufficient_intent_pool:post_filter=4"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.11225724835955057,
+        "humanPatternScore": 0.623651379775281,
+        "gateCuratorScore": 0,
+        "combinedScore": 0.11225724835955057,
+        "humanSaveable": false,
+        "strictMode": false,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0.7503121098626717,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 0,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 0.62,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.000 < 0.86"
+        ]
+      },
+      "firstTen": [],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "fault_intent_pool_collapse",
+      "executionPath": "partial_pipeline",
+      "fillRatio": 0,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "launch-calibration-049",
+      "prompt": "xmas party actual christmas",
+      "category": "party",
+      "httpStatus": 200,
+      "error": null,
+      "trackCount": 30,
+      "requestedLength": 30,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "gate_not_executed:timeout_fallback:cancelled_timeout_fallback"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.629867270374145,
+        "humanPatternScore": 0.6237952000000001,
+        "gateCuratorScore": 0.6501369370505177,
+        "combinedScore": 0.629867270374145,
+        "humanSaveable": false,
+        "strictMode": false,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 1,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 1,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.650 < 0.86"
+        ]
+      },
+      "firstTen": [
+        "Wham! \u2014 Last Christmas",
+        "System Of A Down \u2014 Aerials",
+        "YONAKA \u2014 Don't Wait 'Til Tomorrow",
+        "Indo \u2014 R U Sleeping - Bump 'N' Flex Remix",
+        "M|O|O|N \u2014 Hydrogen",
+        "Blonde \u2014 I Loved You (feat. Melissa Steel)",
+        "dialE \u2014 Made In The East",
+        "Finn \u2014 Lovesick",
+        "Beyonc\u00e9 \u2014 Drunk in Love (feat. JAY-Z)",
+        "Bedside Kites \u2014 A Sad Song About a Girl I No Longer Know"
+      ],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "success_full",
+      "executionPath": "timeout_fallback",
+      "fillRatio": 1,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "party-70s-disco",
+      "prompt": "70s disco party dancefloor",
+      "category": "party",
+      "httpStatus": 200,
+      "error": null,
+      "trackCount": 30,
+      "requestedLength": 30,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": null,
+      "rejectionReasons": [
+        "gate_not_executed:timeout_fallback:cancelled_timeout_fallback"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.738428928,
+        "humanPatternScore": 0.8037952,
+        "gateCuratorScore": 0.7999999999999999,
+        "combinedScore": 0.738428928,
+        "humanSaveable": false,
+        "strictMode": false,
+        "humanPatternBreakdown": {
+          "artistSpacing": 1,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 1,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 1,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.800 < 0.86"
+        ]
+      },
+      "firstTen": [
+        "Funkadelic \u2014 Hit It and Quit It",
+        "Iggy Pop \u2014 The Passenger",
+        "Linda Ronstadt \u2014 Long Long Time",
+        "Harmful Logic \u2014 100PERCENTFEELINGS",
+        "Pink Floyd \u2014 Another Brick In The Wall, Pt. 2 - 2011 Remastered Version",
+        "Cher \u2014 Gypsys, Tramps & Thieves",
+        "Shuggie Otis \u2014 Sweet Thang",
+        "Lynyrd Skynyrd \u2014 Sweet Home Alabama",
+        "GRLwood \u2014 Get Shot",
+        "Eagles \u2014 Witchy Woman - 2013 Remaster"
+      ],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "success_full",
+      "executionPath": "timeout_fallback",
+      "fillRatio": 1,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "party-uk-freshers",
+      "prompt": "freshers pre drinks ukg grime buzzing night out",
+      "category": "party",
+      "httpStatus": 422,
+      "error": "insufficient_intent_pool:12<53",
+      "trackCount": 0,
+      "requestedLength": 30,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": "focus_study",
+      "rejectionReasons": [
+        "insufficient_intent_pool:post_filter=12"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.11225724835955057,
+        "humanPatternScore": 0.623651379775281,
+        "gateCuratorScore": 0,
+        "combinedScore": 0.11225724835955057,
+        "humanSaveable": false,
+        "strictMode": true,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0.7503121098626717,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 0,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 0.62,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.000 < 0.86"
+        ]
+      },
+      "firstTen": [],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "fault_intent_pool_collapse",
+      "executionPath": "partial_pipeline",
+      "fillRatio": 0,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    },
+    {
+      "promptId": "stress-live-22",
+      "prompt": "2000s pop punk gym workout with no pop music",
+      "category": "stress_live",
+      "httpStatus": 422,
+      "error": "insufficient_intent_pool:19<38",
+      "trackCount": 0,
+      "requestedLength": 25,
+      "humanSaveable": false,
+      "curatorScore": null,
+      "editorialWorldTag": "rock_anthem_drive",
+      "rejectionReasons": [
+        "insufficient_intent_pool:post_filter=19"
+      ],
+      "wouldISave": {
+        "wouldSaveScore": 0.11225724835955057,
+        "humanPatternScore": 0.623651379775281,
+        "gateCuratorScore": 0,
+        "combinedScore": 0.11225724835955057,
+        "humanSaveable": false,
+        "strictMode": true,
+        "humanPatternBreakdown": {
+          "artistSpacing": 0.7503121098626717,
+          "artistDiversity": 1,
+          "discoveryRatio": 1,
+          "energyArc": 0.45568,
+          "transitions": 0,
+          "energyJumps": 1,
+          "popularityCurve": 0,
+          "decadeBalance": 0.62,
+          "tempoDrift": 1
+        },
+        "gateRejectionReasons": [
+          "curatorScore 0.000 < 0.86"
+        ]
+      },
+      "firstTen": [],
+      "spotifyPlaylistUrl": null,
+      "failureBucket": "fault_intent_pool_collapse",
+      "executionPath": "partial_pipeline",
+      "fillRatio": 0,
+      "gateBypassed": true,
+      "pairwiseSelection": null
+    }
+  ]
+}
