@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "engines": {
-    "node": "20.x"
+    "node": ">=20 <23"
   },
   "scripts": {
     "build": "node scripts/prepare-dist.mjs && node node_modules/typescript/bin/tsc && node backend/dist/scripts/scene-cohesion-human-save-gate.js",
     "start": "node backend/dist/server.js",
     "test": "npm run build && node --test backend/dist/tests/smoke-launch.test.js backend/dist/tests/process-safety.test.js backend/dist/tests/pipeline-authority.test.js backend/dist/tests/pipeline-authority-hardening.test.js backend/dist/tests/pipeline-authority-verification.test.js",
-    "test:smoke": "npm run build && node --test backend/dist/tests/smoke-launch.test.js backend/dist/tests/process-safety.test.js backend/dist/tests/error-tracking.test.js",
+    "test:smoke": "npm run build && node --test backend/dist/tests/smoke-launch.test.js backend/dist/tests/process-safety.test.js backend/dist/tests/error-tracking.test.js backend/dist/tests/load-local-env.test.js",
     "test:benchmark-bats": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-benchmark-bats.ps1",
     "test:start-syntax": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-start-syntax.ps1",
     "test:website-routes": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-website-routes.ps1",
@@ -165,6 +165,7 @@
     "secrets:sync-spotify": "node scripts/setup-github-spotify-secrets.mjs",
     "corpus:fit-all": "node scripts/collect-playlist-genome.mjs --limit 80 --resume && npm run fit:preference-model && npm run fit:playlist-genome -- --in data/corpus/human-playlists.json",
     "export:blind-pairwise": "npm run build && node scripts/export-blind-pairwise-pairs.mjs",
+    "benchmark:pairwise-signatures": "npm run build && node backend/dist/scripts/pairwise-signature-benchmark.js",
     "benchmark:pairwise-human": "npm run build && node backend/dist/scripts/pairwise-human-playlist-benchmark.js",
     "benchmark:pairwise-human-live": "npm run build && node scripts/run-pairwise-human-benchmark-live.mjs",
     "benchmark:live-human-100": "npm run build && node scripts/run-live-human-benchmark-100.mjs",
@@ -226,9 +227,9 @@
   },
   "overrides": {
     "form-data": "4.0.6",
-    "esbuild": "^0.25.0",
+    "brace-expansion": "2.1.4",
     "tsx": {
-      "esbuild": "^0.25.0"
+      "esbuild": "0.28.1"
     }
   }
 }

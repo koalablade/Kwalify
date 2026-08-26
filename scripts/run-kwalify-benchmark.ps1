@@ -509,7 +509,7 @@ if (Test-Path $sc) { & powershell -NoProfile -ExecutionPolicy Bypass -File $sc -
 
 if (-not (Test-Path (Join-Path $root "package.json"))) { Exit-Benchmark 1 "Run from Kwalify project root." }
 
-. "$PSScriptRoot\load-dotenv.ps1" -Root $root
+. "$PSScriptRoot\load-dotenv.ps1" -Root $root -Optional
 if (-not $env:SMOKE_SPOTIFY_USER_ID) { $env:SMOKE_SPOTIFY_USER_ID = "koalablade" }
 
 if (-not $Production -and -not $PSBoundParameters.ContainsKey('SpawnLocal')) { $SpawnLocal = $true }

@@ -73,12 +73,16 @@ Flags (optional): `build` force rebuild, `nopull` skip git pull, `quick` skip re
 ### Local setup (manual)
 
 ```bash
+cp .env.example .env          # then fill SESSION_SECRET; add Spotify creds for login
+docker compose up -d          # PostgreSQL 16 at postgresql://kwalify:kwalify@localhost:5432/kwalify
 npm ci
 npm run build
-npm start
+npm start                     # loads .env; API at http://127.0.0.1:5000
 ```
 
-Use Node **20.x** (see `.nvmrc`). Quick check: `npm run test:smoke`
+Use Node **20.x** (see `.nvmrc`; Node 22 also works). Quick check: `npm run test:smoke`
+
+`npm start` reads `.env` from the repo root. The Windows `start.bat` launcher still injects `.env` itself.
 
 For HTTPS + Spotify locally on Windows, prefer **`start.bat`** over raw `npm start` — see [docs/deployment.md](./docs/deployment.md).
 

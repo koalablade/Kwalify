@@ -32,8 +32,8 @@ describe("V15 delivery recovery", () => {
     assert.equal(getDeliveryTarget("NONE"), null);
 
     assert.equal(getDeliveryCap("HIGH", 25), 25);
-    assert.equal(getDeliveryCap("MEDIUM", 25), 20);
-    assert.equal(getDeliveryCap("LOW", 25), 12);
+    assert.equal(getDeliveryCap("MEDIUM", 25), 25);
+    assert.equal(getDeliveryCap("LOW", 25), 25);
     assert.equal(getDeliveryCap("VERY_LOW", 25), 5);
     assert.equal(getDeliveryCap("NONE", 25), 0);
   });

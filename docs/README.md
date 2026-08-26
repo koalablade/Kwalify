@@ -31,6 +31,7 @@ This directory contains technical documentation for the Kwalify codebase.
 
 **Manual:**
 ```bash
+cp .env.example .env && docker compose up -d
 npm run build && npm start
 ```
 
