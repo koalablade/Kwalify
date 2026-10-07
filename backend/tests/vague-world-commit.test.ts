@@ -8,6 +8,8 @@ import { resolveCommittedWorld, hasExplicitMusicalHardLock } from "../core/commi
 import { evaluatePromptReadiness } from "../lib/prompt-readiness";
 import { resolveActivityProfile } from "../lib/activity-profiles";
 import { inferWorldIdentityIdsFromPrompt, passesWorldIdentity, stripRetrievalFillerTracks, demoteOpenerFillerTracks, sanitizePsychIndieOpenerChain, countPsychIndieOpenerFillers, maxPsychIndieOpenersForWorlds, OPENER_FILLER_PATTERN, worldIdentityProfilesForLock } from "../core/editorial/world-identity-gate";
+import { resolveWorldBoundary } from "../core/world-boundary";
+import { buildLockedIntent } from "../core/v3/intent";
 
 test("party prep vague prompts commit to party_prep_world", () => {
   const c = resolveVagueWorldCommit("hype night out", { tier: "low", promptConfidenceScore: 0.3 });
@@ -276,4 +278,61 @@ test("madchester britpop profile rejects remix bait titles", () => {
     ),
     false,
   );
+});
+
+// ── Phase 3: no accidental sunday_chill_world hard lock ─────────────────────
+
+// Prompts that name a genre/era, a high-energy moment or a specific human scene.
+const UNMATCHED_PROMPTS = [
+  "garage day with friends",
+  "hospital waiting room",
+  "90s hip hop",
+  "dark techno",
+];
+
+test("calm genre-less mood prompts keep the soft sunday_chill default", () => {
+  for (const prompt of ["melancholic", "Sunday anxiety", "just vibes"]) {
+    const commit = resolveVagueWorldCommit(prompt);
+    assert.equal(commit.worldId, "sunday_chill_world", prompt);
+    assert.equal(commit.reason, "vague_default_sunday_chill", prompt);
+  }
+});
+
+test("unmatched low-confidence prompts do not default-commit sunday_chill_world", () => {
+  for (const prompt of UNMATCHED_PROMPTS) {
+    const commit = resolveVagueWorldCommit(prompt);
+    assert.notEqual(commit.worldId, "sunday_chill_world", prompt);
+    assert.equal(shouldSuppressVagueWiden(commit), commit.action === "commit", prompt);
+    assert.ok(!inferWorldIdentityIdsFromPrompt(prompt).includes("sunday_chill_world"), prompt);
+  }
+});
+
+test("unmatched prompts do not acquire a sunday_chill_world hard lock", () => {
+  for (const prompt of UNMATCHED_PROMPTS) {
+    const committed = resolveCommittedWorld({ prompt, lockedIntent: buildLockedIntent(prompt) });
+    assert.notEqual(committed?.id, "sunday_chill_world", `${prompt}: committed ${committed?.id}`);
+    assert.ok(!(committed?.worldIds ?? []).includes("sunday_chill_world"), prompt);
+    const boundary = resolveWorldBoundary({ sceneLock: null, sceneAliases: [], scenePrediction: {}, prompt });
+    assert.ok(!(boundary.lockAnchors ?? []).includes("sunday_chill_world"), `${prompt}: ${boundary.reason}`);
+    assert.notEqual(boundary.reason, "world_purity_lock:sunday_chill_world", prompt);
+  }
+});
+
+test("unmatched prompts stay ready (no new clarification gate)", () => {
+  for (const prompt of UNMATCHED_PROMPTS) {
+    const r = evaluatePromptReadiness({ vibe: prompt, tier: "low", score: 0.2 });
+    assert.equal(r.ready, true, prompt);
+  }
+});
+
+test("genuine worlds keep their hard locks", () => {
+  const sunday = resolveCommittedWorld({ prompt: "something chill for Sunday morning", lockedIntent: buildLockedIntent("something chill for Sunday morning") });
+  assert.equal(sunday?.id, "sunday_chill_world");
+  assert.equal(sunday?.hardLock, true);
+  const petrol = resolveCommittedWorld({ prompt: "petrol station at 2am", lockedIntent: buildLockedIntent("petrol station at 2am") });
+  assert.equal(petrol?.id, "petrol_station_2am_world");
+  assert.equal(petrol?.hardLock, true);
+  const kitchen = resolveCommittedWorld({ prompt: "cooking dinner with friends", lockedIntent: buildLockedIntent("cooking dinner with friends") });
+  assert.equal(kitchen?.id, "social_kitchen_world");
+  assert.equal(kitchen?.hardLock, true);
 });

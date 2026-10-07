@@ -300,7 +300,10 @@ function humanPhraseIntentHints(input: string): HumanPhraseIntentHints {
 }
 
 function expandedActivity(input: string): string | null {
-  if (hasGarageToken(input) && !hasGarageMusicContext(input)) return "focus";
+  // A social garage/workshop hangout is not a focus/coding session. Downstream
+  // treats it as upbeat-social (isGarageHangoutContext), so classifying it as
+  // "focus" here produced contradictory hard gates (energy <= 0.40 AND >= 0.48).
+  if (hasGarageToken(input) && !hasGarageMusicContext(input) && !isGarageHangoutContext(input)) return "focus";
   // Coding / productivity "sprint" and work flow are focus — never gym.
   if (
     /\b(?:coding|productivity|design|shipping)\s+sprint\b/i.test(input) ||
@@ -311,6 +314,16 @@ function expandedActivity(input: string): string | null {
   }
   const hit = Object.entries(EXPANDED_ACTIVITY_TERMS)
     .find(([, terms]) => termRegex(terms).test(input))?.[0] ?? null;
+  // Garage/workshop vocabulary ("garage day", "workshop"…) maps to focus, but a
+  // garage hangout is social unless the user explicitly asks for focus/study.
+  if (
+    hit === "focus" &&
+    isGarageHangoutContext(input) &&
+    !hasGarageMusicContext(input) &&
+    !/\b(?:study|studying|focus|coding|deep\s+work|homework|revision|revising|concentrat(?:e|ion))\b/i.test(input)
+  ) {
+    return null;
+  }
   if (hit === "workout") return "gym";
   if (hit === "travel") return "walking";
   if (hit === "sleep") return "relaxing";
@@ -541,6 +554,16 @@ function excludedGenreFamilies(input: string): Set<string> {
 
 function hasGarageToken(input: string): boolean {
   return /\bgarage\b/i.test(input);
+}
+
+/**
+ * Garage/workshop hangout (friends, mates, cars, tools…) — a social situation.
+ * Single source of truth shared with the controller's upbeat-social gate.
+ * UK-garage *music* prompts are excluded by callers.
+ */
+export function isGarageHangoutContext(input: string): boolean {
+  return hasGarageToken(input) &&
+    /\b(?:friends?|mates?|saturday|night|cars?|working|workshop|tools?|fixing|hang(?:ing)?\s*out)\b/i.test(input);
 }
 
 function hasGarageMusicContext(input: string): boolean {

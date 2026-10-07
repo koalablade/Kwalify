@@ -5,6 +5,10 @@
  * Prefer commit > clarify > refuse. Clarify only when two worlds are near-tied.
  */
 
+import { analyzeVibe } from "./emotion";
+import { resolveHumanScene } from "./human-scene-knowledge";
+import { promptHasExplicitGenreConstraint } from "./vibe-genre-bias";
+
 export type VagueCommitAction = "commit" | "clarify" | "passthrough";
 
 export type VagueWorldCommit = {
@@ -154,7 +158,9 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
     priority: 9,
     patterns: [
       /\b(?:sunday morning|sunday reset|cozy sunday|cozy evening|sofa|chill for sunday|chill evening|warm after.?work|after work unwind)\b/i,
-      /\b(?:hospital waiting|weirdly calm|assembling ikea|ikea furniture|songs that sound like autumn)\b/i,
+      // "hospital waiting" intentionally NOT here: it is tense stillness, not cozy chill
+      // (see expectation-contract / benchmark "suspended dread"); the scene system owns it.
+      /\b(?:weirdly calm|assembling ikea|ikea furniture|songs that sound like autumn)\b/i,
     ],
   },
   {
@@ -372,7 +378,28 @@ export function resolveVagueWorldCommit(
         alternatives: [],
       };
     }
-    // Default commit for unmapped vague lifestyle language — one safe world.
+    const alternatives = [
+      { worldId: "feel_good_world", label: "feel-good / hype", sceneId: "HOPE_NEW_CHAPTER" },
+      { worldId: "soft_sad_world", label: "gentle sad / tender", sceneId: "HEARTBREAK" },
+    ];
+    // The soft "sunday / cozy chill" default only suits calm, genre-less mood
+    // prompts ("melancholic", "rainy day"). It must not override what the prompt
+    // actually names: an explicit genre/era ("90s hip hop", "dark techno"), a
+    // high-energy moment ("garage day with friends", "happy upbeat party") or a
+    // recognised human scene ("hospital waiting room"). Real-library runs showed
+    // those prompts collapsing into the same acoustic-indie playlist.
+    if (!allowsSoftSundayDefault(p)) {
+      return {
+        action: "passthrough",
+        worldId: null,
+        sceneId: null,
+        confidence: confScore,
+        reason: "no_everyday_map_named_intent",
+        label: "",
+        alternatives,
+      };
+    }
+    // Default commit for unmapped calm, genre-less mood language — one safe world.
     return {
       action: "commit",
       worldId: "sunday_chill_world",
@@ -380,10 +407,7 @@ export function resolveVagueWorldCommit(
       confidence: 0.62,
       reason: "vague_default_sunday_chill",
       label: "sunday / cozy chill",
-      alternatives: [
-        { worldId: "feel_good_world", label: "feel-good / hype", sceneId: "HOPE_NEW_CHAPTER" },
-        { worldId: "soft_sad_world", label: "gentle sad / tender", sceneId: "HEARTBREAK" },
-      ],
+      alternatives,
     };
   }
 
@@ -422,4 +446,27 @@ export function resolveVagueWorldCommit(
 /** True when generation should suppress multi-scene entropy / soft surprise widen. */
 export function shouldSuppressVagueWiden(commit: VagueWorldCommit): boolean {
   return commit.action === "commit" && !!commit.worldId;
+}
+
+const SOFT_DEFAULT_MAX_ENERGY = 0.75;
+const SOFT_DEFAULT_MAX_SCENE_CONFIDENCE = 0.6;
+const softDefaultCache = new Map<string, boolean>();
+
+/** True when an unmatched prompt is calm, names no genre/era and no specific human scene. */
+export function allowsSoftSundayDefault(prompt: string): boolean {
+  const key = prompt.trim().toLowerCase();
+  const cached = softDefaultCache.get(key);
+  if (cached !== undefined) return cached;
+  let allowed = false;
+  try {
+    allowed =
+      !promptHasExplicitGenreConstraint(prompt) &&
+      analyzeVibe(prompt).energy < SOFT_DEFAULT_MAX_ENERGY &&
+      resolveHumanScene(prompt).confidence < SOFT_DEFAULT_MAX_SCENE_CONFIDENCE;
+  } catch {
+    allowed = false;
+  }
+  if (softDefaultCache.size > 500) softDefaultCache.clear();
+  softDefaultCache.set(key, allowed);
+  return allowed;
 }

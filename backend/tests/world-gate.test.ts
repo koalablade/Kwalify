@@ -56,14 +56,15 @@ test("sad party bangers defers hard lock", () => {
   assert.ok(decision.reasons.some((r) => r.includes("tension")));
 });
 
-test("energetic but not cheesy defers hard lock", () => {
+test("energetic but not cheesy is not hard-locked", () => {
+  // High-energy prompts no longer get the soft sunday_chill default, so there is no hard lock to defer.
   const decision = gate("energetic but not cheesy");
-  assert.equal(decision.deferHardLock, true);
+  assert.notEqual(decision.mode, "hard_lock");
 });
 
-test("deep house afterparty defers on genre/world mismatch or vague fallback", () => {
+test("deep house afterparty is not hard-locked to an unrelated world", () => {
   const decision = gate("deep house afterparty");
-  assert.equal(decision.deferHardLock, true);
+  assert.notEqual(decision.mode, "hard_lock");
 });
 
 test("sunset beach reggae stays hard lock", () => {
@@ -77,13 +78,22 @@ test("negation alone does not force defer when world aligns", () => {
 });
 
 test("isVagueDefaultWorld detects sunday_chill on non-sunday prompt", () => {
-  const world = resolveCommittedWorld({ prompt: "sad party bangers" });
-  assert.ok(world);
+  // "sad party bangers" no longer receives the soft sunday_chill default; check the
+  // detector directly on an inferred sunday_chill world.
+  assert.notEqual(resolveCommittedWorld({ prompt: "sad party bangers" })?.id, "sunday_chill_world");
+  const world = {
+    ...resolveCommittedWorld({ prompt: "something chill for Sunday morning" })!,
+    source: "inferred",
+    reason: "world_purity_lock:sunday_chill_world",
+    musicalWorldId: null,
+    hardLock: false,
+  } as Parameters<typeof isVagueDefaultWorld>[0];
   assert.equal(isVagueDefaultWorld(world, "sad party bangers"), true);
 });
 
 test("genreAlignsWithWorld rejects deep_house vs sunday_chill", () => {
-  const world = resolveCommittedWorld({ prompt: "deep house afterparty" })!;
+  const world = resolveCommittedWorld({ prompt: "something chill for Sunday morning" })!;
+  assert.equal(world.id, "sunday_chill_world");
   assert.equal(genreAlignsWithWorld({ value: "deep_house", source: "test", confidence: 0.8 }, world), false);
 });
 

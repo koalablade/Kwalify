@@ -108,6 +108,7 @@ import { getDiscoveryModeReadiness } from "../lib/discovery-mode";
 import { isShuttingDown } from "../lib/shutdown";
 import { createGenerateStageTimer, GENERATE_PIPELINE_STAGE_STUCK_MS } from "../lib/generate-stage-timer";
 import { buildFallbackPipelineResult, buildCachedGenerateResponse, buildFastFallbackSceneContext, formatTracksForApi } from "../lib/generate-helpers";
+import { buildLibraryTrackIdSet, enforceLibraryDeliveryPurity } from "../lib/library-delivery-guard";
 import { attachScoreAttribution } from "../core/scoring-engine/score-breakdown";
 import { repairHumanTastePlaylist } from "../lib/human-taste-validator";
 import {
@@ -328,6 +329,7 @@ import {
   buildLockedIntent as buildCsspLockedIntent,
   completeLockedIntent as completeCsspLockedIntent,
   GENRE_ALIASES,
+  isGarageHangoutContext,
 } from "../core/v3/intent";
 import {
   EXPANDED_ACTIVITY_TERMS,
@@ -2763,9 +2765,7 @@ function trackIsBroadDrivingSafe(track: ConstraintTrack): boolean {
 }
 
 function isGarageHangoutPrompt(vibe: string): boolean {
-  return /\bgarage\b/i.test(vibe) &&
-    /\b(?:friends?|mates?|saturday|night|cars?|working|workshop|tools?|fixing|hang(?:ing)?\s*out)\b/i.test(vibe) &&
-    !isUkGaragePrompt(vibe);
+  return isGarageHangoutContext(vibe) && !isUkGaragePrompt(vibe);
 }
 
 function isUpbeatSocialPrompt(vibe: string, intent: LockedIntent): boolean {
@@ -14496,6 +14496,50 @@ router.post("/generate", async (req, res): Promise<void> => {
         productionHygiene: productionHygieneDiagnostics,
       },
     };
+    // Final library-purity boundary (library mode only). Runs after every
+    // post-freeze mutation and before Spotify / saved-playlist / cache writes;
+    // catalogue tracks from world expansion or replacement pools are removed here.
+    {
+      const libraryTrackIds = buildLibraryTrackIdSet(likedSongs);
+      const purityOpts = { noLibraryMode: !!noLibraryMode, libraryTrackIds };
+      const deliveredPurity = enforceLibraryDeliveryPurity(deliveredTracks, {
+        ...purityOpts,
+        getTrackId: (track) => track.trackId,
+      });
+      const apiPurity = enforceLibraryDeliveryPurity(finalApiTracks, {
+        ...purityOpts,
+        getTrackId: (track) => track.id,
+      });
+      if (deliveredPurity.removed.length > 0 || apiPurity.removed.length > 0) {
+        deliveredTracks = deliveredPurity.tracks;
+        finalApiTracks = apiPurity.tracks;
+        const libraryPurityGuard = {
+          removedCount: Math.max(deliveredPurity.removed.length, apiPurity.removed.length),
+          removedTrackIds: deliveredPurity.removed.map((track) => track.trackId).slice(0, 20),
+          deliveredAfter: deliveredTracks.length,
+        };
+        Object.assign(generationDiagnosticsWithTimeline, { libraryPurityGuard });
+        req.log.warn(libraryPurityGuard, "library_purity_guard_removed_non_library_tracks");
+        if (deliveredTracks.length === 0 || finalApiTracks.length === 0) {
+          setGeneratePhase(generateSessionUserId, requestId, "error");
+          generateFail(
+            res,
+            200,
+            "LIBRARY_INSUFFICIENT_FOR_PROMPT",
+            "Your liked songs don't have enough tracks for this prompt. Try a broader prompt or Discovery Mode.",
+            {
+              requestId,
+              failureSessionId: requestId,
+              reason: "LIBRARY_INSUFFICIENT_FOR_PROMPT",
+              canUseDiscoveryMode: true,
+              suggestDiscoveryMode: true,
+              suggestRefinePrompt: true,
+            },
+          );
+          return;
+        }
+      }
+    }
     setGeneratePhase(generateSessionUserId, requestId, "spotify");
     setGenerateStageDetail(
       generateSessionUserId,
