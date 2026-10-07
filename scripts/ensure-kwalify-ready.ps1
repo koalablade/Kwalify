@@ -109,13 +109,9 @@ $cf = Find-Cloudflared
 Ensure-CloudflareLogin $cf
 Ensure-TunnelConfig $cf
 
-$marker = Join-Path $Root ".kwalify-startup-tasks-done"
-if (-not (Test-Path -LiteralPath $marker)) {
-  Step "One-time startup tasks"
-  try { & (Join-Path $Root "scripts\schedule-db-backup.ps1") } catch {}
-  try { & (Join-Path $Root "scripts\schedule-weekly-maintenance.ps1") } catch {}
-  Set-Content -LiteralPath $marker -Value (Get-Date -Format o) -Encoding ASCII
-}
+# Scheduled tasks (nightly backup, weekly maintenance) are no longer registered
+# automatically on start - Kwalify only runs when explicitly started. Run
+# scripts\schedule-db-backup.ps1 / schedule-weekly-maintenance.ps1 manually to opt in.
 
 Step "Startup maintenance and audits"
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\ensure-startup-maintenance.ps1") -Root $Root

@@ -1,4 +1,4 @@
-# Simple local Kwalify server control (used by KWALIFY-START.bat / KWALIFY-STOP.bat).
+# Simple local Kwalify server control (used by local\START.bat / local\STOP.bat).
 #
 #   start : check prerequisites + PostgreSQL, build only if stale, run the existing
 #           server (node backend/dist/server.js, i.e. what `npm start` runs) in this
@@ -77,7 +77,7 @@ function Get-PortOwnerIds([int]$port) {
 }
 
 # Returns the running Kwalify server process for this repo/port, or $null.
-# 1) the PID recorded by KWALIFY-START (verified: same start time, node running server.js)
+# 1) the PID recorded by local\START.bat (verified: same start time, node running server.js)
 # 2) otherwise a node process running backend\dist\server.js that owns the Kwalify port
 #    (covers servers started by the older start.bat / start-kwalify.bat launchers)
 function Find-KwalifyServer([int]$port) {
@@ -148,7 +148,7 @@ function Test-PostgresReachable {
     Say "  No PostgreSQL Windows service was found on this PC." "Yellow"
     Say "  Start your PostgreSQL server (the one DATABASE_URL in .env points to)." "Yellow"
   }
-  Say "  Then double-click KWALIFY-START.bat again. (Nothing was changed.)" "Yellow"
+  Say "  Then double-click local\START.bat again. (Nothing was changed.)" "Yellow"
   return $false
 }
 
@@ -195,6 +195,31 @@ exit 0
   return ($p.ExitCode -eq 0)
 }
 
+# -- Auto-start check (report only; changes nothing) --
+$KwalifyTaskNames = @("Kwalify-SelfHost-Start", "Kwalify-Uptime-Check", "Kwalify-Weekly-Maintenance", "Kwalify-Daily-DB-Backup")
+function Get-KwalifyScheduledTasks {
+  $found = @()
+  try {
+    foreach ($t in (Get-ScheduledTask -ErrorAction Stop)) {
+      $actionText = (($t.Actions | ForEach-Object { "$($_.Execute) $($_.Arguments) $($_.WorkingDirectory)" }) -join " ")
+      if (($KwalifyTaskNames -contains $t.TaskName) -or ($actionText -and $actionText.IndexOf($Root, [StringComparison]::OrdinalIgnoreCase) -ge 0)) {
+        $found += $t
+      }
+    }
+  } catch {}
+  return $found
+}
+
+function Show-AutostartWarning {
+  $tasks = @(Get-KwalifyScheduledTasks | Where-Object { $_.State -ne "Disabled" })
+  if ($tasks.Count -eq 0) { return }
+  Say ""
+  Say "  Note: Windows still has Kwalify tasks that run on their own:" "Yellow"
+  foreach ($t in $tasks) { Say "    - $($t.TaskName)" "Yellow" }
+  Say "  To remove them once: double-click local\TURN-OFF-AUTOSTART.bat" "Yellow"
+  Say ""
+}
+
 # --
 function Invoke-Start {
   $host.UI.RawUI.WindowTitle = "Kwalify server"
@@ -212,6 +237,7 @@ function Invoke-Start {
 
   if (-not (Import-KwalifyEnv)) { return 1 }
   $port = Get-Port
+  Show-AutostartWarning
 
   $existing = Find-KwalifyServer $port
   if ($existing) {
@@ -219,7 +245,7 @@ function Invoke-Start {
     Say "Kwalify is already running (PID $($existing.Id)) - not starting a second copy." "Green"
     Say "http://localhost:$port"
     if (-not (Test-Ready $port)) { Say "  (it is still starting up or not ready yet)" "Yellow" }
-    Say "To stop it: double-click KWALIFY-STOP.bat"
+    Say "To stop it: double-click local\STOP.bat"
     return 0
   }
 
@@ -294,11 +320,11 @@ function Invoke-Start {
       Say "  (public URL in .env: $($env:APP_URL) - needs the Cloudflare tunnel, which this script does not manage)" "DarkGray"
     }
     Say ""
-    Say "Keep this window open. To stop: double-click KWALIFY-STOP.bat (or press Ctrl+C here)." "Cyan"
+    Say "Keep this window open. To stop: double-click local\STOP.bat (or press Ctrl+C here)." "Cyan"
     Say ""
     while (-not $proc.HasExited) { Start-Sleep -Seconds 1 }
   } finally {
-    # Reached on normal exit, on Ctrl+C, or when KWALIFY-STOP sends Ctrl+C.
+    # Reached on normal exit, on Ctrl+C, or when local\STOP.bat sends Ctrl+C.
     if (-not $proc.HasExited) {
       Say ""
       Say "Waiting for Kwalify to shut down gracefully (up to $StopTimeoutSec s)..." "Yellow"
@@ -372,7 +398,7 @@ function Invoke-Stop {
 }
 
 if ($Action -eq "start") {
-  # Launched with -NoExit by KWALIFY-START.bat so this window stays open (logs and
+  # Launched with -NoExit by local\START.bat so this window stays open (logs and
   # errors remain visible) whether startup fails, the server stops, or Ctrl+C is used.
   $null = Invoke-Start
   Say ""

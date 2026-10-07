@@ -9,13 +9,13 @@ Optional: production-ready.bat  (monthly — am I production ready?)
 
 That is the whole routine.
 
-JUST THE LOCAL SERVER (simplest)
---------------------------------
-  KWALIFY-START.bat   Start the Kwalify server on this PC (http://localhost:<PORT>)
-  KWALIFY-STOP.bat    Stop it gracefully (does not touch PostgreSQL)
+JUST THE LOCAL SERVER (simplest) - open the "local" folder
+----------------------------------------------------------
+  local\START.bat   Start Kwalify on this PC (http://localhost:<PORT>)
+  local\STOP.bat    Stop it cleanly (does not touch PostgreSQL)
+  local\README.txt  What these do
 
-  Uses your existing .env. PostgreSQL must already be running.
-  Does not start the Cloudflare tunnel (public kwalify.net) - use start.bat for that.
+  Kwalify stays OFF until you double-click START.bat.
 
 FIRST TIME ONLY
 ---------------

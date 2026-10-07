@@ -70,9 +70,8 @@ if ($due) {
   }
 }
 
-if (Ensure-WeeklyMaintenanceScheduled -RootPath $Root) {
-  Write-Host "  Weekly maintenance task: registered (Sundays 10:00)" -ForegroundColor DarkGray
-}
+# Weekly maintenance is no longer auto-registered as a scheduled task on start
+# (opt in manually with scripts\schedule-weekly-maintenance.ps1).
 
 if ($warnings.Count -gt 0) {
   Write-Host ""
