@@ -1,0 +1,493 @@
+From bd5de183c3dd9848b0e4e7d016d87724c387d6e5 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 7 Oct 2026 20:38:37 +0100
+Subject: [PATCH] Phase 3: remove accidental sunday_chill lock, enforce library
+ purity, fix garage focus/social contradiction
+
+Fix 1: resolveVagueWorldCommit no longer default-commits sunday_chill_world for
+unmatched low-confidence prompts (now passthrough), so inferWorldIdentityIdsFromPrompt
+/ resolveWorldBoundary no longer hard-lock them. "hospital waiting" removed from
+the sunday_chill everyday patterns. Genuine everyday/named worlds unchanged.
+
+Fix 2: new lib/library-delivery-guard.ts; the /generate handler filters
+deliveredTracks and finalApiTracks to verified Liked Songs ids in library mode
+immediately before Spotify / saved-playlist / cache side effects. Discovery
+mode (noLibraryMode) untouched. Empty result -> LIBRARY_INSUFFICIENT_FOR_PROMPT.
+
+Fix 3: garage hangout prompts no longer resolve to activity "focus" in
+core/v3/intent.ts; isGarageHangoutContext is shared with the controller's
+upbeat-social gate so the two cannot disagree.
+
+Tests: regression tests in vague-world-commit, activity-profiles and new
+library-delivery-guard suites; one v6 assertion that depended on the removed
+default lock updated.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_019ZXcZ6mmUzET3Rv3zbL34D
+---
+ backend/controllers/generation.controller.ts  | 50 ++++++++++-
+ backend/core/v3/intent.ts                     | 25 +++++-
+ backend/lib/library-delivery-guard.ts         | 50 +++++++++++
+ backend/lib/vague-world-commit.ts             | 20 +++--
+ backend/tests/activity-profiles.test.ts       | 35 ++++++++
+ backend/tests/library-delivery-guard.test.ts  | 85 +++++++++++++++++++
+ backend/tests/v6-human-quality-sprint.test.ts |  5 +-
+ backend/tests/vague-world-commit.test.ts      | 52 ++++++++++++
+ 8 files changed, 309 insertions(+), 13 deletions(-)
+ create mode 100644 backend/lib/library-delivery-guard.ts
+ create mode 100644 backend/tests/library-delivery-guard.test.ts
+
+diff --git a/backend/controllers/generation.controller.ts b/backend/controllers/generation.controller.ts
+index a270e83..f29c8a2 100644
+--- a/backend/controllers/generation.controller.ts
++++ b/backend/controllers/generation.controller.ts
+@@ -107,6 +107,7 @@ import { getDiscoveryModeReadiness } from "../lib/discovery-mode";
+ import { isShuttingDown } from "../lib/shutdown";
+ import { createGenerateStageTimer, GENERATE_PIPELINE_STAGE_STUCK_MS } from "../lib/generate-stage-timer";
+ import { buildFallbackPipelineResult, buildCachedGenerateResponse, buildFastFallbackSceneContext, formatTracksForApi } from "../lib/generate-helpers";
++import { buildLibraryTrackIdSet, enforceLibraryDeliveryPurity } from "../lib/library-delivery-guard";
+ import { attachScoreAttribution } from "../core/scoring-engine/score-breakdown";
+ import { repairHumanTastePlaylist } from "../lib/human-taste-validator";
+ import {
+@@ -313,6 +314,7 @@ import {
+   buildLockedIntent as buildCsspLockedIntent,
+   completeLockedIntent as completeCsspLockedIntent,
+   GENRE_ALIASES,
++  isGarageHangoutContext,
+ } from "../core/v3/intent";
+ import {
+   EXPANDED_ACTIVITY_TERMS,
+@@ -2713,9 +2715,7 @@ function trackIsBroadDrivingSafe(track: ConstraintTrack): boolean {
+ }
+ 
+ function isGarageHangoutPrompt(vibe: string): boolean {
+-  return /\bgarage\b/i.test(vibe) &&
+-    /\b(?:friends?|mates?|saturday|night|cars?|working|workshop|tools?|fixing|hang(?:ing)?\s*out)\b/i.test(vibe) &&
+-    !isUkGaragePrompt(vibe);
++  return isGarageHangoutContext(vibe) && !isUkGaragePrompt(vibe);
+ }
+ 
+ function isUpbeatSocialPrompt(vibe: string, intent: LockedIntent): boolean {
+@@ -14121,6 +14121,50 @@ router.post("/generate", async (req, res): Promise<void> => {
+         productionHygiene: productionHygieneDiagnostics,
+       },
+     };
++    // Final library-purity boundary (library mode only). Runs after every
++    // post-freeze mutation and before Spotify / saved-playlist / cache writes;
++    // catalogue tracks from world expansion or replacement pools are removed here.
++    {
++      const libraryTrackIds = buildLibraryTrackIdSet(likedSongs);
++      const purityOpts = { noLibraryMode: !!noLibraryMode, libraryTrackIds };
++      const deliveredPurity = enforceLibraryDeliveryPurity(deliveredTracks, {
++        ...purityOpts,
++        getTrackId: (track) => track.trackId,
++      });
++      const apiPurity = enforceLibraryDeliveryPurity(finalApiTracks, {
++        ...purityOpts,
++        getTrackId: (track) => track.id,
++      });
++      if (deliveredPurity.removed.length > 0 || apiPurity.removed.length > 0) {
++        deliveredTracks = deliveredPurity.tracks;
++        finalApiTracks = apiPurity.tracks;
++        const libraryPurityGuard = {
++          removedCount: Math.max(deliveredPurity.removed.length, apiPurity.removed.length),
++          removedTrackIds: deliveredPurity.removed.map((track) => track.trackId).slice(0, 20),
++          deliveredAfter: deliveredTracks.length,
++        };
++        Object.assign(generationDiagnosticsWithTimeline, { libraryPurityGuard });
++        req.log.warn(libraryPurityGuard, "library_purity_guard_removed_non_library_tracks");
++        if (deliveredTracks.length === 0 || finalApiTracks.length === 0) {
++          setGeneratePhase(generateSessionUserId, requestId, "error");
++          generateFail(
++            res,
++            200,
++            "LIBRARY_INSUFFICIENT_FOR_PROMPT",
++            "Your liked songs don't have enough tracks for this prompt. Try a broader prompt or Discovery Mode.",
++            {
++              requestId,
++              failureSessionId: requestId,
++              reason: "LIBRARY_INSUFFICIENT_FOR_PROMPT",
++              canUseDiscoveryMode: true,
++              suggestDiscoveryMode: true,
++              suggestRefinePrompt: true,
++            },
++          );
++          return;
++        }
++      }
++    }
+     setGeneratePhase(generateSessionUserId, requestId, "spotify");
+     setGenerateStageDetail(
+       generateSessionUserId,
+diff --git a/backend/core/v3/intent.ts b/backend/core/v3/intent.ts
+index 33c566e..9476f2b 100644
+--- a/backend/core/v3/intent.ts
++++ b/backend/core/v3/intent.ts
+@@ -300,7 +300,10 @@ function humanPhraseIntentHints(input: string): HumanPhraseIntentHints {
+ }
+ 
+ function expandedActivity(input: string): string | null {
+-  if (hasGarageToken(input) && !hasGarageMusicContext(input)) return "focus";
++  // A social garage/workshop hangout is not a focus/coding session. Downstream
++  // treats it as upbeat-social (isGarageHangoutContext), so classifying it as
++  // "focus" here produced contradictory hard gates (energy <= 0.40 AND >= 0.48).
++  if (hasGarageToken(input) && !hasGarageMusicContext(input) && !isGarageHangoutContext(input)) return "focus";
+   // Coding / productivity "sprint" and work flow are focus — never gym.
+   if (
+     /\b(?:coding|productivity|design|shipping)\s+sprint\b/i.test(input) ||
+@@ -311,6 +314,16 @@ function expandedActivity(input: string): string | null {
+   }
+   const hit = Object.entries(EXPANDED_ACTIVITY_TERMS)
+     .find(([, terms]) => termRegex(terms).test(input))?.[0] ?? null;
++  // Garage/workshop vocabulary ("garage day", "workshop"…) maps to focus, but a
++  // garage hangout is social unless the user explicitly asks for focus/study.
++  if (
++    hit === "focus" &&
++    isGarageHangoutContext(input) &&
++    !hasGarageMusicContext(input) &&
++    !/\b(?:study|studying|focus|coding|deep\s+work|homework|revision|revising|concentrat(?:e|ion))\b/i.test(input)
++  ) {
++    return null;
++  }
+   if (hit === "workout") return "gym";
+   if (hit === "travel") return "walking";
+   if (hit === "sleep") return "relaxing";
+@@ -543,6 +556,16 @@ function hasGarageToken(input: string): boolean {
+   return /\bgarage\b/i.test(input);
+ }
+ 
++/**
++ * Garage/workshop hangout (friends, mates, cars, tools…) — a social situation.
++ * Single source of truth shared with the controller's upbeat-social gate.
++ * UK-garage *music* prompts are excluded by callers.
++ */
++export function isGarageHangoutContext(input: string): boolean {
++  return hasGarageToken(input) &&
++    /\b(?:friends?|mates?|saturday|night|cars?|working|workshop|tools?|fixing|hang(?:ing)?\s*out)\b/i.test(input);
++}
++
+ function hasGarageMusicContext(input: string): boolean {
+   return hasGarageToken(input) &&
+     !hasGaragePhysicalContext(input) &&
+diff --git a/backend/lib/library-delivery-guard.ts b/backend/lib/library-delivery-guard.ts
+new file mode 100644
+index 0000000..18f9d92
+--- /dev/null
++++ b/backend/lib/library-delivery-guard.ts
+@@ -0,0 +1,50 @@
++/**
++ * Final library-purity boundary for /generate.
++ *
++ * In normal library mode (noLibraryMode === false) every delivered track must be
++ * one of the user's Liked Songs. Earlier stages (world expansion, thesis opener,
++ * purity/human-curation replacement pools) can carry Spotify catalogue tracks, so
++ * this runs immediately before the Spotify / saved-playlist / result-cache side
++ * effects and does not trust any earlier filter.
++ *
++ * Discovery Mode (noLibraryMode === true) is intentionally untouched.
++ */
++
++export type LibraryDeliveryGuardResult<T> = {
++  tracks: T[];
++  removed: T[];
++  /** True when the guard was applied (library mode). */
++  enforced: boolean;
++};
++
++export function buildLibraryTrackIdSet(
++  library: ReadonlyArray<{ trackId?: string | null }>,
++): Set<string> {
++  const ids = new Set<string>();
++  for (const track of library) {
++    if (typeof track.trackId === "string" && track.trackId) ids.add(track.trackId);
++  }
++  return ids;
++}
++
++export function enforceLibraryDeliveryPurity<T>(
++  tracks: readonly T[],
++  opts: {
++    noLibraryMode: boolean;
++    libraryTrackIds: ReadonlySet<string>;
++    getTrackId: (track: T) => string | null | undefined;
++  },
++): LibraryDeliveryGuardResult<T> {
++  if (opts.noLibraryMode) {
++    return { tracks: [...tracks], removed: [], enforced: false };
++  }
++  const kept: T[] = [];
++  const removed: T[] = [];
++  for (const track of tracks) {
++    const id = opts.getTrackId(track);
++    // Tracks without a verifiable id are rejected rather than assumed to be liked.
++    if (typeof id === "string" && id && opts.libraryTrackIds.has(id)) kept.push(track);
++    else removed.push(track);
++  }
++  return { tracks: kept, removed, enforced: true };
++}
+diff --git a/backend/lib/vague-world-commit.ts b/backend/lib/vague-world-commit.ts
+index d3d1662..01c0b94 100644
+--- a/backend/lib/vague-world-commit.ts
++++ b/backend/lib/vague-world-commit.ts
+@@ -153,7 +153,9 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
+     priority: 9,
+     patterns: [
+       /\b(?:sunday morning|sunday reset|cozy evening|sofa|chill for sunday|chill evening|warm after.?work|after work unwind)\b/i,
+-      /\b(?:hospital waiting|weirdly calm|assembling ikea|ikea furniture|songs that sound like autumn)\b/i,
++      // "hospital waiting" intentionally NOT here: it is tense stillness, not cozy chill
++      // (see expectation-contract / benchmark "suspended dread"); the scene system owns it.
++      /\b(?:weirdly calm|assembling ikea|ikea furniture|songs that sound like autumn)\b/i,
+     ],
+   },
+   {
+@@ -317,14 +319,16 @@ export function resolveVagueWorldCommit(
+         alternatives: [],
+       };
+     }
+-    // Default commit for unmapped vague lifestyle language — one safe world.
++    // No everyday world matched. Do NOT commit (and therefore hard-lock) an
++    // unrelated default world — let the scene / emotion / intent systems drive
++    // retrieval instead. Alternatives are kept for clarification UX only.
+     return {
+-      action: "commit",
+-      worldId: "sunday_chill_world",
+-      sceneId: "SLOW_MORNING_COFFEE",
+-      confidence: 0.62,
+-      reason: "vague_default_sunday_chill",
+-      label: "sunday / cozy chill",
++      action: "passthrough",
++      worldId: null,
++      sceneId: null,
++      confidence: confScore,
++      reason: "no_everyday_map_low_confidence",
++      label: "",
+       alternatives: [
+         { worldId: "feel_good_world", label: "feel-good / hype", sceneId: "HOPE_NEW_CHAPTER" },
+         { worldId: "soft_sad_world", label: "gentle sad / tender", sceneId: "HEARTBREAK" },
+diff --git a/backend/tests/activity-profiles.test.ts b/backend/tests/activity-profiles.test.ts
+index 4e8304f..deaa524 100644
+--- a/backend/tests/activity-profiles.test.ts
++++ b/backend/tests/activity-profiles.test.ts
+@@ -7,6 +7,7 @@ import {
+   activityGenreMultiplier,
+   isPartyPregamePrompt,
+ } from "../lib/activity-profiles";
++import { buildLockedIntent, isGarageHangoutContext } from "../core/v3/intent";
+ 
+ test("resolveActivityProfile detects focus coding and study separately", () => {
+   const coding = resolveActivityProfile("deep focus coding session late evening", { activity: null });
+@@ -66,3 +67,37 @@ test("gym requires high energy floor", () => {
+   assert.ok(trackFailsActivityHardGate({ energy: 0.55 }, null, profile!, "gym workout"));
+   assert.equal(trackFailsActivityHardGate({ energy: 0.78, tempo: 124, danceability: 0.7 }, null, profile!, "gym workout"), false);
+ });
++
++// ── Phase 3: garage hangout is social, not focus/coding ─────────────────────
++
++test("garage day with friends is a social hangout, not focus/coding", () => {
++  const prompt = "garage day with friends";
++  const intent = buildLockedIntent(prompt);
++  assert.notEqual(intent.activity, "focus");
++  const profile = resolveActivityProfile(prompt, intent);
++  assert.ok(profile?.id !== "focus_coding" && profile?.id !== "study", String(profile?.id));
++  // Upbeat-social (energy >= 0.48) still applies via the shared hangout helper,
++  // and the focus ceiling (energy <= 0.40) no longer does — no empty window.
++  assert.equal(isGarageHangoutContext(prompt), true);
++  for (const p of ["fixing cars in the garage with mates", "saturday in the garage hanging out"]) {
++    assert.notEqual(buildLockedIntent(p).activity, "focus", p);
++    assert.notEqual(resolveActivityProfile(p, buildLockedIntent(p))?.id, "focus_coding", p);
++  }
++});
++
++test("genuine focus/coding/study prompts keep focus behaviour", () => {
++  for (const p of ["deep focus coding session late evening", "coding sprint", "deep work no distractions"]) {
++    const intent = buildLockedIntent(p);
++    assert.equal(resolveActivityProfile(p, intent)?.id, "focus_coding", p);
++  }
++  assert.equal(resolveActivityProfile("study for exams with calm background music", buildLockedIntent("study for exams with calm background music"))?.id, "study");
++  // Bare garage with no social/workshop context keeps its previous focus reading.
++  assert.equal(buildLockedIntent("in the garage").activity, "focus");
++  assert.equal(isGarageHangoutContext("in the garage"), false);
++});
++
++test("genuine social/upbeat prompts still resolve as social", () => {
++  assert.equal(isPartyPregamePrompt("pre drinks before a night out with friends", buildLockedIntent("pre drinks before a night out with friends")), true);
++  assert.equal(resolveActivityProfile("pre drinks before a night out with friends", buildLockedIntent("pre drinks before a night out with friends"))?.id, "party_pregame");
++  assert.equal(isGarageHangoutContext("garage with mates working on the car"), true);
++});
+diff --git a/backend/tests/library-delivery-guard.test.ts b/backend/tests/library-delivery-guard.test.ts
+new file mode 100644
+index 0000000..9c74351
+--- /dev/null
++++ b/backend/tests/library-delivery-guard.test.ts
+@@ -0,0 +1,85 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { readFileSync } from "node:fs";
++import path from "node:path";
++import { buildLibraryTrackIdSet, enforceLibraryDeliveryPurity } from "../lib/library-delivery-guard";
++import { buildLockedIntent } from "../core/v3/intent";
++import { resolveCommittedWorld } from "../core/committed-world";
++import { resolveCulturalProfileForCommitted } from "../core/editorial/world-identity-score";
++import { enforceThesisOpener } from "../core/editorial/thesis-opener-gate";
++
++const CONTROLLER = path.join(path.resolve(__dirname, "../../.."), "backend/controllers/generation.controller.ts");
++
++type T = { trackId: string; trackName: string; artistName: string; albumName: string; releaseYear?: number | null; energy?: number | null; valence?: number | null; genreFamily?: string; genrePrimary?: string };
++
++const library: T[] = ["Bon Iver", "Fleet Foxes", "Phoebe Bridgers", "Big Thief", "The National", "Novo Amor"].map((artistName, i) => ({
++  trackId: `LIB_${i}`,
++  trackName: `${artistName} song`,
++  artistName,
++  albumName: "Album",
++  releaseYear: 2012,
++  energy: 0.35,
++  valence: 0.3,
++  genreFamily: "indie",
++  genrePrimary: "indie folk",
++}));
++const catalogue: T = { trackId: "CAT_m83", trackName: "Midnight City", artistName: "M83", albumName: "Hurry Up, We're Dreaming", releaseYear: 2011, energy: null, valence: null };
++const libraryTrackIds = buildLibraryTrackIdSet(library);
++const byTrackId = (t: T) => t.trackId;
++
++test("library guard: all-library delivery is unchanged", () => {
++  const out = enforceLibraryDeliveryPurity(library, { noLibraryMode: false, libraryTrackIds, getTrackId: byTrackId });
++  assert.deepEqual(out.tracks.map(byTrackId), library.map(byTrackId));
++  assert.equal(out.removed.length, 0);
++  assert.equal(out.enforced, true);
++});
++
++test("library guard: catalogue track is removed in library mode", () => {
++  const out = enforceLibraryDeliveryPurity([catalogue, ...library], { noLibraryMode: false, libraryTrackIds, getTrackId: byTrackId });
++  assert.ok(!out.tracks.some((t) => t.trackId === catalogue.trackId));
++  assert.deepEqual(out.removed.map(byTrackId), [catalogue.trackId]);
++  assert.equal(out.tracks.length, library.length);
++});
++
++test("library guard: tracks without a verifiable id are rejected", () => {
++  const out = enforceLibraryDeliveryPurity([{ ...library[0]!, trackId: "" }], { noLibraryMode: false, libraryTrackIds, getTrackId: byTrackId });
++  assert.equal(out.tracks.length, 0);
++});
++
++test("library guard: discovery / no-library mode keeps catalogue tracks", () => {
++  const out = enforceLibraryDeliveryPurity([catalogue, ...library], { noLibraryMode: true, libraryTrackIds, getTrackId: byTrackId });
++  assert.equal(out.enforced, false);
++  assert.equal(out.tracks.length, library.length + 1);
++  assert.equal(out.tracks[0]!.trackId, catalogue.trackId);
++});
++
++test("library guard: catalogue track injected by the thesis-opener replacement path is removed", () => {
++  // Real production path: a hard-locked world with a cultural profile lets
++  // enforceThesisOpener promote an expansion (catalogue) track to position 1.
++  const prompt = "night drive";
++  const committed = resolveCommittedWorld({ prompt, lockedIntent: buildLockedIntent(prompt) });
++  const profile = resolveCulturalProfileForCommitted(committed);
++  assert.ok(committed?.hardLock && profile, "night drive should have a profiled hard-locked world");
++  const thesis = enforceThesisOpener(library, profile, committed, [catalogue], 20, []);
++  assert.ok(thesis.tracks.some((t) => t.trackId === catalogue.trackId), "precondition: catalogue track was injected");
++  const out = enforceLibraryDeliveryPurity(thesis.tracks, { noLibraryMode: false, libraryTrackIds, getTrackId: byTrackId });
++  assert.ok(out.tracks.every((t) => libraryTrackIds.has(t.trackId)));
++  assert.ok(out.removed.some((t) => t.trackId === catalogue.trackId));
++});
++
++test("controller applies the library guard after all post-freeze mutations and before side effects", () => {
++  const source = readFileSync(CONTROLLER, "utf8");
++  const freeze = source.indexOf('pipelineAuthority.freezeTerminal("terminal_delivery")');
++  const guard = source.indexOf("enforceLibraryDeliveryPurity(deliveredTracks");
++  const apiGuard = source.indexOf("enforceLibraryDeliveryPurity(finalApiTracks");
++  const sideEffects = source.indexOf("await runPostHygieneSideEffects();");
++  const cacheWrite = source.indexOf("setCachedGenerateResult(resultCacheKey");
++  assert.ok(freeze > 0 && guard > freeze && apiGuard > guard, "guard must follow freezeTerminal");
++  assert.ok(sideEffects > apiGuard, "guard must precede Spotify/DB side effects");
++  assert.ok(cacheWrite > sideEffects, "cache write must follow the guard");
++  assert.equal(source.split("await runPostHygieneSideEffects();").length - 1, 1, "single side-effect call site");
++  // No reassignment of the delivered payload between the guard and the side effects.
++  const between = source.slice(apiGuard, sideEffects);
++  const reassignments = between.match(/\b(?:deliveredTracks|finalApiTracks)\s*=(?!=)/g) ?? [];
++  assert.deepEqual(reassignments.map((r) => r.replace(/\s+/g, "")), ["deliveredTracks=", "finalApiTracks="]);
++});
+diff --git a/backend/tests/v6-human-quality-sprint.test.ts b/backend/tests/v6-human-quality-sprint.test.ts
+index 178fcbe..ca71fd6 100644
+--- a/backend/tests/v6-human-quality-sprint.test.ts
++++ b/backend/tests/v6-human-quality-sprint.test.ts
+@@ -486,7 +486,10 @@ describe("V6 human quality sprint", () => {
+   });
+ 
+   it("vague lifestyle prompts reject Bon Iver opener without sad-indie mood", () => {
+-    for (const prompt of ["just vibes", "windows-down road trip singalong energy"]) {
++    // "just vibes" used to pass only via the accidental sunday_chill_world default
++    // hard lock (removed in Phase 3); unmatched prompts no longer commit a world.
++    assert.equal(resolveCommittedWorld({ prompt: "just vibes" }), null);
++    for (const prompt of ["windows-down road trip singalong energy"]) {
+       const committed = resolveCommittedWorld({ prompt });
+       assert.ok(committed, prompt);
+       const result = evaluateIntentFidelity({
+diff --git a/backend/tests/vague-world-commit.test.ts b/backend/tests/vague-world-commit.test.ts
+index c0ebe6c..d2cd7d4 100644
+--- a/backend/tests/vague-world-commit.test.ts
++++ b/backend/tests/vague-world-commit.test.ts
+@@ -7,6 +7,9 @@ import {
+ import { evaluatePromptReadiness } from "../lib/prompt-readiness";
+ import { resolveActivityProfile } from "../lib/activity-profiles";
+ import { inferWorldIdentityIdsFromPrompt, passesWorldIdentity, stripRetrievalFillerTracks, demoteOpenerFillerTracks, sanitizePsychIndieOpenerChain, countPsychIndieOpenerFillers, maxPsychIndieOpenersForWorlds, OPENER_FILLER_PATTERN, worldIdentityProfilesForLock } from "../core/editorial/world-identity-gate";
++import { resolveCommittedWorld } from "../core/committed-world";
++import { resolveWorldBoundary } from "../core/world-boundary";
++import { buildLockedIntent } from "../core/v3/intent";
+ 
+ test("party prep vague prompts commit to party_prep_world", () => {
+   const c = resolveVagueWorldCommit("hype night out", { tier: "low", promptConfidenceScore: 0.3 });
+@@ -236,3 +239,52 @@ test("madchester britpop profile rejects remix bait titles", () => {
+     false,
+   );
+ });
++
++// ── Phase 3: no accidental sunday_chill_world hard lock ─────────────────────
++
++const UNMATCHED_PROMPTS = [
++  "Sunday anxiety",
++  "garage day with friends",
++  "hospital waiting room",
++  "90s hip hop",
++  "dark techno",
++];
++
++test("unmatched low-confidence prompts do not default-commit sunday_chill_world", () => {
++  for (const prompt of UNMATCHED_PROMPTS) {
++    const commit = resolveVagueWorldCommit(prompt);
++    assert.notEqual(commit.worldId, "sunday_chill_world", prompt);
++    assert.equal(shouldSuppressVagueWiden(commit), commit.action === "commit", prompt);
++    assert.ok(!inferWorldIdentityIdsFromPrompt(prompt).includes("sunday_chill_world"), prompt);
++  }
++});
++
++test("unmatched prompts do not acquire a sunday_chill_world hard lock", () => {
++  for (const prompt of UNMATCHED_PROMPTS) {
++    const committed = resolveCommittedWorld({ prompt, lockedIntent: buildLockedIntent(prompt) });
++    assert.notEqual(committed?.id, "sunday_chill_world", `${prompt}: committed ${committed?.id}`);
++    assert.ok(!(committed?.worldIds ?? []).includes("sunday_chill_world"), prompt);
++    const boundary = resolveWorldBoundary({ sceneLock: null, sceneAliases: [], scenePrediction: {}, prompt });
++    assert.ok(!(boundary.lockAnchors ?? []).includes("sunday_chill_world"), `${prompt}: ${boundary.reason}`);
++    assert.notEqual(boundary.reason, "world_purity_lock:sunday_chill_world", prompt);
++  }
++});
++
++test("unmatched prompts stay ready (no new clarification gate)", () => {
++  for (const prompt of UNMATCHED_PROMPTS) {
++    const r = evaluatePromptReadiness({ vibe: prompt, tier: "low", score: 0.2 });
++    assert.equal(r.ready, true, prompt);
++  }
++});
++
++test("genuine worlds keep their hard locks", () => {
++  const sunday = resolveCommittedWorld({ prompt: "something chill for Sunday morning", lockedIntent: buildLockedIntent("something chill for Sunday morning") });
++  assert.equal(sunday?.id, "sunday_chill_world");
++  assert.equal(sunday?.hardLock, true);
++  const petrol = resolveCommittedWorld({ prompt: "petrol station at 2am", lockedIntent: buildLockedIntent("petrol station at 2am") });
++  assert.equal(petrol?.id, "petrol_station_2am_world");
++  assert.equal(petrol?.hardLock, true);
++  const kitchen = resolveCommittedWorld({ prompt: "cooking dinner with friends", lockedIntent: buildLockedIntent("cooking dinner with friends") });
++  assert.equal(kitchen?.id, "social_kitchen_world");
++  assert.equal(kitchen?.hardLock, true);
++});
+-- 
+2.43.0
+

@@ -1,0 +1,469 @@
+From 6f76c7ff39e5ef93e011c2402a8e1d0bfdc932bb Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 7 Oct 2026 20:51:10 +0100
+Subject: [PATCH] Add KWALIFY-START.bat / KWALIFY-STOP.bat for simple local
+ server control
+
+KWALIFY-START: checks Node/npm, loads the existing .env (values never printed),
+refuses to start a second copy, refuses to touch a foreign process holding the
+port, checks PostgreSQL reachability (TCP only, never starts or modifies it),
+runs npm ci only if node_modules is missing, builds only when backend sources
+are newer than backend/dist, then runs node backend/dist/server.js (what npm
+start runs) in its own window and waits for /api/readyz.
+
+KWALIFY-STOP: finds the server via a recorded PID (verified by start time and
+command line) or the node server.js process owning the port, sends Ctrl+C to
+its console (the server's existing graceful SIGINT shutdown), waits up to 130s,
+and only offers a force-stop of that verified PID if it does not exit.
+
+Existing launchers (start.bat, start-kwalify.bat, stop-kwalify.bat, ...) are
+unchanged. Different file names are used because START-KWALIFY.bat would be the
+same file as start-kwalify.bat on Windows.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_019ZXcZ6mmUzET3Rv3zbL34D
+---
+ KWALIFY-START.bat         |   5 +
+ KWALIFY-STOP.bat          |   8 +
+ START-HERE.txt            |   8 +
+ scripts/kwalify-local.ps1 | 382 ++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 403 insertions(+)
+ create mode 100644 KWALIFY-START.bat
+ create mode 100644 KWALIFY-STOP.bat
+ create mode 100644 scripts/kwalify-local.ps1
+
+diff --git a/KWALIFY-START.bat b/KWALIFY-START.bat
+new file mode 100644
+index 0000000..e3a7f5d
+--- /dev/null
++++ b/KWALIFY-START.bat
+@@ -0,0 +1,5 @@
++@echo off
++rem Start the local Kwalify server. Stop it with KWALIFY-STOP.bat.
++rem Opens a "Kwalify server" window that shows startup checks and server logs.
++cd /d "%~dp0"
++start "Kwalify server" powershell -NoProfile -NoExit -ExecutionPolicy Bypass -File "%~dp0scripts\kwalify-local.ps1" -Action start
+diff --git a/KWALIFY-STOP.bat b/KWALIFY-STOP.bat
+new file mode 100644
+index 0000000..97ef441
+--- /dev/null
++++ b/KWALIFY-STOP.bat
+@@ -0,0 +1,8 @@
++@echo off
++rem Gracefully stop the local Kwalify server started by KWALIFY-START.bat.
++rem Does not stop PostgreSQL or any other program.
++title Stop Kwalify
++cd /d "%~dp0"
++powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\kwalify-local.ps1" -Action stop
++echo.
++pause
+diff --git a/START-HERE.txt b/START-HERE.txt
+index afaf374..43675e2 100644
+--- a/START-HERE.txt
++++ b/START-HERE.txt
+@@ -9,6 +9,14 @@ Optional: production-ready.bat  (monthly — am I production ready?)
+ 
+ That is the whole routine.
+ 
++JUST THE LOCAL SERVER (simplest)
++--------------------------------
++  KWALIFY-START.bat   Start the Kwalify server on this PC (http://localhost:<PORT>)
++  KWALIFY-STOP.bat    Stop it gracefully (does not touch PostgreSQL)
++
++  Uses your existing .env. PostgreSQL must already be running.
++  Does not start the Cloudflare tunnel (public kwalify.net) - use start.bat for that.
++
+ FIRST TIME ONLY
+ ---------------
+   setup-self-host.bat          (once)
+diff --git a/scripts/kwalify-local.ps1 b/scripts/kwalify-local.ps1
+new file mode 100644
+index 0000000..434976a
+--- /dev/null
++++ b/scripts/kwalify-local.ps1
+@@ -0,0 +1,382 @@
++# Simple local Kwalify server control (used by KWALIFY-START.bat / KWALIFY-STOP.bat).
++#
++#   start : check prerequisites + PostgreSQL, build only if stale, run the existing
++#           server (node backend/dist/server.js, i.e. what `npm start` runs) in this
++#           console, wait for /api/readyz, then keep showing server logs.
++#   stop  : find THIS Kwalify server process, send it Ctrl+C (graceful SIGINT
++#           shutdown, same as pressing Ctrl+C in its window), wait for it to exit.
++#
++# Never starts/stops PostgreSQL, never edits .env, never kills processes it cannot
++# positively identify as the Kwalify server. Written for Windows PowerShell 5.1.
++param(
++  [Parameter(Mandatory = $true)]
++  [ValidateSet("start", "stop")]
++  [string]$Action
++)
++
++$ErrorActionPreference = "Stop"
++$Root = Split-Path -Parent $PSScriptRoot
++$ServerEntry = "backend\dist\server.js"
++$ServerEntryPattern = 'backend[\\/]+dist[\\/]+server\.js'
++$StateDir = Join-Path $Root "reports"
++$StateFile = Join-Path $StateDir ".kwalify-local-server.json"
++$StopTimeoutSec = 130   # server grace window is 100s for in-flight playlist generations
++$ReadyTimeoutSec = 180
++
++function Say([string]$msg, [string]$color = "Gray") { Write-Host $msg -ForegroundColor $color }
++function Ok([string]$msg) { Say "  [ok] $msg" "Green" }
++function Problem([string]$msg) { Say "  [!!] $msg" "Red" }
++
++# -- .env (existing mechanism; values are never printed) --
++function Import-KwalifyEnv {
++  $envFile = Join-Path $Root ".env"
++  if (-not (Test-Path -LiteralPath $envFile)) {
++    Problem ".env not found in $Root"
++    Say "       Kwalify needs its .env file (copy .env.example to .env and fill it in)." "Yellow"
++    return $false
++  }
++  . (Join-Path $PSScriptRoot "load-dotenv.ps1") -Root $Root
++  if (-not $env:PORT) {
++    $env:PORT = "5000"
++    Say "  PORT not set in .env - using 5000 (same default as the other launchers)." "Yellow"
++  }
++  return $true
++}
++
++function Get-Port { if ($env:PORT) { [int]$env:PORT } else { 5000 } }
++
++# -- Process identification --
++function Get-NodeCommandLine([int]$procId) {
++  try {
++    $p = Get-CimInstance Win32_Process -Filter "ProcessId = $procId" -ErrorAction Stop
++    if ($p -and $p.Name -ieq "node.exe") { return [string]$p.CommandLine }
++  } catch {}
++  return $null
++}
++
++function Test-IsKwalifyServer([int]$procId) {
++  $cmd = Get-NodeCommandLine $procId
++  return [bool]($cmd -and ($cmd -match $ServerEntryPattern))
++}
++
++function Read-State {
++  if (-not (Test-Path -LiteralPath $StateFile)) { return $null }
++  try { return (Get-Content -LiteralPath $StateFile -Raw | ConvertFrom-Json) } catch { return $null }
++}
++
++function Clear-State([int]$procId) {
++  $s = Read-State
++  if ($s -and ([int]$s.pid -eq $procId)) { Remove-Item -LiteralPath $StateFile -Force -ErrorAction SilentlyContinue }
++}
++
++function Get-PortOwnerIds([int]$port) {
++  try {
++    return @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction Stop |
++      Select-Object -ExpandProperty OwningProcess -Unique)
++  } catch { return @() }
++}
++
++# Returns the running Kwalify server process for this repo/port, or $null.
++# 1) the PID recorded by KWALIFY-START (verified: same start time, node running server.js)
++# 2) otherwise a node process running backend\dist\server.js that owns the Kwalify port
++#    (covers servers started by the older start.bat / start-kwalify.bat launchers)
++function Find-KwalifyServer([int]$port) {
++  $s = Read-State
++  if ($s -and $s.pid) {
++    $p = Get-Process -Id ([int]$s.pid) -ErrorAction SilentlyContinue
++    if ($p) {
++      $sameStart = $false
++      try { $sameStart = ([math]::Abs($p.StartTime.ToUniversalTime().Ticks - [long]$s.startTicksUtc) -lt 20000000) } catch {}
++      if ($sameStart -and (Test-IsKwalifyServer $p.Id)) { return $p }
++    }
++    Remove-Item -LiteralPath $StateFile -Force -ErrorAction SilentlyContinue   # stale record
++  }
++  foreach ($ownerId in (Get-PortOwnerIds $port)) {
++    if (Test-IsKwalifyServer $ownerId) { return (Get-Process -Id $ownerId -ErrorAction SilentlyContinue) }
++  }
++  return $null
++}
++
++function Get-Readiness([int]$port) {
++  try {
++    $r = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$port/api/readyz" -TimeoutSec 4
++    return ($r.Content | ConvertFrom-Json)
++  } catch {
++    $resp = $_.Exception.Response
++    if ($resp) {
++      try {
++        $reader = New-Object System.IO.StreamReader($resp.GetResponseStream())
++        return ($reader.ReadToEnd() | ConvertFrom-Json)
++      } catch {}
++    }
++    return $null
++  }
++}
++
++function Test-Ready([int]$port) {
++  $rz = Get-Readiness $port
++  return [bool]($rz -and $rz.status -eq "ready")
++}
++
++# -- PostgreSQL reachability (TCP only; no credentials used, nothing modified) --
++function Test-PostgresReachable {
++  if (-not $env:DATABASE_URL) {
++    Problem "DATABASE_URL is not set in .env."
++    return $false
++  }
++  $dbHost = "localhost"; $dbPort = 5432
++  try {
++    $u = [Uri]($env:DATABASE_URL -replace '^postgres(ql)?://', 'http://')
++    if ($u.Host) { $dbHost = $u.Host }
++    if ($u.Port -gt 0 -and $u.Port -ne 80) { $dbPort = $u.Port }
++  } catch {}
++  $client = New-Object System.Net.Sockets.TcpClient
++  try {
++    $ok = $client.ConnectAsync($dbHost, $dbPort).Wait(3000) -and $client.Connected
++  } catch { $ok = $false } finally { $client.Close() }
++  if ($ok) { Ok "PostgreSQL reachable at ${dbHost}:$dbPort"; return $true }
++
++  Problem "PostgreSQL is not reachable at ${dbHost}:$dbPort"
++  $svc = Get-Service -Name "postgresql*" -ErrorAction SilentlyContinue | Select-Object -First 1
++  Say ""
++  if ($svc) {
++    Say "  The PostgreSQL service '$($svc.Name)' is $($svc.Status)." "Yellow"
++    Say "  To start it, either:" "Yellow"
++    Say "    - press Win+R, type services.msc, find '$($svc.DisplayName)', click Start; or" "Yellow"
++    Say "    - in an Administrator PowerShell run:  Start-Service $($svc.Name)" "Yellow"
++  } else {
++    Say "  No PostgreSQL Windows service was found on this PC." "Yellow"
++    Say "  Start your PostgreSQL server (the one DATABASE_URL in .env points to)." "Yellow"
++  }
++  Say "  Then double-click KWALIFY-START.bat again. (Nothing was changed.)" "Yellow"
++  return $false
++}
++
++# -- Build (same staleness rule as the existing launcher) --
++function Test-BuildStale {
++  $dist = Join-Path $Root $ServerEntry
++  if (-not (Test-Path -LiteralPath $dist)) { return $true }
++  $distTime = (Get-Item -LiteralPath $dist).LastWriteTimeUtc
++  foreach ($marker in @("package.json", "package-lock.json", "tsconfig.json")) {
++    $m = Join-Path $Root $marker
++    if ((Test-Path -LiteralPath $m) -and (Get-Item -LiteralPath $m).LastWriteTimeUtc -gt $distTime) { return $true }
++  }
++  $backend = Join-Path $Root "backend"
++  $newer = Get-ChildItem -Path $backend -Recurse -File -ErrorAction SilentlyContinue |
++    Where-Object {
++      $_.FullName -notmatch '\\node_modules\\|\\dist\\|\\\.git\\' -and
++      $_.Extension -match '^\.(ts|json)$' -and
++      $_.LastWriteTimeUtc -gt $distTime
++    } | Select-Object -First 1
++  return [bool]$newer
++}
++
++# -- Ctrl+C delivery to another console (graceful SIGINT for node) --
++function Send-CtrlC([int]$targetPid) {
++  $helper = @"
++Add-Type -Namespace KwalifyStop -Name Native -MemberDefinition @'
++[DllImport("kernel32.dll", SetLastError=true)] public static extern bool FreeConsole();
++[DllImport("kernel32.dll", SetLastError=true)] public static extern bool AttachConsole(uint pid);
++[DllImport("kernel32.dll", SetLastError=true)] public static extern bool SetConsoleCtrlHandler(System.IntPtr handler, bool add);
++[DllImport("kernel32.dll", SetLastError=true)] public static extern bool GenerateConsoleCtrlEvent(uint ctrlEvent, uint groupId);
++'@
++[KwalifyStop.Native]::FreeConsole() | Out-Null
++if (-not [KwalifyStop.Native]::AttachConsole($targetPid)) { exit 2 }
++[KwalifyStop.Native]::SetConsoleCtrlHandler([System.IntPtr]::Zero, `$true) | Out-Null
++if (-not [KwalifyStop.Native]::GenerateConsoleCtrlEvent(0, 0)) { exit 3 }
++Start-Sleep -Milliseconds 500
++exit 0
++"@
++  # Run in a separate hidden process: it must detach from its own console to attach
++  # to the server's console, and it ignores the Ctrl+C it sends.
++  $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($helper))
++  $p = Start-Process powershell.exe -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", $encoded) `
++    -WindowStyle Hidden -Wait -PassThru
++  return ($p.ExitCode -eq 0)
++}
++
++# --
++function Invoke-Start {
++  $host.UI.RawUI.WindowTitle = "Kwalify server"
++  Set-Location $Root
++  Say ""
++  Say "Starting Kwalify..." "Cyan"
++  Say ""
++
++  if (-not (Get-Command node -ErrorAction SilentlyContinue) -or -not (Get-Command npm -ErrorAction SilentlyContinue)) {
++    Problem "Node.js / npm not found. Install Node.js 20 LTS from https://nodejs.org, then try again."
++    return 1
++  }
++  $nodeVersion = (& node -v)
++  if ($nodeVersion -notmatch '^v20\.') { Say "  Note: Kwalify targets Node 20.x; found $nodeVersion" "Yellow" } else { Ok "Node $nodeVersion" }
++
++  if (-not (Import-KwalifyEnv)) { return 1 }
++  $port = Get-Port
++
++  $existing = Find-KwalifyServer $port
++  if ($existing) {
++    Say ""
++    Say "Kwalify is already running (PID $($existing.Id)) - not starting a second copy." "Green"
++    Say "http://localhost:$port"
++    if (-not (Test-Ready $port)) { Say "  (it is still starting up or not ready yet)" "Yellow" }
++    Say "To stop it: double-click KWALIFY-STOP.bat"
++    return 0
++  }
++
++  $owners = Get-PortOwnerIds $port
++  if ($owners.Count -gt 0) {
++    $names = ($owners | ForEach-Object { $p = Get-Process -Id $_ -ErrorAction SilentlyContinue; if ($p) { "$($p.ProcessName) (PID $_)" } else { "PID $_" } }) -join ", "
++    Problem "Port $port is already in use by: $names"
++    Say "       That is not a Kwalify server started from this folder, so it was left alone." "Yellow"
++    Say "       Close that program, or change PORT in .env, then try again." "Yellow"
++    return 1
++  }
++
++  if (-not (Test-PostgresReachable)) { return 1 }
++
++  if (-not (Test-Path -LiteralPath (Join-Path $Root "node_modules"))) {
++    Say "  Installing dependencies (first run only): npm ci" "Cyan"
++    & npm ci | Out-Host
++    if ($LASTEXITCODE -ne 0) { Problem "npm ci failed (see messages above)."; return 1 }
++  }
++
++  if (Test-BuildStale) {
++    Say "  Source changed since the last build - building (npm run build)..." "Cyan"
++    & npm run build | Out-Host
++    if ($LASTEXITCODE -ne 0) { Problem "Build failed (see messages above). Kwalify was not started."; return 1 }
++    Ok "Build complete"
++  } else {
++    Ok "Build is up to date"
++  }
++
++  try { $env:GIT_COMMIT = (& git -C $Root rev-parse HEAD 2>$null) } catch {}
++  if (-not $env:GIT_COMMIT) { $env:GIT_COMMIT = "local-dev" }
++
++  Say ""
++  Say "Starting server (logs below)..." "Cyan"
++  $nodeExe = (Get-Command node).Source
++  $proc = Start-Process -FilePath $nodeExe -ArgumentList $ServerEntry -WorkingDirectory $Root -NoNewWindow -PassThru
++  if (-not (Test-Path -LiteralPath $StateDir)) { New-Item -ItemType Directory -Path $StateDir | Out-Null }
++  @{
++    pid           = $proc.Id
++    startTicksUtc = $proc.StartTime.ToUniversalTime().Ticks
++    port          = $port
++    root          = $Root
++    startedAt     = (Get-Date).ToString("o")
++  } | ConvertTo-Json | Set-Content -LiteralPath $StateFile -Encoding UTF8
++
++  $exitCode = 0
++  try {
++    $deadline = (Get-Date).AddSeconds($ReadyTimeoutSec)
++    $ready = $false
++    while (-not $proc.HasExited -and (Get-Date) -lt $deadline) {
++      if (Test-Ready $port) { $ready = $true; break }
++      Start-Sleep -Seconds 2
++    }
++    if ($proc.HasExited) {
++      Say ""
++      Problem "Kwalify stopped during startup (exit code $($proc.ExitCode)). See the messages above."
++      $exitCode = 1
++      return 1
++    }
++    Say ""
++    if ($ready) {
++      Say "Kwalify is running" "Green"
++      Say "http://localhost:$port" "Green"
++    } else {
++      $rz = Get-Readiness $port
++      $state = if ($rz) { "$($rz.status) / $($rz.readiness)" } else { "no response" }
++      Say "Kwalify started but is not ready after $ReadyTimeoutSec s (readyz: $state)." "Yellow"
++      Say "http://localhost:$port" "Yellow"
++      Say "Check the log messages above." "Yellow"
++    }
++    if ($env:APP_URL -and ($env:APP_URL -notmatch 'localhost|127\.0\.0\.1')) {
++      Say "  (public URL in .env: $($env:APP_URL) - needs the Cloudflare tunnel, which this script does not manage)" "DarkGray"
++    }
++    Say ""
++    Say "Keep this window open. To stop: double-click KWALIFY-STOP.bat (or press Ctrl+C here)." "Cyan"
++    Say ""
++    while (-not $proc.HasExited) { Start-Sleep -Seconds 1 }
++  } finally {
++    # Reached on normal exit, on Ctrl+C, or when KWALIFY-STOP sends Ctrl+C.
++    if (-not $proc.HasExited) {
++      Say ""
++      Say "Waiting for Kwalify to shut down gracefully (up to $StopTimeoutSec s)..." "Yellow"
++      $proc.WaitForExit($StopTimeoutSec * 1000) | Out-Null
++    }
++    if ($proc.HasExited) {
++      Clear-State $proc.Id
++      Say ""
++      Say "Kwalify has stopped." "Cyan"
++    } else {
++      Say "Kwalify is still shutting down (PID $($proc.Id))." "Yellow"
++    }
++  }
++  return $exitCode
++}
++
++function Invoke-Stop {
++  Set-Location $Root
++  Say ""
++  Say "Stopping Kwalify..." "Cyan"
++  if (-not (Import-KwalifyEnv)) { Say "  Using default port 5000." "Yellow"; $env:PORT = "5000" }
++  $port = Get-Port
++
++  $server = Find-KwalifyServer $port
++  if (-not $server) {
++    Say ""
++    Say "Kwalify is not running." "Green"
++    $owners = Get-PortOwnerIds $port
++    if ($owners.Count -gt 0) {
++      Say "  (port $port is used by another program, PID $($owners -join ', '); it was left alone)" "Yellow"
++    }
++    return 0
++  }
++
++  $serverId = $server.Id
++  Say "  Found Kwalify server (PID $serverId). Asking it to shut down gracefully..."
++  Say "  In-flight playlist generations are allowed to finish (up to ~100 s)."
++  $sent = Send-CtrlC $serverId
++  if (-not $sent) { Say "  Could not send the shutdown signal to its window." "Yellow" }
++
++  $deadline = (Get-Date).AddSeconds($StopTimeoutSec)
++  $nextDot = (Get-Date).AddSeconds(5)
++  while ((Get-Process -Id $serverId -ErrorAction SilentlyContinue) -and $sent -and (Get-Date) -lt $deadline) {
++    Start-Sleep -Milliseconds 500
++    if ((Get-Date) -ge $nextDot) { Write-Host "  ...still shutting down"; $nextDot = (Get-Date).AddSeconds(5) }
++  }
++
++  if (Get-Process -Id $serverId -ErrorAction SilentlyContinue) {
++    Say ""
++    Problem "Kwalify (PID $serverId) did not stop gracefully."
++    $answer = Read-Host "  Force-stop this Kwalify process? Unsaved in-flight work will be lost. (y/N)"
++    if ($answer -match '^[yY]') {
++      if (Test-IsKwalifyServer $serverId) {
++        Stop-Process -Id $serverId -Force
++        Start-Sleep -Seconds 1
++      }
++    } else {
++      Say "  Left running." "Yellow"
++      return 1
++    }
++  }
++
++  if (Get-Process -Id $serverId -ErrorAction SilentlyContinue) {
++    Problem "Kwalify (PID $serverId) is still running."
++    return 1
++  }
++  Clear-State $serverId
++  Say ""
++  Say "Kwalify has stopped. (PostgreSQL was not touched.)" "Green"
++  return 0
++}
++
++if ($Action -eq "start") {
++  # Launched with -NoExit by KWALIFY-START.bat so this window stays open (logs and
++  # errors remain visible) whether startup fails, the server stops, or Ctrl+C is used.
++  $null = Invoke-Start
++  Say ""
++  Say "You can close this window." "DarkGray"
++} else {
++  exit (Invoke-Stop)
++}
+-- 
+2.43.0
+
