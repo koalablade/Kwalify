@@ -15,8 +15,8 @@ On the host:
 ```powershell
 cd C:\Users\Kwalah\Projects\Kwalify
 git pull origin v55-committed-world
-.\stop-kwalify.bat
-.\start.bat
+.\KWALIFY-STOP.bat
+.\KWALIFY-START.bat
 ```
 
 Verify live matches candidate:
@@ -28,7 +28,7 @@ Verify live matches candidate:
 
 Expect `playlistContract.worldGate/v40/v41: true`.
 
-`start.bat` runs startup audits and, if weekly maintenance is due (>7 days since `reports\.maintenance-last-run`), backup/uptime checks before the API starts.
+`KWALIFY-START.bat` runs startup audits and, if weekly maintenance is due (>7 days since `reports\.maintenance-last-run`), backup/uptime checks before the API starts.
 
 ### 2. Environment (`.env`)
 
@@ -132,7 +132,7 @@ More detail: `docs/observability-runbook.md`.
 
 | Problem | Action |
 |---------|--------|
-| API not responding | `.\stop-kwalify.bat` then `.\start.bat`; check `kwalify-start.log` |
+| API not responding | `.\KWALIFY-STOP.bat` then `.\KWALIFY-START.bat`; check `kwalify-start.log` |
 | Stuck queue (active never drops) | Restart API; check for zombie generation in logs |
 | Spotify errors spike | Check Spotify status; verify token refresh; reduce concurrent users |
 | High memory | Restart API; check `ops/summary` RSS; limit beta to 5 concurrent |

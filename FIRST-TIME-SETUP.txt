@@ -1,140 +1,65 @@
 KWALIFY - FIRST TIME SETUP (Windows)
-=====================================
+====================================
 
-Spotify login requires https://kwalify.net (not localhost).
-Double-click start.bat — it handles almost everything automatically (same as start-kwalify.bat).
+Spotify login needs https://kwalify.net (Spotify does not allow localhost), which
+reaches this PC through a Cloudflare Tunnel - no router port forwarding.
 
 
 ONE-TIME PREREQUISITES
 ----------------------
-
-1. Node.js LTS (20.x recommended)
-   https://nodejs.org
-
-2. PostgreSQL 18
-   https://www.postgresql.org/download/windows/
-   (The launcher can run DB setup for you with an Admin prompt.)
-
-3. mkcert (for local HTTPS on kwalify.net)
-   winget install FiloSottile.mkcert
-   (The launcher can install this automatically on first run.)
-
-4. Spotify Developer app
-   https://developer.spotify.com/dashboard
+1. Node.js 20 LTS          https://nodejs.org   (repo has .nvmrc = 20)
+2. PostgreSQL 18           https://www.postgresql.org/download/windows/
+   Database setup helper (Admin PowerShell, once): scripts\setup-local-dev.ps1
+3. Spotify Developer app   https://developer.spotify.com/dashboard
    Settings -> Redirect URIs -> add exactly:
      https://kwalify.net/api/auth/callback
-   Copy Client ID and Client Secret into .env
+   Put Client ID and Client Secret into .env (copy .env.example to .env first)
 
 
-DESKTOP SHORTCUTS (recommended)
--------------------------------
+ONE-TIME SELF-HOST SETUP
+------------------------
+  setup-self-host.bat
+    - sets .env for kwalify.net (APP_URL, redirect URI, NODE_ENV=production, ...)
+    - installs cloudflared if missing, runs the Cloudflare login, creates
+      deploy\cloudflared.yml for the tunnel
+    - does NOT register scheduled tasks or login auto-start
 
-Run once:  create-kwalify-shortcuts.bat
-
-Adds to your Desktop:
-  - Start Kwalify
-  - Stop Kwalify
-  - Start Kwalify (Admin)  — use if HTTPS on port 443 fails
-
-The launcher also creates these automatically on first start if missing.
+  If you used the OLD launchers (start.bat / start-kwalify.bat) on this PC:
+    TURN-OFF-AUTOSTART.bat   (once) removes their scheduled tasks, watchdog and
+                             dead Desktop shortcuts.
 
 
 DAILY USE
 ---------
+  Start:  KWALIFY-START.bat          (server + Cloudflare tunnel when self-hosting)
+  Stop:   KWALIFY-STOP.bat
+  Local only, no tunnel:  KWALIFY-START.bat local
 
-Solo dev (just you on this PC):
-  Start:  start.bat
-  Stop:   stop-kwalify.bat
+  Public site: https://kwalify.net (while the tunnel window is open)
+  This PC:     http://127.0.0.1:5000
 
-Closed beta (friends over the internet from your PC):
-  One-time:  setup-self-host.bat
-  Daily:     start.bat        (selfhost + tunnel + health watch)
-  Weekly:    maintain.bat
-  Stop:      stop-kwalify.bat
-
-  See START-HERE.txt for the full 3-file routine.
-
-  Recommended exposure: Cloudflare Tunnel (no router port forwarding).
-  Public site: https://kwalify.net (when tunnel is up)
-  Local site:  http://127.0.0.1:5000 (always works on this PC)
-
-What start does:
-  - Starts PostgreSQL if needed
-  - Builds if needed
-  - Starts API on port 5000
-  - Starts Cloudflare tunnel (selfhost mode)
-  - Opens https://kwalify.net
-  - Optional: start-health-watch.bat keeps tunnel healthy while you host
-
-If HTTPS fails: right-click start.bat -> Run as administrator.
-
-
-WHAT START-KWALIFY.BAT DOES (AUTOMATIC)
---------------------------------------
-
-Every time you open it (no flags needed):
-
-  1. git pull (checks for updates)
-  2. Stops any old Kwalify API / HTTPS proxy
-  3. Rebuilds if source code changed or pull brought new commits
-  4. Runs quick smoke tests
-  5. Starts fresh server and opens https://kwalify.net
-
-You do not need to run npm run build yourself.
-
-
-OPTIONAL FLAGS
---------------
-
-  start-kwalify.bat build      Force rebuild even if nothing changed
-  start-kwalify.bat nopull     Skip git pull (offline / local-only work)
-  start-kwalify.bat quick      Skip restart if already running (advanced)
-  start-kwalify.bat local      Debug mode (no Spotify login)
-
-To disable auto-pull permanently: create empty file  .kwalify-nopull  in project root
+  See START-HERE.txt for exactly what START / STOP do.
 
 
 TROUBLESHOOTING
 ---------------
-
-Start failed?
-  - Read kwalify-start.log in the project folder
-  - A help page opens in your browser with common fixes
-
-"kwalify.net refused to connect"
-  - Run stop-kwalify.bat then start-kwalify.bat
-  - Confirm hosts: 127.0.0.1 kwalify.net
-
-Spotify login fails
-  - Redirect URI must be: https://kwalify.net/api/auth/callback
-
-Health check:
-  https://kwalify.net/api/readyz
-  https://kwalify.net/status   (plain-English status page)
-
-API log file (searchable):
-  kwalify-api.log   (rotates at 10 MB -> kwalify-api.log.old)
+  * Read the "Kwalify server" window - every check prints [ok] or [!!] with
+    what to do. If the build fails, Kwalify is not started.
+  * Port 5000 already in use by another program: START tells you which one and
+    leaves it alone. Close it or change PORT in .env.
+  * kwalify.net does not load on THIS PC but works elsewhere: the hosts file
+    probably still has "127.0.0.1 kwalify.net" from the old local-domain mode.
+    Right-click remove-local-hosts.bat > Run as administrator.
+  * Tunnel problems: keep the minimised "cloudflared" window open; DNS repair:
+    fix-cloudflare-dns.bat; re-run setup-self-host.bat if deploy\cloudflared.yml
+    is missing.
+  * Spotify login fails: the redirect URI must be
+    https://kwalify.net/api/auth/callback
+  * Health:  http://127.0.0.1:5000/api/readyz   https://kwalify.net/status
+  * API log: kwalify-api.log
 
 
-LOCAL BENCHMARKS
-----------------
-
-Prereq: start.bat running on this PC.
-
-WEB (recommended):
-  http://127.0.0.1:5000/benchmark     control panel (buttons + chat)
-  https://kwalify.net/benchmark       same UI via tunnel (when up)
-
-  Live dashboard:  /benchmark-status.html
-  Run history:     /benchmark-history.html
-  This guide:      /benchmark-guide.html
-
-CLI (power users):
-  start-kwalify-benchmark.bat         menu + natural-language commands
-  start-kwalify-benchmark.bat smoke   quick API check (~2 min)
-  start-kwalify-benchmark.bat large   100-prompt run (~4h)
-
-Desktop shortcut "Run Benchmark" opens the local control panel.
-Status in CLI prints a terminal summary; menu "status" also opens the web dashboard.
-
-Shortcuts: create-kwalify-shortcuts.bat  (Start + Stop + Benchmark)
+BENCHMARKS
+----------
+  With Kwalify running: http://127.0.0.1:5000/benchmark  (control panel)
+  CLI: start-kwalify-benchmark.bat  (menu; "smoke" ~2 min, "large" ~4 h)

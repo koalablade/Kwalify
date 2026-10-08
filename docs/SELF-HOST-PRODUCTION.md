@@ -8,8 +8,8 @@ Path from **closed beta on your PC** to **reliable self-hosted production** at h
 
 | File | Purpose |
 |------|---------|
-| `start.bat` | Run every day |
-| `stop-kwalify.bat` | Stop everything |
+| `KWALIFY-START.bat` | Run every day |
+| `KWALIFY-STOP.bat` | Stop everything |
 | `maintain.bat` | Weekly upkeep |
 
 **Extra (monthly or before inviting strangers):** `production-ready.bat`
@@ -18,7 +18,7 @@ Path from **closed beta on your PC** to **reliable self-hosted production** at h
 
 ## Automated (repo handles this)
 
-- [x] Start + tunnel + Health Watch (API/tunnel auto-repair)
+- [x] Start + tunnel (`KWALIFY-START.bat`); no auto-repair watchdog
 - [x] Daily DB backup task (3 AM)
 - [x] Weekly maintenance (`maintain.bat`)
 - [x] Beta readiness checks
@@ -65,11 +65,11 @@ PLAYLIST_CONTRACT_V40=1
 PLAYLIST_CONTRACT_V41=1
 ```
 
-`setup-self-host.bat` and `start.bat` set these on first run. Verify on `/api/readyz` under `pipelineAuthority.playlistContract`.
+`setup-self-host.bat` and `KWALIFY-START.bat` set these on first run. Verify on `/api/readyz` under `pipelineAuthority.playlistContract`.
 
 **Production candidate (local):** branch `v55-committed-world` @ `0b647af`. Engine checkpoint `5fab771` (V55). **Previous known-good (live):** `434be42`. GitHub `main` is still V38 — deploy from this branch, not `origin/main`.
 
-**Rollback:** `stop-kwalify.bat` → `git checkout 434be42` (or prior SHA) → `start.bat`. DB restore: `npm run maintenance:test-restore` / `pg_restore` from `backups/`.
+**Rollback:** `KWALIFY-STOP.bat` → `git checkout 434be42` (or prior SHA) → `KWALIFY-START.bat`. DB restore: `npm run maintenance:test-restore` / `pg_restore` from `backups/`.
 
 **V55 note:** Atmospheric prompts get `musicalWorldId` + `hardLock` end-to-end. Compounds pass at 23–24 tracks. Cozy/lo-fi sonic clustering still weak; late night may honest-422 — acceptable for closed beta.
 

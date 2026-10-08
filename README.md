@@ -47,26 +47,26 @@ This repo is the **Kwalify app** (Node, Express, PostgreSQL, static frontend).
 
 | Environment | How to run | Spotify OAuth |
 |-------------|------------|---------------|
-| **Self-hosted (primary)** | `setup-self-host.bat` then `start.bat` → `https://kwalify.net` | `https://kwalify.net/api/auth/callback` |
-| **Debug only** | `start-kwalify.bat local` → `http://localhost:5000` | Not supported (Spotify blocks localhost) |
+| **Self-hosted (primary)** | `setup-self-host.bat` once, then `KWALIFY-START.bat` → `https://kwalify.net` | `https://kwalify.net/api/auth/callback` |
+| **Debug only** | `KWALIFY-START.bat local` → `http://localhost:5000` | Not supported (Spotify blocks localhost) |
 
 **Local upkeep:** [docs/LOCAL-MAINTENANCE.md](docs/LOCAL-MAINTENANCE.md) · [docs/PRODUCTION-CHECKLIST.md](docs/PRODUCTION-CHECKLIST.md) · send testers [docs/BETA-TESTER-GUIDE.md](docs/BETA-TESTER-GUIDE.md)
 
 CI nightly eval workflows can target `https://kwalify.net` when your PC is running and the tunnel is up.
 
-`start-kwalify.bat` auto-pulls, rebuilds when code changed, and restarts the API every time. Create `.kwalify-nopull` to skip git pull.
+`KWALIFY-START.bat` builds only when the code changed and never pulls from git, edits `.env` or registers tasks. See [START-HERE.txt](./START-HERE.txt).
 
 ### Local setup (Windows — recommended)
 
 1. Read **[FIRST-TIME-SETUP.txt](./FIRST-TIME-SETUP.txt)**
-2. Double-click **`start.bat`** (or Desktop shortcut via `create-kwalify-shortcuts.bat`)
+2. Double-click **`KWALIFY-START.bat`** (optional Desktop shortcut: `create-kwalify-shortcuts.bat`)
 3. Open **https://kwalify.net** in your browser (or **http://127.0.0.1:5000** on this PC)
 
-Stop: **`stop-kwalify.bat`**
+Stop: **`KWALIFY-STOP.bat`**
 
 Spotify redirect URI (required): `https://kwalify.net/api/auth/callback`
 
-Flags (optional): `build` force rebuild, `nopull` skip git pull, `quick` skip restart if already running.
+`KWALIFY-START.bat local` runs on this PC only (no Cloudflare tunnel).
 
 **Benchmarks:** web control panel at **http://127.0.0.1:5000/benchmark** (or `start-kwalify-benchmark.bat` for CLI). See [FIRST-TIME-SETUP.txt](./FIRST-TIME-SETUP.txt).
 
@@ -80,7 +80,7 @@ npm start
 
 Use Node **20.x** (see `.nvmrc`). Quick check: `npm run test:smoke`
 
-For HTTPS + Spotify locally on Windows, prefer **`start.bat`** over raw `npm start` — see [docs/deployment.md](./docs/deployment.md).
+For Spotify login (kwalify.net via the Cloudflare tunnel) on Windows, use **`KWALIFY-START.bat`** rather than raw `npm start` — see [docs/deployment.md](./docs/deployment.md).
 
 Set `PORT` locally (default `5000`).
 
@@ -109,7 +109,8 @@ Use the same value for `SPOTIFY_REDIRECT_URI`. See [CUSTOM_DOMAIN.md](./CUSTOM_D
 
 ### Further docs
 
-- [FIRST-TIME-SETUP.txt](./FIRST-TIME-SETUP.txt) — Windows local hosting (start/stop bats)
+- [START-HERE.txt](./START-HERE.txt) — start/stop
+- [FIRST-TIME-SETUP.txt](./FIRST-TIME-SETUP.txt) — Windows local hosting (first-time setup)
 - [docs/deployment.md](./docs/deployment.md) — local self-host deploy
 - [docs/environment-variables.md](./docs/environment-variables.md) — full env reference
 - [Playlist generation flow](./docs/playlist-generation-flow.md) — pipeline from prompt to playlist

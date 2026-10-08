@@ -75,7 +75,7 @@ foreach ($logName in @("kwalify-api.log", "kwalify-start.log", "kwalify-benchmar
 Note ""
 Note "  Tips:"
 Note "    - Add beta testers in Spotify Dashboard -> User Management"
-Note "    - Keep start.bat running while friends test"
+Note "    - Keep KWALIFY-START.bat running while friends test"
 Note "    - Docs: docs\LOCAL-MAINTENANCE.md"
 Note ""
 

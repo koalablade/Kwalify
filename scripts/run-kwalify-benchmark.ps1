@@ -74,7 +74,7 @@ function Show-ReportHints {
 function Open-BenchmarkWebPage([string]$Page) {
   $base = "http://127.0.0.1:5000"
   if (-not (Test-ApiRunning $base)) {
-    Write-WarnLine "Kwalify is not running. Double-click start.bat first."
+    Write-WarnLine "Kwalify is not running. Double-click KWALIFY-START.bat first."
     return $false
   }
   Start-Process "$base/$Page" | Out-Null

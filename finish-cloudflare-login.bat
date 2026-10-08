@@ -1,4 +1,4 @@
 @echo off
-REM Cloudflare login is now part of start.bat (automatic on first run)
+REM One-time Cloudflare login + tunnel setup (same as setup-self-host.bat).
 cd /d "%~dp0"
-call "%~dp0start.bat" setup %*
+call "%~dp0setup-self-host.bat" %*

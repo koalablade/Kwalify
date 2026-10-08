@@ -1,42 +1,60 @@
-KWALIFY — 3 FILES YOU NEED
-==========================
+KWALIFY - START / STOP
+======================
 
-  1. start.bat          START every day (site + tunnel + auto-repair)
-  2. stop-kwalify.bat   STOP everything when done
-  3. maintain.bat       RUN once a week (health + backups)
+  KWALIFY-START.bat   Double-click to run Kwalify.
+                      A "Kwalify server" window opens and shows what is happening:
+                      checks, build (only if the code changed), then server logs.
+                      When it says "Kwalify is running" open the address it shows
+                      (http://localhost:5000 on this PC; https://kwalify.net when
+                      self-hosting). Keep that window open while you use Kwalify.
 
-Optional: production-ready.bat  (monthly — am I production ready?)
+  KWALIFY-STOP.bat    Double-click to stop Kwalify cleanly. Ctrl+C in the
+                      "Kwalify server" window does the same.
 
-That is the whole routine.
+  Kwalify is completely OFF until you double-click KWALIFY-START.bat.
+  Nothing starts on its own, at boot or at login, and nothing restarts it.
 
-JUST THE LOCAL SERVER (simplest) - open the "local" folder
-----------------------------------------------------------
-  local\START.bat   Start Kwalify on this PC (http://localhost:<PORT>)
-  local\STOP.bat    Stop it cleanly (does not touch PostgreSQL)
-  local\README.txt  What these do
+  KWALIFY-START.bat local   Run on this PC only (no Cloudflare tunnel).
 
-  Kwalify stays OFF until you double-click START.bat.
+
+WHAT START / STOP DO AND DO NOT DO
+----------------------------------
+  * PostgreSQL must already be running. START checks it and tells you how to
+    start it if not. START/STOP never start, stop or change the database.
+  * START never starts a second copy. If Kwalify is already running it says so.
+  * START does not pull from git, edit .env, or need Administrator.
+  * Cloudflare tunnel (kwalify.net): started only when this PC is set up for
+    self-hosting (setup-self-host.bat done: .env KWALIFY_HOST_MODE=selfhost and
+    deploy\cloudflared.yml present). It runs in its own minimised window.
+  * STOP only stops the Kwalify server started from this folder, and the tunnel
+    only if START started it. It never kills "whatever is on port 5000" and
+    never stops PostgreSQL or other programs. If Kwalify is not running it
+    just says so.
+
 
 FIRST TIME ONLY
 ---------------
-  setup-self-host.bat          (once)
-  create-kwalify-shortcuts.bat (Desktop icons for the 3 files above)
+  setup-self-host.bat          .env for kwalify.net + Cloudflare tunnel (once)
+  TURN-OFF-AUTOSTART.bat       Removes leftovers of the OLD launchers: Kwalify
+                               scheduled tasks (start at login, 5-minute uptime
+                               check, weekly maintenance, nightly backup),
+                               Startup-folder entries, the health-watch watchdog,
+                               and Desktop shortcuts to launchers that no longer
+                               exist. Run once; if it says access denied,
+                               right-click > Run as administrator.
+  create-kwalify-shortcuts.bat Optional Desktop shortcuts (Start / Stop / Maintain)
 
-WHILE FRIENDS ARE TESTING
--------------------------
-  Keep start.bat running. Health Watch starts automatically and fixes
-  tunnel/API drops. You do not need any other .bat files.
 
-LOGS IF SOMETHING BREAKS
-------------------------
-  kwalify-start.log
-  kwalify-api.log
-  kwalify-watchdog.log
+REGULAR UPKEEP (manual, nothing is scheduled)
+---------------------------------------------
+  maintain.bat          Once a week: readiness, backups, routes
+  production-ready.bat  Occasionally: am I production ready?
+  npm run backup:db     Database backup whenever you want one
+
 
 MORE DETAIL
 -----------
   docs\SELF-HOST-PRODUCTION.md   (path to production)
   docs\LOCAL-MAINTENANCE.md
   docs\BETA-TESTER-GUIDE.md      (send to friends)
-  docs\UPTIME-MONITORING.md      (15 min setup)
   docs\BACKUP-RESTORE.md         (one-time restore test)

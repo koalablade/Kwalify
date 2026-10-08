@@ -2,22 +2,24 @@
 
 ## Local development (Windows — recommended)
 
-Double-click **`start-kwalify.bat`** in the repo root, or read **[FIRST-TIME-SETUP.txt](../FIRST-TIME-SETUP.txt)**.
+Double-click **`KWALIFY-START.bat`** in the repo root, or read **[FIRST-TIME-SETUP.txt](../FIRST-TIME-SETUP.txt)**.
 
-Spotify login requires **`https://kwalify.net`** locally (not `localhost`):
+Spotify login requires **`https://kwalify.net`** (not `localhost`). The PC serves it through a
+Cloudflare Tunnel set up once with **`setup-self-host.bat`**:
 
-1. `hosts` entry: `127.0.0.1 kwalify.net` (launcher prompts once)
-2. mkcert TLS certs (`npm run setup:local-domain` — launcher can auto-run)
-3. API on port **5000**, HTTPS proxy on port **443**
-4. Spotify redirect URI: `https://kwalify.net/api/auth/callback`
+1. API on port **5000** (`KWALIFY-START.bat`)
+2. Cloudflare tunnel started by `KWALIFY-START.bat` when `.env` has `KWALIFY_HOST_MODE=selfhost` and `deploy\cloudflared.yml` exists
+3. Spotify redirect URI: `https://kwalify.net/api/auth/callback`
 
-Stop everything: **`stop-kwalify.bat`**
+(The old local-domain mode — hosts entry + mkcert + HTTPS proxy on 443 — was removed.)
+
+Stop everything: **`KWALIFY-STOP.bat`**
 
 Desktop shortcuts: **`create-kwalify-shortcuts.bat`** (once)
 
-Optional flags: `start-kwalify.bat build` (force rebuild), `start-kwalify.bat nopull` (skip git pull). Create `.kwalify-nopull` to disable auto-pull permanently.
+`KWALIFY-START.bat local` runs without the Cloudflare tunnel. START never pulls from git; update the code yourself.
 
-Logs on failure: `kwalify-start.log` in the project root.
+On failure: read the "Kwalify server" window.
 
 ---
 
@@ -61,7 +63,7 @@ SPA routes in `backend/app.ts`:
 Kwalify runs on your Windows PC with PostgreSQL locally and Cloudflare Tunnel for `https://kwalify.net`.
 
 1. **`setup-self-host.bat`** once
-2. **`start.bat`** when you want the site live
+2. **`KWALIFY-START.bat`** when you want the site live
 3. Set `NODE_ENV=production`, `APP_URL`, database URL, and Spotify credentials in `.env`
 
 See [SELF-HOST-PRODUCTION.md](./SELF-HOST-PRODUCTION.md) and [CUSTOM_DOMAIN.md](../CUSTOM_DOMAIN.md).

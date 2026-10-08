@@ -44,4 +44,4 @@ Env thresholds:
 
 ## Self-host spot checks
 
-After `start.bat`, confirm `/api/readyz` on https://kwalify.net and spot-check `/api/ops/summary` (or `/api/ops/metrics` with `OPS_METRICS_TOKEN`) after a busy period.
+After `KWALIFY-START.bat`, confirm `/api/readyz` on https://kwalify.net and spot-check `/api/ops/summary` (or `/api/ops/metrics` with `OPS_METRICS_TOKEN`) after a busy period.

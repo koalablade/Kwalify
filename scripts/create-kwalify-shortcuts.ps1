@@ -43,17 +43,16 @@ foreach ($name in $removeNames) {
   if (Test-Path -LiteralPath $lnk) { Remove-Item -LiteralPath $lnk -Force }
 }
 
-$startBat = Join-Path $Root "start.bat"
-$stopBat = Join-Path $Root "stop-kwalify.bat"
+$startBat = Join-Path $Root "KWALIFY-START.bat"
+$stopBat = Join-Path $Root "KWALIFY-STOP.bat"
 $maintainBat = Join-Path $Root "maintain.bat"
-if (-not (Test-Path -LiteralPath $startBat)) { $startBat = Join-Path $Root "start-kwalify.bat" }
 foreach ($f in @($startBat, $stopBat, $maintainBat)) {
   if (-not (Test-Path -LiteralPath $f)) { throw "Missing required file: $f" }
 }
 
 Write-Host ""
-New-Shortcut "Start Kwalify" $startBat "Start site + tunnel + health watch"
-New-Shortcut "Stop Kwalify" $stopBat "Stop API, tunnel, and health watch"
+New-Shortcut "Start Kwalify" $startBat "Start Kwalify (and the Cloudflare tunnel when self-hosting)"
+New-Shortcut "Stop Kwalify" $stopBat "Stop Kwalify (and the tunnel it started)"
 New-Shortcut "Maintain Kwalify" $maintainBat "Weekly readiness + backup check"
 
 Write-Host ""

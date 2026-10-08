@@ -9,7 +9,7 @@ Beta-essential observability for Kwalify: structured logs, in-process ops metric
 | File | Location | Notes |
 |------|----------|--------|
 | `kwalify-api.log` | Project root | API stdout/stderr; rotates at 10 MB → `kwalify-api.log.old` |
-| `kwalify-start.log` | Project root | Launcher failures from `start.bat` |
+| `kwalify-start.log` | Project root | Launcher failures from `KWALIFY-START.bat` |
 | `kwalify-watchdog.log` | Project root | Health watchdog restarts |
 | `kwalify-benchmark.log` | Project root | Benchmark scripts only |
 
@@ -78,8 +78,8 @@ Select-String -Path kwalify-api.log -Pattern '"outcome":"failure"' | Select-Obje
 Select-String -Path kwalify-api.log -Pattern "SERVER_BUSY|QUEUE_TIMEOUT" | Select-Object -Last 20
 
 # Restart (self-host)
-.\stop-kwalify.bat
-.\start.bat
+.\KWALIFY-STOP.bat
+.\KWALIFY-START.bat
 ```
 
 ## Beta support checklist
@@ -103,7 +103,7 @@ Before deep-diving a user report:
 
 Auth: header `x-ops-metrics-token` or query `?token=`. On the status page, use `/status?ops=<token>` (same value as `OPS_METRICS_TOKEN`).
 
-**Auto-setup (self-host):** `start.bat` runs `scripts/ensure-beta-observability.ps1`, which generates `OPS_METRICS_TOKEN` if missing and sets `LOG_LEVEL=info` when `KWALIFY_HOST_MODE=selfhost`.
+**Auto-setup (self-host):** `KWALIFY-START.bat` runs `scripts/ensure-beta-observability.ps1`, which generates `OPS_METRICS_TOKEN` if missing and sets `LOG_LEVEL=info` when `KWALIFY_HOST_MODE=selfhost`.
 
 Metrics include: active/queued generations, p50/p95 generation time, success/failure counts (total + last hour), Spotify failures, memory, cache hit rate, requests/minute, uptime.
 
@@ -125,7 +125,7 @@ Optional. Set `SENTRY_DSN` in `.env` and restart. `captureError()` forwards to S
 
 | Variable | Purpose |
 |----------|---------|
-| `OPS_METRICS_TOKEN` | Full `/api/ops/metrics` access; auto-generated on first `start.bat` if unset |
+| `OPS_METRICS_TOKEN` | Full `/api/ops/metrics` access; auto-generated on first `KWALIFY-START.bat` if unset |
 | `SENTRY_DSN` | Optional error tracking (placeholders added to `.env` by setup; uncomment to enable) |
 | `LOG_LEVEL` | `info` default for `KWALIFY_HOST_MODE=selfhost`; `warn` in other production |
 | `KWALIFY_STRICT_NODE` | Set `1` to refuse start when Node is not 20.x (warning only by default) |

@@ -1,30 +1,24 @@
 # Local maintenance — Kwalify self-host (Windows)
 
-## The 3 files you need
+## The files you need
 
 | File | When |
 |------|------|
-| **`start.bat`** | Every day — starts site, tunnel, and **Health Watch** (auto-repairs API + tunnel) |
-| **`stop-kwalify.bat`** | When done — stops everything |
+| **`KWALIFY-START.bat`** | To run Kwalify — server window, plus the Cloudflare tunnel on a self-host PC |
+| **`KWALIFY-STOP.bat`** | When done — stops the server (and the tunnel START started) |
 | **`maintain.bat`** | Once a week — readiness, backups, routes |
 
 Read **`START-HERE.txt`** at the project root.
 
 ---
 
-## Daily (one double-click)
+## Daily
 
-**`start.bat`** — that's it.
-
-On each start, `start.bat` runs light audits (beta readiness, observability env, backups, uptime, host). Before the API starts it also runs **smoke** and **observability** test gates. After the API (and tunnel) are up: route smoke, production health, and production readiness report.
-
-If weekly maintenance has not run in **7 days** (or never), the full weekly suite runs automatically (heavy checks before API; route smoke + marker after API is up).
-
-Health Watch runs minimized in the background. It will:
-- Restart the **API** if it crashes (max once per 10 minutes)
-- Restart the **Cloudflare tunnel** if friends can't reach the site
-
-To skip Health Watch: `start-kwalify.bat nowatch`
+**`KWALIFY-START.bat`**. It checks Node, `.env` and PostgreSQL, rebuilds only if the
+code changed (a failed build stops the start), starts the server in a visible window,
+waits for `/api/readyz`, then starts the tunnel when this PC is set up for self-hosting.
+It does not run audits, pull from git, register tasks or start a watchdog — nothing
+restarts Kwalify behind your back. Run the checks yourself with `maintain.bat`.
 
 ---
 
@@ -32,21 +26,16 @@ To skip Health Watch: `start-kwalify.bat nowatch`
 
 | Symptom | Fix |
 |---------|-----|
-| Site down for friends | `stop-kwalify.bat` then `start.bat` |
-| Start script errors | Read `kwalify-start.log` |
-| Auto-repair issues | Read `kwalify-watchdog.log` |
-| API errors | Read `kwalify-api.log` |
-| Skip git pull on start | Create empty `.kwalify-nopull` in project root |
-
-You do **not** need `repair-tunnel.bat` or `start-health-watch.bat` unless debugging — `start.bat` handles both.
+| Site down for friends | `KWALIFY-STOP.bat` then `KWALIFY-START.bat` |
+| Start fails | Read the "Kwalify server" window — each failed check says what to do |
+| Tunnel not connecting | Look at the minimised `cloudflared` window; `fix-cloudflare-dns.bat` |
+| kwalify.net only fails on this PC | `remove-local-hosts.bat` (Run as administrator) |
 
 ---
 
 ## Weekly
 
-**`maintain.bat`** (or `npm run maintenance:weekly`) — same checks as the automatic gate on `start.bat` when last run was more than 7 days ago. **Start Kwalify first** so route smoke runs and the maintenance marker is updated.
-
-Automate (Admin once): `scripts\schedule-weekly-maintenance.ps1`
+**`maintain.bat`** (or `npm run maintenance:weekly`). **Start Kwalify first** so route smoke runs and the maintenance marker is updated. Nothing schedules this for you.
 
 Last-run marker: `reports\.maintenance-last-run` (also `reports\maintenance-last-run.txt` after `maintain.bat`).
 
@@ -58,7 +47,7 @@ Last-run marker: `reports\.maintenance-last-run` (also `reports\maintenance-last
 |------|---------|
 | Manual backup | `npm run backup:db` |
 | Verify latest | `npm run maintenance:verify-backup` |
-| Auto daily 3 AM | `scripts\schedule-db-backup.ps1` (Admin, once) |
+| Optional nightly task (opt-in) | `scripts\schedule-db-backup.ps1` (Admin, once; remove with `TURN-OFF-AUTOSTART.bat`) |
 
 ---
 
@@ -67,7 +56,7 @@ Last-run marker: `reports\.maintenance-last-run` (also `reports\maintenance-last
 1. Add Spotify email in [Developer Dashboard](https://developer.spotify.com/dashboard) → User Management  
 2. Send **`docs/BETA-TESTER-GUIDE.md`**  
 3. Note issues in chat/DM with testers (or your own notes)  
-4. Keep **`start.bat`** running  
+4. Keep **`KWALIFY-START.bat`** running  
 
 ---
 

@@ -10,7 +10,7 @@ Use this checklist before inviting the first external testers and during the bet
 
 - [ ] Latest `main` pulled on host (`git pull origin main`)
 - [ ] Node **20.x** installed (see `.nvmrc`; launcher warns on other versions)
-- [ ] API restarted (`stop-kwalify.bat` → `start.bat`)
+- [ ] API restarted (`KWALIFY-STOP.bat` → `KWALIFY-START.bat`)
 - [ ] Cloudflare tunnel running (if self-host)
 - [ ] Windows logon auto-start registered (`Kwalify-SelfHost-Start` task; `ensure-kwalify-ready` registers if missing)
 
@@ -35,7 +35,7 @@ Use this checklist before inviting the first external testers and during the bet
 
 - [ ] `npm run maintenance:test-restore` passed recently
 - [ ] Backup marker / schedule confirmed on host
-- [ ] `OPS_METRICS_TOKEN` present in `.env` (auto-generated on first `start.bat` if missing)
+- [ ] `OPS_METRICS_TOKEN` present in `.env` (auto-generated on first `KWALIFY-START.bat` if missing)
 - [ ] Full metrics reachable at `/status?ops=<token>` or `GET /api/ops/metrics`
 - [ ] `SENTRY_DSN` uncommented in `.env` (recommended) or daily log review scheduled
 - [ ] `LOG_LEVEL=info` for self-host beta (set automatically when `KWALIFY_HOST_MODE=selfhost`)
@@ -89,9 +89,9 @@ Skips if `KWALIFY_LIVE_URL` is unset. Does not test authenticated Spotify genera
 ### Restart safely
 
 ```powershell
-.\stop-kwalify.bat
+.\KWALIFY-STOP.bat
 # Wait for graceful shutdown (~100s max if generations active)
-.\start.bat
+.\KWALIFY-START.bat
 # Verify /api/readyz before telling users to retry
 ```
 
@@ -122,9 +122,9 @@ When a user reports **"My playlist failed"**:
 
 ### Restart procedure
 
-1. `.\stop-kwalify.bat`
+1. `.\KWALIFY-STOP.bat`
 2. Confirm no stuck `node` on port 5000
-3. `.\start.bat`
+3. `.\KWALIFY-START.bat`
 4. `Invoke-RestMethod http://localhost:5000/api/readyz`
 
 ### Health verification
@@ -137,7 +137,7 @@ When a user reports **"My playlist failed"**:
 
 1. `git log -3 --oneline` on host
 2. `git checkout <previous-good-commit>`
-3. `stop-kwalify.bat` → `start.bat`
+3. `KWALIFY-STOP.bat` → `KWALIFY-START.bat`
 4. Re-verify health + one test generate
 5. After fix on `main`, `git checkout main` and `git pull`
 

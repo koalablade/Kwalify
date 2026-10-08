@@ -28,17 +28,16 @@
 
     <div class="card error">
       <h2>What happened</h2>
-      <p id="reason">The start script exited with an error. Check kwalify-start.log in the project folder.</p>
+      <p id="reason">The start script exited with an error. The "Kwalify server" window shows what went wrong.</p>
     </div>
 
     <div class="card">
       <h2>Quick fixes</h2>
       <ol>
-        <li>Double-click <code>stop-kwalify.bat</code>, then <code>start.bat</code> again.</li>
-        <li>Right-click <code>start.bat</code> → <strong>Run as administrator</strong> if HTTPS or tunnel setup fails.</li>
+        <li>Double-click <code>KWALIFY-STOP.bat</code>, then <code>KWALIFY-START.bat</code> again.</li>
+        <li>Tunnel not set up yet? Run <code>setup-self-host.bat</code> once.</li>
         <li>Confirm Spotify redirect URI: <code>https://kwalify.net/api/auth/callback</code></li>
         <li>Run once as Admin: <code>scripts\setup-local-dev.ps1</code> (database)</li>
-        <li>Run: <code>npm run setup:local-domain</code> (HTTPS certs)</li>
       </ol>
     </div>
 
@@ -54,8 +53,7 @@
       <h2>Maintenance</h2>
       <ul>
         <li>Run <code>check-beta-ready.bat</code> if friends cannot reach the site.</li>
-        <li>Run <code>weekly-maintenance.bat</code> once a week (backups + routes).</li>
-        <li>Optional while hosting: <code>start-health-watch.bat</code> (restarts tunnel if it dies).</li>
+        <li>Run <code>maintain.bat</code> once a week (backups + routes).</li>
         <li>Guide: <code>docs\LOCAL-MAINTENANCE.md</code></li>
       </ul>
     </div>

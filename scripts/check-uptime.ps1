@@ -37,11 +37,11 @@ if ($Quiet) { exit 0 }
 Write-Host ""
 Write-Host "  UPTIME CHECK" -ForegroundColor Magenta
 if ($localOk) { Write-Host "  [OK]   Local API (127.0.0.1:5000)" -ForegroundColor Green }
-else { Write-Host "  [!!]   Local API down - run start.bat" -ForegroundColor Red }
+else { Write-Host "  [!!]   Local API down - double-click KWALIFY-START.bat" -ForegroundColor Red }
 
 if ($appUrl) {
   if ($publicOk) { Write-Host "  [OK]   Public site ($appUrl)" -ForegroundColor Green }
-  else { Write-Host "  [!!]   Public site down - check tunnel / repair-tunnel.bat" -ForegroundColor Red }
+  else { Write-Host "  [!!]   Public site down - check the Cloudflare tunnel window (KWALIFY-STOP.bat then KWALIFY-START.bat restarts it)" -ForegroundColor Red }
 } else {
   Write-Host "  [?]    APP_URL not set in .env" -ForegroundColor Yellow
 }

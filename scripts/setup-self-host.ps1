@@ -4,7 +4,6 @@ param(
   [ValidateSet("cloudflare", "caddy", "direct")]
   [string]$Exposure = "cloudflare",
   [switch]$Firewall,
-  [switch]$Startup,
   [switch]$Auto
 )
 
@@ -68,11 +67,8 @@ if (-not $Auto) {
   }
   $fw = Read-Host "Open Windows Firewall for ports 5000/443? [Y/n]"
   if ($fw -eq "" -or $fw -match '^[Yy]') { $Firewall = $true }
-  $su = Read-Host "Start Kwalify automatically when you log in? [y/N]"
-  if ($su -match '^[Yy]') { $Startup = $true }
 } else {
   if (-not $Firewall) { $Firewall = $true }
-  # Auto setup (start.bat): do not register logon auto-start unless -Startup passed explicitly.
 }
 
 $siteUrl = Normalize-PublicUrl $PublicUrl
@@ -153,33 +149,15 @@ if ($Firewall) {
   }
 }
 
-if ($Startup) {
-  Write-Step "Auto-start at login"
-  & (Join-Path $Root "scripts\register-startup-task.ps1") -Confirm
-}
-
-Write-Step "Daily database backup (3:00 AM)"
-try {
-  & (Join-Path $Root "scripts\schedule-db-backup.ps1")
-} catch {
-  Write-Host "  Could not register backup task (try running setup-self-host.bat as Administrator)" -ForegroundColor Yellow
-}
-
-# Uptime polling is manual-only: run check-uptime.ps1 or maintain.bat when Kwalify is up.
-# Optional: scripts\schedule-uptime-check.ps1 if you want every-5-min checks while PC is on.
+# Kwalify never registers scheduled tasks or login auto-start. Backups and checks are manual:
+#   maintain.bat (weekly), npm run backup:db. Opt in to a nightly backup task yourself with
+#   scripts\schedule-db-backup.ps1 (Admin) if you want one.
 
 Write-Step "Disable PC sleep on AC power"
 try {
   & (Join-Path $Root "scripts\disable-pc-sleep.ps1")
 } catch {
   Write-Host "  Could not change power plan - run disable-pc-sleep-admin.bat as Administrator" -ForegroundColor Yellow
-}
-
-Write-Step "Weekly maintenance (Sundays 10:00 AM)"
-try {
-  & (Join-Path $Root "scripts\schedule-weekly-maintenance.ps1")
-} catch {
-  Write-Host "  Could not register weekly task (optional - run weekly-maintenance.bat manually)" -ForegroundColor Yellow
 }
 
 $shortcutScript = Join-Path $Root "scripts\create-kwalify-shortcuts.ps1"
@@ -195,6 +173,6 @@ Start-Process "https://developer.spotify.com/dashboard" | Out-Null
 
 Write-Host ""
 Write-Host "  SETUP COMPLETE" -ForegroundColor Green
-Write-Host "  Daily start: double-click start.bat (or Start Kwalify on Desktop)"
+Write-Host "  Start: double-click KWALIFY-START.bat   Stop: KWALIFY-STOP.bat"
 Write-Host "  Status: $siteUrl/status"
 Write-Host ""

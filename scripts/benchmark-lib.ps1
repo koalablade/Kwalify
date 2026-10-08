@@ -429,9 +429,7 @@ function Show-BenchmarkStatus {
 }
 
 function Get-StartKwalifyScript {
-  $startBat = Join-Path $script:BenchmarkRoot "start.bat"
-  if (Test-Path -LiteralPath $startBat) { return $startBat }
-  return Join-Path $script:BenchmarkRoot "start-kwalify.bat"
+  return Join-Path $script:BenchmarkRoot "KWALIFY-START.bat"
 }
 
 function Test-ApiRunning([string]$Url = "http://127.0.0.1:5000") {
@@ -448,7 +446,7 @@ function Ensure-KwalifyRunning {
   if (-not (Test-Path -LiteralPath $startBat)) { return $false }
   Write-Host ""
   Write-Host "  Starting Kwalify automatically (wait ~60s)..." -ForegroundColor Yellow
-  Start-Process -FilePath $startBat -ArgumentList "quick" -WorkingDirectory $script:BenchmarkRoot -WindowStyle Minimized | Out-Null
+  Start-Process -FilePath $startBat -WorkingDirectory $script:BenchmarkRoot -WindowStyle Minimized | Out-Null
   $deadline = (Get-Date).AddSeconds(120)
   while ((Get-Date) -lt $deadline) {
     if (Test-ApiRunning $Url) {
@@ -457,7 +455,7 @@ function Ensure-KwalifyRunning {
     }
     Start-Sleep -Seconds 3
   }
-  Write-Host "  Kwalify did not start in time. Double-click start.bat on Desktop first." -ForegroundColor Red
+  Write-Host "  Kwalify did not start in time. Double-click KWALIFY-START.bat first." -ForegroundColor Red
   return $false
 }
 
@@ -468,6 +466,6 @@ function Ensure-ApiHint {
     return Ensure-KwalifyRunning $Url
   }
   Write-Host ""
-  Write-Host "  API not running. Double-click start.bat on Desktop first." -ForegroundColor Yellow
+  Write-Host "  API not running. Double-click KWALIFY-START.bat first." -ForegroundColor Yellow
   return $false
 }

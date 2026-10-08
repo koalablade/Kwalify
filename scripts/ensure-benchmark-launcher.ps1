@@ -32,7 +32,7 @@ function Test-MainApiUp {
 if (-not (Test-MainApiUp)) {
   Write-Host ""
   Write-Host "  Kwalify server is not running." -ForegroundColor Red
-  Write-Host "  1. Double-click start.bat and wait for it to finish"
+  Write-Host "  1. Double-click KWALIFY-START.bat and wait until it says Kwalify is running"
   Write-Host "  2. Then run this again"
   Write-Host ""
   exit 1

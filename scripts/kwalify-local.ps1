@@ -1,17 +1,23 @@
-# Simple local Kwalify server control (used by local\START.bat / local\STOP.bat).
+# The one Kwalify launcher (used by KWALIFY-START.bat / KWALIFY-STOP.bat).
 #
 #   start : check prerequisites + PostgreSQL, build only if stale, run the existing
 #           server (node backend/dist/server.js, i.e. what `npm start` runs) in this
 #           console, wait for /api/readyz, then keep showing server logs.
+#           If this PC is set up for self-hosting (.env KWALIFY_HOST_MODE=selfhost,
+#           Cloudflare exposure, deploy\cloudflared.yml present) it also starts the
+#           Cloudflare tunnel in its own minimised window. -NoTunnel skips that.
 #   stop  : find THIS Kwalify server process, send it Ctrl+C (graceful SIGINT
-#           shutdown, same as pressing Ctrl+C in its window), wait for it to exit.
+#           shutdown, same as pressing Ctrl+C in its window), wait for it to exit;
+#           then stop the tunnel, but only if this launcher started it.
 #
-# Never starts/stops PostgreSQL, never edits .env, never kills processes it cannot
-# positively identify as the Kwalify server. Written for Windows PowerShell 5.1.
+# Never starts/stops PostgreSQL, never edits .env, never pulls from git, never
+# registers scheduled tasks, never kills processes it cannot positively identify as
+# its own Kwalify server or tunnel. Written for Windows PowerShell 5.1.
 param(
   [Parameter(Mandatory = $true)]
   [ValidateSet("start", "stop")]
-  [string]$Action
+  [string]$Action,
+  [switch]$NoTunnel
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,6 +26,8 @@ $ServerEntry = "backend\dist\server.js"
 $ServerEntryPattern = 'backend[\\/]+dist[\\/]+server\.js'
 $StateDir = Join-Path $Root "reports"
 $StateFile = Join-Path $StateDir ".kwalify-local-server.json"
+$TunnelStateFile = Join-Path $StateDir ".kwalify-local-tunnel.json"
+$TunnelConfig = Join-Path $Root "deploy\cloudflared.yml"
 $StopTimeoutSec = 130   # server grace window is 100s for in-flight playlist generations
 $ReadyTimeoutSec = 180
 
@@ -77,7 +85,7 @@ function Get-PortOwnerIds([int]$port) {
 }
 
 # Returns the running Kwalify server process for this repo/port, or $null.
-# 1) the PID recorded by local\START.bat (verified: same start time, node running server.js)
+# 1) the PID recorded by KWALIFY-START.bat (verified: same start time, node running server.js)
 # 2) otherwise a node process running backend\dist\server.js that owns the Kwalify port
 #    (covers servers started by the older start.bat / start-kwalify.bat launchers)
 function Find-KwalifyServer([int]$port) {
@@ -148,7 +156,7 @@ function Test-PostgresReachable {
     Say "  No PostgreSQL Windows service was found on this PC." "Yellow"
     Say "  Start your PostgreSQL server (the one DATABASE_URL in .env points to)." "Yellow"
   }
-  Say "  Then double-click local\START.bat again. (Nothing was changed.)" "Yellow"
+  Say "  Then double-click KWALIFY-START.bat again. (Nothing was changed.)" "Yellow"
   return $false
 }
 
@@ -216,8 +224,156 @@ function Show-AutostartWarning {
   Say ""
   Say "  Note: Windows still has Kwalify tasks that run on their own:" "Yellow"
   foreach ($t in $tasks) { Say "    - $($t.TaskName)" "Yellow" }
-  Say "  To remove them once: double-click local\TURN-OFF-AUTOSTART.bat" "Yellow"
+  Say "  To remove them once: double-click TURN-OFF-AUTOSTART.bat" "Yellow"
   Say ""
+}
+
+# -- Cloudflare tunnel (only on a PC set up for self-hosting) --
+function Get-TunnelPlan {
+  # Returns $null when the tunnel should not be started, otherwise the reason it is wanted.
+  if ($NoTunnel) { return $null }
+  if ($env:KWALIFY_HOST_MODE -ne "selfhost") { return $null }
+  $exposure = if ($env:KWALIFY_EXPOSURE) { $env:KWALIFY_EXPOSURE } else { "cloudflare" }
+  if ($exposure -ne "cloudflare") { return $null }
+  return "selfhost"
+}
+
+function Find-CloudflaredExe {
+  $cmd = Get-Command cloudflared -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
+  foreach ($p in @(
+    "${env:ProgramFiles(x86)}\cloudflared\cloudflared.exe",
+    "$env:ProgramFiles\cloudflared\cloudflared.exe",
+    "$env:LOCALAPPDATA\Microsoft\WinGet\Links\cloudflared.exe"
+  )) {
+    if ($p -and (Test-Path -LiteralPath $p)) { return $p }
+  }
+  return $null
+}
+
+function Get-ProcessCommandLine([int]$procId) {
+  try {
+    $p = Get-CimInstance Win32_Process -Filter "ProcessId = $procId" -ErrorAction Stop
+    if ($p) { return [string]$p.CommandLine }
+  } catch {}
+  return $null
+}
+
+# A cloudflared process running THIS repo's tunnel config.
+function Test-IsKwalifyTunnel([int]$procId) {
+  $p = Get-Process -Id $procId -ErrorAction SilentlyContinue
+  if (-not $p -or $p.ProcessName -ine "cloudflared") { return $false }
+  $cmd = Get-ProcessCommandLine $procId
+  return [bool]($cmd -and $cmd.IndexOf($TunnelConfig, [StringComparison]::OrdinalIgnoreCase) -ge 0)
+}
+
+# The tunnel this launcher started (verified PID + start time + config), or $null.
+function Find-OwnedTunnel {
+  if (-not (Test-Path -LiteralPath $TunnelStateFile)) { return $null }
+  $s = $null
+  try { $s = Get-Content -LiteralPath $TunnelStateFile -Raw | ConvertFrom-Json } catch {}
+  if ($s -and $s.pid) {
+    $p = Get-Process -Id ([int]$s.pid) -ErrorAction SilentlyContinue
+    if ($p) {
+      $sameStart = $false
+      try { $sameStart = ([math]::Abs($p.StartTime.ToUniversalTime().Ticks - [long]$s.startTicksUtc) -lt 20000000) } catch {}
+      if ($sameStart -and (Test-IsKwalifyTunnel $p.Id)) { return $p }
+    }
+  }
+  Remove-Item -LiteralPath $TunnelStateFile -Force -ErrorAction SilentlyContinue   # stale record
+  return $null
+}
+
+# A cloudflared for this config that something else started (old launcher, a service...).
+function Find-OtherTunnel {
+  foreach ($p in @(Get-Process -Name cloudflared -ErrorAction SilentlyContinue)) {
+    if (Test-IsKwalifyTunnel $p.Id) { return $p }
+  }
+  return $null
+}
+
+function Test-HostsPointsLocal([string]$hostName) {
+  if (-not $hostName) { return $false }
+  $hostsPath = Join-Path $env:SystemRoot "System32\drivers\etc\hosts"
+  try {
+    foreach ($line in (Get-Content -LiteralPath $hostsPath -ErrorAction Stop)) {
+      $t = $line.Trim()
+      if (-not $t -or $t.StartsWith("#")) { continue }
+      $parts = $t -split '\s+'
+      if ($parts.Count -ge 2 -and $parts[0] -match '^(127\.|::1$)' -and ($parts[1..($parts.Count - 1)] -contains $hostName)) { return $true }
+    }
+  } catch {}
+  return $false
+}
+
+function Start-KwalifyTunnel {
+  $owned = Find-OwnedTunnel
+  if ($owned) { Ok "Cloudflare tunnel already running (PID $($owned.Id))"; return }
+  $other = Find-OtherTunnel
+  if ($other) {
+    Ok "Cloudflare tunnel already running (PID $($other.Id), not started by KWALIFY-START - left as is)"
+    return
+  }
+  if (-not (Test-Path -LiteralPath $TunnelConfig)) {
+    Say "  [--] Tunnel not started: deploy\cloudflared.yml is missing (run setup-self-host.bat once)." "Yellow"
+    return
+  }
+  $cf = Find-CloudflaredExe
+  if (-not $cf) {
+    Say "  [--] Tunnel not started: cloudflared is not installed (run setup-self-host.bat once)." "Yellow"
+    return
+  }
+  $p = Start-Process -FilePath $cf -ArgumentList @("tunnel", "--config", "`"$TunnelConfig`"", "run") `
+    -WorkingDirectory $Root -WindowStyle Minimized -PassThru
+  Start-Sleep -Seconds 2
+  if ($p.HasExited) {
+    Problem "cloudflared exited straight away (code $($p.ExitCode)). Kwalify is still running locally."
+    Say "       To see why, run in a new window:  cloudflared tunnel --config deploy\cloudflared.yml run" "Yellow"
+    return
+  }
+  @{
+    pid           = $p.Id
+    startTicksUtc = $p.StartTime.ToUniversalTime().Ticks
+    config        = $TunnelConfig
+    startedAt     = (Get-Date).ToString("o")
+  } | ConvertTo-Json | Set-Content -LiteralPath $TunnelStateFile -Encoding UTF8
+  Ok "Cloudflare tunnel started (PID $($p.Id), minimised window)"
+}
+
+function Stop-OwnedTunnel {
+  $t = Find-OwnedTunnel
+  if (-not $t) { return $false }
+  $tid = $t.Id
+  $null = Send-CtrlC $tid
+  $deadline = (Get-Date).AddSeconds(10)
+  while ((Get-Process -Id $tid -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+  if ((Get-Process -Id $tid -ErrorAction SilentlyContinue) -and (Test-IsKwalifyTunnel $tid)) {
+    Stop-Process -Id $tid -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 500
+  }
+  if (Get-Process -Id $tid -ErrorAction SilentlyContinue) { return $false }
+  Remove-Item -LiteralPath $TunnelStateFile -Force -ErrorAction SilentlyContinue
+  return $true
+}
+
+function Show-PublicUrlStatus {
+  if (-not $env:APP_URL -or ($env:APP_URL -match 'localhost|127\.0\.0\.1')) { return }
+  $url = $env:APP_URL.TrimEnd("/")
+  $hostName = $null
+  try { $hostName = ([Uri]$url).Host } catch {}
+  if (Test-HostsPointsLocal $hostName) {
+    Say "  Note: this PC's hosts file sends $hostName to 127.0.0.1, so $url will not" "Yellow"
+    Say "        reach the tunnel from this PC. Fix once: right-click remove-local-hosts.bat > Run as administrator." "Yellow"
+  }
+  $deadline = (Get-Date).AddSeconds(30)
+  while ((Get-Date) -lt $deadline) {
+    try {
+      $r = Invoke-WebRequest -UseBasicParsing -Uri "$url/api/readyz" -TimeoutSec 6
+      if ($r.StatusCode -eq 200) { Say "Public site: $url" "Green"; return }
+    } catch {}
+    Start-Sleep -Seconds 3
+  }
+  Say "Public site $url is not answering yet (the tunnel can take a minute to connect)." "Yellow"
 }
 
 # --
@@ -245,7 +401,8 @@ function Invoke-Start {
     Say "Kwalify is already running (PID $($existing.Id)) - not starting a second copy." "Green"
     Say "http://localhost:$port"
     if (-not (Test-Ready $port)) { Say "  (it is still starting up or not ready yet)" "Yellow" }
-    Say "To stop it: double-click local\STOP.bat"
+    if (Get-TunnelPlan) { Start-KwalifyTunnel }
+    Say "To stop it: double-click KWALIFY-STOP.bat"
     return 0
   }
 
@@ -316,15 +473,20 @@ function Invoke-Start {
       Say "http://localhost:$port" "Yellow"
       Say "Check the log messages above." "Yellow"
     }
-    if ($env:APP_URL -and ($env:APP_URL -notmatch 'localhost|127\.0\.0\.1')) {
-      Say "  (public URL in .env: $($env:APP_URL) - needs the Cloudflare tunnel, which this script does not manage)" "DarkGray"
+    if ($ready -and (Get-TunnelPlan)) {
+      Say ""
+      Start-KwalifyTunnel
+      Show-PublicUrlStatus
+    } elseif ($env:APP_URL -and ($env:APP_URL -notmatch 'localhost|127\.0\.0\.1')) {
+      $why = if ($NoTunnel) { "started with 'local'" } elseif (-not $ready) { "server not ready" } else { "this PC is not set up for self-hosting" }
+      Say "  (Cloudflare tunnel not started: $why - only http://localhost:$port works)" "DarkGray"
     }
     Say ""
-    Say "Keep this window open. To stop: double-click local\STOP.bat (or press Ctrl+C here)." "Cyan"
+    Say "Keep this window open. To stop: double-click KWALIFY-STOP.bat (or press Ctrl+C here)." "Cyan"
     Say ""
     while (-not $proc.HasExited) { Start-Sleep -Seconds 1 }
   } finally {
-    # Reached on normal exit, on Ctrl+C, or when local\STOP.bat sends Ctrl+C.
+    # Reached on normal exit, on Ctrl+C, or when KWALIFY-STOP.bat sends Ctrl+C.
     if (-not $proc.HasExited) {
       Say ""
       Say "Waiting for Kwalify to shut down gracefully (up to $StopTimeoutSec s)..." "Yellow"
@@ -332,6 +494,7 @@ function Invoke-Start {
     }
     if ($proc.HasExited) {
       Clear-State $proc.Id
+      if (Stop-OwnedTunnel) { Say "Cloudflare tunnel stopped." "Cyan" }
       Say ""
       Say "Kwalify has stopped." "Cyan"
     } else {
@@ -356,6 +519,7 @@ function Invoke-Stop {
     if ($owners.Count -gt 0) {
       Say "  (port $port is used by another program, PID $($owners -join ', '); it was left alone)" "Yellow"
     }
+    if (Stop-OwnedTunnel) { Say "  Stopped the Cloudflare tunnel KWALIFY-START had started." "Green" }
     return 0
   }
 
@@ -392,13 +556,18 @@ function Invoke-Stop {
     return 1
   }
   Clear-State $serverId
+  if (Stop-OwnedTunnel) {
+    Say "  Cloudflare tunnel stopped."
+  } elseif (Find-OtherTunnel) {
+    Say "  A Cloudflare tunnel KWALIFY-START did not start is still running - left alone." "Yellow"
+  }
   Say ""
   Say "Kwalify has stopped. (PostgreSQL was not touched.)" "Green"
   return 0
 }
 
 if ($Action -eq "start") {
-  # Launched with -NoExit by local\START.bat so this window stays open (logs and
+  # Launched with -NoExit by KWALIFY-START.bat so this window stays open (logs and
   # errors remain visible) whether startup fails, the server stops, or Ctrl+C is used.
   $null = Invoke-Start
   Say ""

@@ -94,4 +94,4 @@ These require a browser session and remain local-only.
 
 `validateEnv()` warns on startup when `NODE_ENV=production` and `PLAYLIST_EVAL_TOKEN` is unset (audit mode unavailable).
 
-Production must have the **same** `PLAYLIST_EVAL_TOKEN` as GitHub secret and local `.env`. Restart the API after changing `.env` (`stop-kwalify.bat` then `start.bat`).
+Production must have the **same** `PLAYLIST_EVAL_TOKEN` as GitHub secret and local `.env`. Restart the API after changing `.env` (`KWALIFY-STOP.bat` then `KWALIFY-START.bat`).

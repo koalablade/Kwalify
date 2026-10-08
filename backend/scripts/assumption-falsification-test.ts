@@ -206,7 +206,7 @@ async function ensureApi(baseUrl: string): Promise<void> {
       /* try next */
     }
   }
-  throw new Error(`API not reachable at ${baseUrl}. Start with: powershell -File scripts/start-api.ps1`);
+  throw new Error(`API not reachable at ${baseUrl}. Start it with KWALIFY-START.bat (or npm start)`);
 }
 
 function buildTests(

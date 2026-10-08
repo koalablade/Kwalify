@@ -6,11 +6,11 @@ Track progress from **closed beta on your PC** to **production**. Check items of
 
 ## Phase 1 — Closed beta (you are here)
 
-- [x] Self-host stack: `start.bat`, tunnel, stop script  
+- [x] Self-host stack: `KWALIFY-START.bat`, tunnel, stop script  
 - [x] Health routes: `/api/healthz`, `/api/readyz`, `/status`  
 - [x] **Production candidate:** branch `v55-committed-world` @ `0b647af` (self-host env normalization). Engine: `5fab771` (V55). **Rollback:** `434be42`. GitHub `main` is V38 — deploy from this branch, not `origin/main`.  
-- [x] **Live deploy:** restart via `start.bat` after pulling; verify `/api/readyz` commit + `playlistContract` flags  
-- [x] **Compound-intent flags:** `PLAYLIST_CONTRACT_WORLD_GATE/V40/V41=1` — auto-set on `start.bat` when `KWALIFY_HOST_MODE=selfhost`; verify on `/api/readyz` → `pipelineAuthority.playlistContract`  
+- [x] **Live deploy:** restart via `KWALIFY-START.bat` after pulling; verify `/api/readyz` commit + `playlistContract` flags  
+- [x] **Compound-intent flags:** `PLAYLIST_CONTRACT_WORLD_GATE/V40/V41=1` — auto-set on `KWALIFY-START.bat` when `KWALIFY_HOST_MODE=selfhost`; verify on `/api/readyz` → `pipelineAuthority.playlistContract`  
 - [ ] **Atmospheric delivery quality:** V55 fixes routing/pool survival; cozy/lo-fi sonic clustering still weak — acceptable for closed beta, not for calling atmospheric "solved"  
 - [x] Daily DB backups + verification script  
 - [x] Beta readiness script (`production-ready.bat`)  
@@ -18,7 +18,7 @@ Track progress from **closed beta on your PC** to **production**. Check items of
 - [ ] **Phone test** this week → `npm run maintenance:mark-phone-test` after mobile flow  
 - [x] **Uptime monitor** on `https://kwalify.net/api/readyz` (UptimeRobot)  
 - [x] **Restore test** verified (`reports\.backup-restore-verified`)  
-- [x] Health Watch auto-starts with `start.bat` (no separate bat needed)  
+- [x] No auto-start or watchdog: Kwalify runs only via `KWALIFY-START.bat`  
 - [x] Weekly maintenance scheduled (`maintain.bat` / Sundays 10 AM)  
 - [x] PC: no sleep on AC  
 
@@ -37,7 +37,7 @@ Until Spotify approves, you are in beta regardless of code quality.
 
 ## Phase 3 — Reliability on your PC
 
-- [x] Health Watch while hosting (`start.bat`)  
+- [ ] External uptime monitor while hosting (no local watchdog)  
 - [x] Weekly maintenance scheduled  
 - [x] PC: no sleep on AC, UPS optional  
 - [x] "Site down" runbook: [LOCAL-MAINTENANCE.md](./LOCAL-MAINTENANCE.md)  

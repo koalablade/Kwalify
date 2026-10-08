@@ -1,8 +1,9 @@
-# Idempotent pre-flight: first-time setup + Cloudflare + hosts cleanup.
-# Called automatically by start.bat before the server starts.
+# ONE-TIME self-host setup (setup-self-host.bat / finish-cloudflare-login.bat):
+# .env for kwalify.net, hosts cleanup, cloudflared install, Cloudflare login, tunnel
+# config, Desktop shortcuts. Safe to re-run. Does NOT start Kwalify - use KWALIFY-START.bat.
 param(
   [string]$Root = (Split-Path -Parent $PSScriptRoot),
-  [switch]$SetupOnly
+  [switch]$SetupOnly   # accepted for compatibility; this script only does setup
 )
 
 $ErrorActionPreference = "Stop"
@@ -58,7 +59,7 @@ function Ensure-CloudflareLogin([string]$cf) {
 
   & $cf tunnel login
   if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $cert)) {
-    throw "Cloudflare login failed. Run start.bat again after authorizing kwalify.net."
+    throw "Cloudflare login failed. Run setup-self-host.bat again after authorizing kwalify.net."
   }
   Write-Host "  Cloudflare login OK" -ForegroundColor Green
 }
@@ -82,8 +83,8 @@ function Ensure-TunnelConfig([string]$cf) {
 
 # --- main ---
 Write-Host ""
-Write-Host "  KWALIFY START" -ForegroundColor Magenta
-Write-Host "  One double-click: setup (if needed) + server + tunnel" -ForegroundColor DarkGray
+Write-Host "  KWALIFY SELF-HOST SETUP" -ForegroundColor Magenta
+Write-Host "  One-time: .env + Cloudflare tunnel. Start Kwalify afterwards with KWALIFY-START.bat" -ForegroundColor DarkGray
 Write-Host ""
 
 $envPath = Join-Path $Root ".env"
@@ -109,13 +110,6 @@ $cf = Find-Cloudflared
 Ensure-CloudflareLogin $cf
 Ensure-TunnelConfig $cf
 
-# Scheduled tasks (nightly backup, weekly maintenance) are no longer registered
-# automatically on start - Kwalify only runs when explicitly started. Run
-# scripts\schedule-db-backup.ps1 / schedule-weekly-maintenance.ps1 manually to opt in.
-
-Step "Startup maintenance and audits"
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\ensure-startup-maintenance.ps1") -Root $Root
-
 $shortcutScript = Join-Path $Root "scripts\create-kwalify-shortcuts.ps1"
 if (Test-Path -LiteralPath $shortcutScript) {
   & powershell -NoProfile -ExecutionPolicy Bypass -File $shortcutScript -Root $Root | Out-Null
@@ -127,7 +121,7 @@ if (-not (Test-Path -LiteralPath $reports)) {
 }
 
 Write-Host ""
-Write-Host "  Pre-flight OK" -ForegroundColor Green
+Write-Host "  Setup OK" -ForegroundColor Green
 Write-Host ""
 
-if ($SetupOnly) { exit 0 }
+exit 0

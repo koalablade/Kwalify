@@ -73,8 +73,8 @@ powershell -ExecutionPolicy Bypass -File scripts\mark-backup-restore-verified.ps
 
 **Only if production DB is lost or corrupted.**
 
-1. Stop Kwalify: `stop-kwalify.bat`
+1. Stop Kwalify: `KWALIFY-STOP.bat`
 2. Restore dump into `kwalify` database (same `pg_restore` command, `-d kwalify`)
-3. Start Kwalify: `start.bat`
+3. Start Kwalify: `KWALIFY-START.bat`
 
 Keep a copy of `.env` offline — without it you cannot reconnect Spotify sessions cleanly.

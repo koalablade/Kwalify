@@ -3,7 +3,7 @@
     const b = document.getElementById('offline-banner');
     if (b) {
       b.style.display = 'block';
-      b.innerHTML = '<strong>Wrong way to open this.</strong> Close this tab. Use <strong>start.bat</strong>, then open <strong>/benchmark</strong> in your browser.';
+      b.innerHTML = '<strong>Wrong way to open this.</strong> Close this tab. Use <strong>KWALIFY-START.bat</strong>, then open <strong>/benchmark</strong> in your browser.';
     }
   });
 }
@@ -84,7 +84,7 @@ function setHtml(el, html) {
       const wrongPage = location.protocol === 'file:' || location.port === '5055';
       b.innerHTML = reason || (
         '<strong>Benchmark API not reachable.</strong><br>' +
-        `Run <strong>start.bat</strong>, then open <strong>${esc(benchmarkWebUrl())}</strong>.` +
+        `Run <strong>KWALIFY-START.bat</strong>, then open <strong>${esc(benchmarkWebUrl())}</strong>.` +
         (wrongPage ? `<br><span style="color:#fca5a5">You are on: ${esc(here)}</span>` : '')
       );
       const pill = document.getElementById('pill-bench-api');
@@ -109,7 +109,7 @@ function setHtml(el, html) {
         if (!r.ok) throw new Error('ping failed');
         const data = await r.json();
         if (data.launcherVersion && data.launcherVersion !== LAUNCHER_VERSION) {
-          showOfflineBanner('<strong>Benchmark API out of date.</strong> Hard-refresh this page (Ctrl+F5) or restart <strong>start.bat</strong>.');
+          showOfflineBanner('<strong>Benchmark API out of date.</strong> Hard-refresh this page (Ctrl+F5) or restart Kwalify (<strong>KWALIFY-STOP.bat</strong>, then <strong>KWALIFY-START.bat</strong>).');
           serverOk = false;
           return false;
         }
@@ -154,7 +154,7 @@ async function api(path, opts = {}) {
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
     if (r.status === 403) {
-      throw new Error(data.error || `Open ${benchmarkWebUrl()} from this PC (with start.bat running).`);
+      throw new Error(data.error || `Open ${benchmarkWebUrl()} from this PC (with KWALIFY-START.bat running).`);
     }
     throw new Error(data.error || data.message || ('HTTP ' + r.status));
   }

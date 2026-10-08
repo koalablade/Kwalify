@@ -33,9 +33,9 @@ Logs: `reports\uptime-check.log`. This does **not** replace UptimeRobot — you 
 
 ## What to do when alerted
 
-1. On your PC: `start.bat` (if not running)
-2. Still down: `stop-kwalify.bat` then `start.bat`
-3. Read `kwalify-watchdog.log` and `kwalify-api.log`
-4. Tunnel issues: `repair-tunnel.bat`
+1. On your PC: `KWALIFY-START.bat` (if not running)
+2. Still down: `KWALIFY-STOP.bat` then `KWALIFY-START.bat`
+3. Read the "Kwalify server" window
+4. Tunnel issues: `KWALIFY-STOP.bat` then `KWALIFY-START.bat`
 
 Local checks also log to `reports\uptime-check.log` (from `maintain.bat`).

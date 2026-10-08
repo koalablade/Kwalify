@@ -87,7 +87,7 @@ If `APP_URL` is set and `NODE_ENV=production`, the session cookie `domain` is se
 
 ## Example `.env` (Local Windows — kwalify.net)
 
-Used by `start-kwalify.bat` (domain mode). Spotify login requires this URL, not localhost.
+Used by `KWALIFY-START.bat` (domain mode). Spotify login requires this URL, not localhost.
 
 ```env
 DATABASE_URL=postgresql://kwalify:kwalify@localhost:5432/kwalify
@@ -101,7 +101,7 @@ APP_URL=https://kwalify.net
 LOG_LEVEL=debug
 ```
 
-Debug-only (no Spotify login): run `start-kwalify.bat local` — uses `http://localhost:5000`.
+Debug-only (no Spotify login): run `KWALIFY-START.bat local` — uses `http://localhost:5000`.
 
 ## Example `.env` (Development — generic)
 

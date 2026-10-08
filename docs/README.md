@@ -27,7 +27,7 @@ This directory contains technical documentation for the Kwalify codebase.
 
 ### Start the app
 
-**Windows:** `start-kwalify.bat` (see [FIRST-TIME-SETUP.txt](../FIRST-TIME-SETUP.txt))
+**Windows:** `KWALIFY-START.bat` (see [FIRST-TIME-SETUP.txt](../FIRST-TIME-SETUP.txt))
 
 **Manual:**
 ```bash

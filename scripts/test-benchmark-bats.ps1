@@ -106,7 +106,7 @@ try {
   $preview = Invoke-RestMethod -Uri "http://127.0.0.1:5000/api/benchmark/chat" -Method POST -ContentType "application/json" -Body '{"message":"preview smoke"}' -TimeoutSec 90 -Headers @{ Host = "localhost" }
   if ($preview.ok -and $preview.reply -match "preview") { Pass "main /api/benchmark/chat preview" } else { Fail "main /api/benchmark/chat preview" }
 } catch {
-  Fail "main benchmark API (is start.bat running?): $($_.Exception.Message)"
+  Fail "main benchmark API (is KWALIFY-START.bat running?): $($_.Exception.Message)"
 }
 
 $redirectJob = Start-Job -ScriptBlock {

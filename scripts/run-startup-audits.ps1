@@ -1,4 +1,4 @@
-# Startup test + post-start audits (called from start-kwalify-core.ps1).
+# Startup test + post-start audits (manual: npm run startup:audits).
 param(
   [string]$Root = (Split-Path -Parent $PSScriptRoot),
   [ValidateSet("tests", "post")]

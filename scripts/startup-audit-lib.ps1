@@ -55,24 +55,6 @@ function Set-MaintenanceLastRun {
   Set-Content -LiteralPath (Join-Path $reports ".maintenance-last-run") -Value $When.ToString("o") -Encoding ASCII
 }
 
-function Ensure-WeeklyMaintenanceScheduled {
-  param([string]$RootPath = $Root)
-
-  $taskName = "Kwalify-Weekly-Maintenance"
-  $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-  if ($existing) { return $true }
-
-  $scheduleScript = Join-Path $RootPath "scripts\schedule-weekly-maintenance.ps1"
-  if (-not (Test-Path -LiteralPath $scheduleScript)) { return $false }
-
-  try {
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $scheduleScript
-    return $true
-  } catch {
-    return $false
-  }
-}
-
 function Invoke-AuditScript {
   param(
     [Parameter(Mandatory = $true)][string]$Label,
