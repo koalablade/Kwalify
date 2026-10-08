@@ -54,6 +54,7 @@ import {
 } from "../editorial/intent-fidelity-gate";
 import {
   evaluateWorldProof,
+  filterTracksByFullWorldProof,
   filterTracksByWorldIdentity,
 } from "../editorial/world-proof-gate";
 import { enforceThesisOpener } from "../editorial/thesis-opener-gate";
@@ -3879,5 +3880,50 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     ),
   };
 
-  return { finalTracks, diagnostics, sceneWorldContext };
+  // Universal per-track world-integrity boundary — hard eligibility filter
+  const committedWorldForFilter = resolveCommittedWorld({ prompt: vibe, lockedIntent });
+  const profileForFilter = committedWorldForFilter ? resolveCulturalProfileForCommitted(committedWorldForFilter) : null;
+  let integrityFilteredTracks = finalTracks;
+  if (profileForFilter && committedWorldForFilter) {
+    const proofResult = filterTracksByFullWorldProof(
+      finalTracks.map((t) => ({
+        trackId: t.trackId,
+        trackName: t.trackName ?? null,
+        artistName: t.artistName,
+        albumName: (t as { albumName?: string | null }).albumName ?? null,
+        genrePrimary: t.genrePrimary ?? null,
+        genreFamily: t.genreFamily ?? null,
+        energy: t.energy,
+        valence: t.valence,
+        acousticness: t.acousticness,
+        danceability: t.danceability,
+        speechiness: t.speechiness ?? null,
+        tempo: t.tempo,
+        releaseYear: (t as { releaseYear?: number | null }).releaseYear ?? null,
+      })),
+      committedWorldForFilter,
+      "MEDIUM"
+    );
+    integrityFilteredTracks = proofResult.tracks as typeof finalTracks;
+  }
+
+  // Explicit committed era hard eligibility — reuse existing era-evidence
+  if (lockedIntent?.eraRange) {
+    const eraRange = lockedIntent.eraRange;
+    integrityFilteredTracks = integrityFilteredTracks.filter((track) => {
+      const trackEvidence = {
+        releaseYear: (track as { releaseYear?: number | null }).releaseYear ?? null,
+        trackName: track.trackName ?? null,
+        artistName: track.artistName,
+        albumName: (track as { albumName?: string | null }).albumName ?? null,
+        genrePrimary: track.genrePrimary ?? null,
+        genreFamily: track.genreFamily ?? null,
+        genres: (track as { genres?: string[] | null }).genres ?? null,
+        spotifyArtistGenres: (track as { spotifyArtistGenres?: unknown }).spotifyArtistGenres,
+      };
+      return !trackHasKnownEraMismatch(trackEvidence, eraRange);
+    });
+  }
+
+  return { finalTracks: integrityFilteredTracks, diagnostics, sceneWorldContext };
 }
