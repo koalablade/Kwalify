@@ -104,6 +104,7 @@ import {
 } from "../lib/generate-session";
 import { captureError } from "../lib/error-tracking";
 import { sanitizeLikedSongs } from "../lib/library-sanitize";
+import { summariseAudioFeatureProvenance, type AudioFeatureProvenanceSummary } from "../lib/audio-feature-provenance";
 import { getDiscoveryModeReadiness } from "../lib/discovery-mode";
 import { isShuttingDown } from "../lib/shutdown";
 import { createGenerateStageTimer, GENERATE_PIPELINE_STAGE_STUCK_MS } from "../lib/generate-stage-timer";
@@ -5276,6 +5277,7 @@ router.post("/generate", async (req, res): Promise<void> => {
   let requestHardTimeoutMs = REQUEST_HARD_TIMEOUT_MS;
   let deliveryLossFunnel: DeliveryLossFunnel | null = null;
   let puritySubFunnel: PuritySubFunnel | null = null;
+  let audioFeatureProvenance: AudioFeatureProvenanceSummary | null = null;
   let candidateFunnelObserver: CandidateFunnelObserver | null = null;
   let lineageScoringPoolIds: string[] | null = null;
   let lineageV3PrefilterIds: string[] | null = null;
@@ -6065,6 +6067,9 @@ router.post("/generate", async (req, res): Promise<void> => {
     }
 
     let { valid: likedSongs, dropped: droppedTracks } = sanitizeLikedSongs(likedRowsRaw);
+    // How much of the library has real (Spotify) vs metadata-inferred audio features.
+    audioFeatureProvenance = summariseAudioFeatureProvenance(likedSongs);
+    req.log.info({ userId, audioFeatureProvenance }, "Audio feature provenance");
     if (droppedTracks > 0) {
       const logDropped = droppedTracks >= 10 || (likedRowsRaw.length > 0 && droppedTracks / likedRowsRaw.length >= 0.05);
       (logDropped ? req.log.info : req.log.debug).call(
@@ -14870,6 +14875,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         ...(retrievalConfidenceResult ? { retrievalConfidence: retrievalConfidenceResult } : {}),
         ...(deliveryLossFunnel ? { deliveryLossFunnel } : {}),
         ...(puritySubFunnel ? { puritySubFunnel } : {}),
+        ...(audioFeatureProvenance ? { audioFeatureProvenance } : {}),
       };
       endAuditResponseProfile();
       const endAuditJsonProfile = liveStageProfiler.start("controller.responseJson.auditSlim", `${finalApiTracks.length} tracks`);

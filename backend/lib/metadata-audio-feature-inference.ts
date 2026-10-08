@@ -174,3 +174,100 @@ export function inferMetadataAudioFeatures(input: MetadataAudioFeatureInput): Sp
     loudness: Math.max(-24, Math.min(-2, prior.loudness + spread(id, "loudness", 3))),
   };
 }
+
+// ── Provenance detection ────────────────────────────────────────────────────
+// liked_songs stores inferred and real Spotify features in the same columns with
+// no source flag. Inferred rows carry a deterministic fingerprint: valence, tempo
+// and loudness are always (one of a small set of priors) + spread(trackId, salt).
+// Unlike re-running the inference, this check does not depend on the genre
+// taxonomy, so it stays correct when classifyTrack() changes after a row was written.
+
+const VALENCE_BASES: number[] = (() => {
+  const bases = new Set<number>();
+  for (const p of Object.values(GENRE_PRIORS)) bases.add(p.valence);
+  for (const m of Object.values(SUBGENRE_MODIFIERS)) if (m.valence !== undefined) bases.add(m.valence);
+  const out: number[] = [];
+  for (const b of bases) {
+    out.push(b);
+    let ballad = b;
+    ballad -= 0.06; // same float operation as applyTextModifiers()
+    out.push(ballad);
+  }
+  return out;
+})();
+
+const TEMPO_BASES: number[] = (() => {
+  const bases = new Set<number>();
+  for (const p of Object.values(GENRE_PRIORS)) bases.add(p.tempo);
+  for (const m of Object.values(SUBGENRE_MODIFIERS)) if (m.tempo !== undefined) bases.add(m.tempo);
+  const deltas = [-12, 8, -18, 10]; // acoustic, remix, ballad, workout (any combination)
+  const out = new Set<number>();
+  for (const b of bases) {
+    for (let mask = 0; mask < 16; mask += 1) {
+      let t = b;
+      for (let i = 0; i < deltas.length; i += 1) if (mask & (1 << i)) t += deltas[i]!;
+      out.add(t);
+    }
+  }
+  return [...out];
+})();
+
+const LOUDNESS_BASES: number[] = (() => {
+  const bases = new Set<number>();
+  for (const p of Object.values(GENRE_PRIORS)) {
+    bases.add(p.loudness);
+    bases.add(p.loudness + 2); // live/concert
+  }
+  return [...bases];
+})();
+
+function matchesFingerprint(
+  value: number,
+  bases: number[],
+  trackId: string,
+  salt: string,
+  span: number,
+  clamp: (n: number) => number,
+  tolerance: number,
+): boolean {
+  const s = spread(trackId, salt, span);
+  for (const b of bases) {
+    if (Math.abs(clamp(b + s) - value) <= tolerance) return true;
+  }
+  return false;
+}
+
+export type AudioFeatureSource = "spotify" | "inferred" | "missing";
+
+/**
+ * Classify where a stored row's audio features came from.
+ * "inferred" = written by inferMetadataAudioFeatures (no real measurement).
+ * "missing"  = no energy/valence stored.
+ * "spotify"  = anything else (treated as a real measurement).
+ */
+export function detectAudioFeatureSource(row: {
+  trackId: string;
+  energy?: number | null;
+  valence?: number | null;
+  tempo?: number | null;
+  loudness?: number | null;
+}): AudioFeatureSource {
+  if (row.energy == null || row.valence == null) return "missing";
+  const id = row.trackId;
+  // Stored as float4 ("real"), so compare with a small tolerance.
+  if (!matchesFingerprint(row.valence, VALENCE_BASES, id, "valence", 0.1, clamp01, 1e-5)) return "spotify";
+  if (
+    row.tempo != null &&
+    !matchesFingerprint(row.tempo, TEMPO_BASES, id, "tempo", 14, (n) => Math.max(60, Math.min(200, n)), 1e-3)
+  ) {
+    return "spotify";
+  }
+  if (
+    row.loudness != null &&
+    !matchesFingerprint(row.loudness, LOUDNESS_BASES, id, "loudness", 3, (n) => Math.max(-24, Math.min(-2, n)), 1e-4)
+  ) {
+    return "spotify";
+  }
+  return "inferred";
+}
+
