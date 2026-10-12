@@ -1,0 +1,33 @@
+name: Audio feature backfill
+
+on:
+  schedule:
+    - cron: "0 4 * * 0"
+  workflow_dispatch:
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci && npm run build
+      - name: Resolve smoke Spotify user id
+        env:
+          PLAYLIST_EVAL_TOKEN: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node scripts/resolve-smoke-spotify-user-id.mjs > smoke-user.txt
+      - name: Backfill audio features (smoke user)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SPOTIFY_ACCESS_TOKEN: ${{ secrets.SMOKE_SPOTIFY_ACCESS_TOKEN }}
+        run: |
+          USER_ID=$(cat smoke-user.txt | tail -n 1)
+          if [ -z "$USER_ID" ] || [ -z "$SPOTIFY_ACCESS_TOKEN" ]; then
+            echo "Skipping scheduled backfill — set SMOKE_SPOTIFY_ACCESS_TOKEN + DATABASE_URL secrets"
+            exit 0
+          fi
+          node backend/dist/scripts/audio-feature-backfill.js "$USER_ID"

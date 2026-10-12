@@ -1,0 +1,168 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Block committed secrets
+        run: |
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo ".env must not be committed"
+            exit 1
+          fi
+      - name: npm audit (high+)
+        run: npm audit --audit-level=high
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Strict unused locals (generation modules)
+        run: |
+          OUTPUT=$(npx tsc --noEmit --noUnusedLocals --noUnusedParameters 2>&1 || true)
+          echo "$OUTPUT" | head -n 60
+          if echo "$OUTPUT" | grep -q 'backend/controllers/generation/'; then
+            echo "Unused locals detected in backend/controllers/generation/*"
+            exit 1
+          fi
+      - name: Static smoke
+        run: npm run smoke:static
+      - name: Build
+        run: npm run build
+      - name: Opener hygiene unit tests
+        run: npm run test:opener-hygiene
+      - name: Human curation alignment tests
+        run: npm run test:human-curation
+      - name: Generate pipeline hygiene tests
+        run: npm run test:generate-pipeline-hygiene
+      - name: Pipeline authority guards
+        run: |
+          npm run guard:pipeline-authority
+          npm run test:pipeline-authority
+      - name: Coherence fixtures
+        run: |
+          npm run coherence:intent
+          npm run coherence:intent-contract-ssot
+          npm run coherence:playlist
+          npm run coherence:world-boundary
+          npm run coherence:uk-hip-hop
+          npm run coherence:taxonomy
+          npm run coherence:semantic-collisions
+          npm run coherence:electronic-subgenres
+          npm run coherence:recovery-finalization
+          npm run coherence:cultural-references
+          npm run coherence:taste-preservation
+          npm run benchmark:library-anchored-scenes
+          npm run benchmark:deep-music-semantics
+          npm run stress:cross-library
+          npm run stress:identity-preservation
+          npm run stress:adversarial:ci
+          npm run benchmark:scene-collisions
+          npm run coherence:scene-filter
+          npm run coherence:truthful-metrics
+          npm run audit:benchmarks:ci
+          npm run benchmark:pairwise-signatures
+      - name: Semantic scene benchmark
+        run: npm run ci:semantic-scenes
+      - name: Scene knowledge accuracy
+        run: npm run benchmark:scene-knowledge
+      - name: Local prompt reliability fixtures
+        run: npm run ci:prompt-reliability-local
+      - name: CI prompt reliability gate
+        run: npm run ci:prompt-reliability -- --require-reports --local-fixture --benchmark reports/prompt-reliability/local/prompt-reliability-report.json --regression reports/prompt-reliability/local/regression-report.json --baseline reports/prompt-reliability/local/local-baseline.json
+      - name: Convergence overlap gate
+        run: npm run ci:convergence-overlap -- --report reports/prompt-reliability/local/regression-report.json
+      - name: Graceful shutdown smoke
+        run: npm run smoke:shutdown
+      - name: Launch smoke suite (health / auth / generate / db / process safety)
+        run: node --test backend/dist/tests/smoke-launch.test.js backend/dist/tests/process-safety.test.js
+      - name: Frontend module gate
+        run: npm run ci:frontend-modules
+      - name: Production validation dry-run
+        run: npm run validation:production -- --dry-run
+
+  launcher-scripts-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Benchmark launcher bat smoke
+        shell: pwsh
+        run: ./scripts/test-benchmark-bats.ps1
+      - name: Start script syntax smoke
+        shell: pwsh
+        run: ./scripts/test-start-syntax.ps1
+
+  deploy-smoke-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: ./.github/actions/benchmark-env
+        with:
+          playlist-eval-token: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+          smoke-spotify-user-id: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
+          base-url: https://kwalify.net
+          require-secrets: "true"
+      - run: npm ci && npm run build
+      - name: Validate benchmark environment
+        run: npm run validate:benchmark-env
+      - name: Deploy smoke (production)
+        run: npm run smoke:deploy
+
+  coherence-live:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: ./.github/actions/benchmark-env
+        with:
+          playlist-eval-token: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+          smoke-spotify-user-id: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
+          base-url: https://kwalify.net
+          require-secrets: "true"
+      - run: npm ci && npm run build
+      - name: Validate benchmark environment
+        run: npm run validate:benchmark-env
+      - name: Live coherence regression
+        run: npm run regression:coherence-live
+
+  nightly-eval:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: ./.github/actions/benchmark-env
+        with:
+          playlist-eval-token: ${{ secrets.PLAYLIST_EVAL_TOKEN }}
+          smoke-spotify-user-id: ${{ secrets.SMOKE_SPOTIFY_USER_ID }}
+          base-url: https://kwalify.net
+          require-secrets: "true"
+      - run: npm ci && npm run build
+      - name: Validate benchmark environment
+        run: npm run validate:benchmark-env
+      - name: Overnight evaluation harness
+        run: npm run evaluation:overnight:resume || npm run evaluation:overnight
