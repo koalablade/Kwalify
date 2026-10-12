@@ -4,7 +4,7 @@ Kwalify runs on **your PC** with a **Cloudflare Tunnel** — not a cloud PaaS.
 
 ## Setup
 
-1. Run **`setup-self-host.bat`** once (or `start.bat` on first launch — setup runs automatically).
+1. Run **`setup-self-host.bat`** once (or `KWALIFY-START.bat` on first launch — setup runs automatically).
 2. Complete Cloudflare tunnel login when prompted.
 3. Ensure `.env` has:
 

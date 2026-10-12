@@ -15,10 +15,9 @@ if errorlevel 1 (
 
 echo.
 echo Desktop shortcuts:
-echo   Start Kwalify  (start.bat)
-echo   Run Benchmark
-echo   Stop Benchmark
-echo   Stop Kwalify
+echo   Start Kwalify     (KWALIFY-START.bat)
+echo   Stop Kwalify      (KWALIFY-STOP.bat)
+echo   Maintain Kwalify  (maintain.bat)
 echo.
 pause
 exit /b 0

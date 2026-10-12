@@ -10,7 +10,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "Write-Host ''; Write-Host ($purple + '  KWALIFY BENCHMARK' + $reset);" ^
   "Write-Host ($dim + '  Opens https://kwalify.net/benchmark on this PC' + $reset);" ^
   "Write-Host ($dim + '  Fallback: http://127.0.0.1:5000/benchmark if tunnel is down' + $reset);" ^
-  "Write-Host ($dim + '  Run start.bat first if the server is not up' + $reset); Write-Host ''"
+  "Write-Host ($dim + '  Run KWALIFY-START.bat first if the server is not up' + $reset); Write-Host ''"
 
 set "SUITE="
 set "LIMIT=0"
@@ -183,7 +183,7 @@ if "%PSARGS%"=="" (
   powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\scripts\ensure-benchmark-launcher.ps1" -Root "%ROOT%" -OpenBrowser
   if errorlevel 1 (
     echo.
-    echo  Could not open benchmark. Run start.bat first.
+    echo  Could not open benchmark. Run KWALIFY-START.bat first.
     pause
     exit /b 1
   )
