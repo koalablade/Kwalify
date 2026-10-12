@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  createArtistCapLimiter,
   defaultPerPlaylistArtistCap,
   enforcePerPlaylistArtistCap,
   hasExplicitArtistPlaylistRequest,
@@ -71,4 +72,13 @@ test("enforcePerPlaylistArtistCap bypasses cap for explicit artist playlist requ
   });
   assert.equal(capped.dropped, 0);
   assert.equal(capped.tracks.length, 8);
+});
+
+test("createArtistCapLimiter applies the same limits as enforcePerPlaylistArtistCap", () => {
+  const opts = { vibe: "2000s emo", playlistSize: 25, defaultCap: 3 };
+  const limiter = createArtistCapLimiter(opts);
+  const tracks = Array.from({ length: 8 }, () => ({ artistName: "Paramore" }));
+  const enforced = enforcePerPlaylistArtistCap(tracks, opts);
+  assert.equal(limiter.limit(limiter.key("Paramore")), enforced.tracks.length);
+  assert.equal(limiter.key(""), "");
 });

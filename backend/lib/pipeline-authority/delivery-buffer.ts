@@ -10,6 +10,8 @@
 
 import { DELIVERY_OWNER } from "./types";
 
+import { traceSelectionStage } from "../selection-trace";
+
 import type { DeliveryTrack, PipelineMutationType } from "./types";
 
 import type { PipelineAuthoritySession } from "./session";
@@ -24,7 +26,27 @@ export type PipelineDeliveryBufferOptions = {
 
   owner?: string;
 
+  /**
+
+   * Stages that reject individual songs (quality / genre / era / world purity). Once one of them
+
+   * removes a song, no other stage (refill, repair, completion, opener locks) may add it back;
+
+   * guard stages themselves may still re-evaluate it.
+
+   */
+
+  guardStages?: readonly string[];
+
+  /** Stages that re-check a song themselves (e.g. the world purity gate) and may re-admit it. */
+
+  reEvaluatorStages?: readonly string[];
+
 };
+
+
+
+export type BlockedGuardReAdd = { stage: string; trackId: string; removedBy: string[] };
 
 
 
@@ -33,6 +55,16 @@ export class PipelineDeliveryBuffer<T extends DeliveryTrack> {
   private tracks_: T[] = [];
 
   private readonly owner: string;
+
+  /** Stages that removed each track id — lets late refills avoid re-adding what a guard removed. */
+
+  private readonly removedByStage = new Map<string, Set<string>>();
+
+  private readonly guardStages: ReadonlySet<string>;
+
+  private readonly reEvaluatorStages: ReadonlySet<string>;
+
+  private readonly blockedReAdds: BlockedGuardReAdd[] = [];
 
 
 
@@ -45,6 +77,10 @@ export class PipelineDeliveryBuffer<T extends DeliveryTrack> {
   ) {
 
     this.owner = opts.owner ?? DELIVERY_OWNER;
+
+    this.guardStages = new Set(opts.guardStages ?? []);
+
+    this.reEvaluatorStages = new Set(opts.reEvaluatorStages ?? []);
 
   }
 
@@ -71,6 +107,34 @@ export class PipelineDeliveryBuffer<T extends DeliveryTrack> {
   getTracks(): T[] {
 
     return cloneFrozenTrackSnapshot(this.tracks_);
+
+  }
+
+
+
+  /** Re-adds of guard-rejected songs that were blocked (diagnostics). */
+
+  blockedGuardReAdds(): readonly BlockedGuardReAdd[] {
+
+    return this.blockedReAdds.slice();
+
+  }
+
+
+
+  /** Track ids that any of these stages removed at some point (still readable after the freeze). */
+
+  trackIdsRemovedBy(stages: readonly string[]): Set<string> {
+
+    const out = new Set<string>();
+
+    for (const [trackId, removedBy] of this.removedByStage) {
+
+      if (stages.some((stage) => removedBy.has(stage))) out.add(trackId);
+
+    }
+
+    return out;
 
   }
 
@@ -104,7 +168,23 @@ export class PipelineDeliveryBuffer<T extends DeliveryTrack> {
 
     this.assertWritable(stage, reason);
 
-    const next = deepFreezeTrackArray(after) as T[];
+    const admitted = this.withoutGuardRejectedReAdds(stage, before, after);
+
+    const next = deepFreezeTrackArray(admitted) as T[];
+
+    const kept = new Set(admitted.map((track) => track.trackId));
+
+    for (const track of before) {
+
+      if (kept.has(track.trackId)) continue;
+
+      const stages = this.removedByStage.get(track.trackId) ?? new Set<string>();
+
+      stages.add(stage);
+
+      this.removedByStage.set(track.trackId, stages);
+
+    }
 
     this.session.recordMutation({
 
@@ -124,7 +204,41 @@ export class PipelineDeliveryBuffer<T extends DeliveryTrack> {
 
     this.tracks_ = next;
 
+    traceSelectionStage(`delivery.${stage}`, next as unknown as Array<{ trackId: string }>, { reason, mutationType });
+
     return this.tracks_;
+
+  }
+
+
+
+  /** Songs a non-guard stage newly adds that a guard stage already rejected are dropped. */
+
+  private withoutGuardRejectedReAdds(stage: string, before: readonly T[], after: readonly T[]): readonly T[] {
+
+    if (this.guardStages.size === 0 || this.guardStages.has(stage) || this.reEvaluatorStages.has(stage)) return after;
+
+    const present = new Set(before.map((track) => track.trackId));
+
+    let blocked = false;
+
+    const admitted = after.filter((track) => {
+
+      if (present.has(track.trackId)) return true;
+
+      const removedBy = [...(this.removedByStage.get(track.trackId) ?? [])].filter((s) => this.guardStages.has(s));
+
+      if (removedBy.length === 0) return true;
+
+      this.blockedReAdds.push({ stage, trackId: track.trackId, removedBy });
+
+      blocked = true;
+
+      return false;
+
+    });
+
+    return blocked ? admitted : after;
 
   }
 

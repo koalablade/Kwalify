@@ -5,6 +5,7 @@
 
 import type { IntentContract } from "./intent-contract";
 import type { SemanticFingerprint, WorldConceptTaxonomy } from "./types";
+import { containsCue } from "./text-match";
 
 const TRANSITION_CUES = [
   "finally",
@@ -101,12 +102,12 @@ export function buildExperienceFingerprint(
     ),
   );
   for (const cue of TRANSITION_CUES) {
-    if (lower.includes(cue)) temporalSignals.push(cue);
+    if (containsCue(lower, cue)) temporalSignals.push(cue);
   }
 
   const relationalSignals = unique(taxonomy.social);
   for (const cue of RELATIONAL_CUES) {
-    if (lower.includes(cue)) relationalSignals.push(cue);
+    if (containsCue(lower, cue)) relationalSignals.push(cue);
   }
 
   const sensorySignals = unique(taxonomy.sensory);

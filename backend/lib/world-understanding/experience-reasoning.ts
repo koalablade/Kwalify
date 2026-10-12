@@ -6,6 +6,7 @@
 import experienceChainsData from "../../data/world-atlas/experience-chains.json";
 import type { WorldConceptTaxonomy } from "./types";
 import type { MomentInterpretation } from "./moment-interpreter";
+import { containsCue } from "./text-match";
 
 export type ReasoningCategory =
   | "lifeEvent"
@@ -93,16 +94,16 @@ function matchExperienceChains(prompt: string): ReasoningResult["chains"] {
 
   for (const chain of CHAINS) {
     const allIds = [...chain.before, ...chain.during, ...chain.after];
-    const hits = allIds.filter((id) => lower.includes(id.replace(/_/g, " ")));
+    const hits = allIds.filter((id) => containsCue(lower, id.replace(/_/g, " ")));
     if (hits.length === 0) continue;
 
-    if (chain.before.some((id) => lower.includes(id.replace(/_/g, " ")))) {
+    if (chain.before.some((id) => containsCue(lower, id.replace(/_/g, " ")))) {
       matched.push({ id: chain.id, phase: "before", experiences: chain.before });
     }
-    if (chain.during.some((id) => lower.includes(id.replace(/_/g, " ")))) {
+    if (chain.during.some((id) => containsCue(lower, id.replace(/_/g, " ")))) {
       matched.push({ id: chain.id, phase: "during", experiences: chain.during });
     }
-    if (chain.after.some((id) => lower.includes(id.replace(/_/g, " ")))) {
+    if (chain.after.some((id) => containsCue(lower, id.replace(/_/g, " ")))) {
       matched.push({ id: chain.id, phase: "after", experiences: chain.after });
     }
   }
@@ -114,7 +115,7 @@ function buildMultiHopHops(prompt: string): ReasoningHop[] {
   const lower = prompt.toLowerCase();
   const hops: ReasoningHop[] = [];
   for (const hop of MULTI_HOP_CHAINS) {
-    if (lower.includes(hop.from.toLowerCase())) {
+    if (containsCue(lower, hop.from)) {
       hops.push(hop);
     }
   }

@@ -3,6 +3,8 @@
  * Used by last-mile API sanitization and fast unit tests.
  */
 
+import { resolveSituationWorld } from "../../lib/world-understanding/situation-world-router";
+
   /** Psych-indie / landfill opener fillers — world-aware suppression at API hygiene. */
 export const OPENER_FILLER_PATTERN =
   /\b(?:kasabian|q\s+lazzarus|tame\s+impala|glenn\s+frey|arctic\s+monkeys|the\s+weeknd|bon\s+iver|clairo|noah\s+kahan|dayglow|gregory\s+alan\s+isakov|badbadnotgood|sufjan\s+stevens|phoebe\s+bridgers|mitski|beach\s+house|jake\s+bugg|joji|mac\s+demarco|fleet\s+foxes|iron\s+(?:&|and)\s+wine|the\s+killers)\b/i;
@@ -39,6 +41,10 @@ export function shouldSuppressVagueLandfillOpeners(prompt: string | null | undef
   const p = String(prompt ?? "").trim();
   if (!p || hasExplicitSadIndieMood(p)) return false;
   if (NAMED_WORLD_LANGUAGE.test(p)) return false;
+  // A recognised situation committed a real world: whether an artist belongs is then decided
+  // by that world (isSafetyBlanketOutsideWorld), not by a blanket strip of the user's
+  // most-liked artists ("going to a funeral" must keep Bon Iver / Sufjan / Mitski).
+  if (resolveSituationWorld(p)) return false;
   return true;
 }
 

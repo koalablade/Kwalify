@@ -7,6 +7,7 @@
  */
 
 import { resolveVagueWorldCommit } from "../../lib/vague-world-commit";
+import { statesNonNightTime } from "../../lib/emotion-scene-layers";
 import {
   artistForbiddenInWorld,
   artistIdentityGenreEvidence,
@@ -120,7 +121,7 @@ export const SAFETY_BLANKET_ARTISTS: SafetyBlanketArtist[] = [
   {
     id: "kasabian",
     pattern: /\bkasabian\b/i,
-    naturalWorlds: ["britpop_world", "nostalgia_warm_world", "grunge_world"],
+    naturalWorlds: ["britpop_world", "nostalgia_warm_world", "grunge_world", "pub_singalong_world", "road_trip_singalong_world"],
   },
   {
     id: "q_lazzarus",
@@ -135,7 +136,7 @@ export const SAFETY_BLANKET_ARTISTS: SafetyBlanketArtist[] = [
   {
     id: "arctic_monkeys",
     pattern: /\barctic\s+monkeys\b/i,
-    naturalWorlds: ["indie_dream_world", "nostalgia_warm_world", "britpop_world"],
+    naturalWorlds: ["indie_dream_world", "nostalgia_warm_world", "britpop_world", "pub_singalong_world", "road_trip_singalong_world"],
   },
   {
     id: "the_weeknd",
@@ -212,12 +213,12 @@ export const SAFETY_BLANKET_ARTISTS: SafetyBlanketArtist[] = [
   {
     id: "jake_bugg",
     pattern: /\bjake\s+bugg\b/i,
-    naturalWorlds: ["indie_dream_world", "nostalgia_warm_world", "britpop_world"],
+    naturalWorlds: ["indie_dream_world", "nostalgia_warm_world", "britpop_world", "pub_singalong_world", "road_trip_singalong_world"],
   },
   {
     id: "the_killers",
     pattern: /\bthe\s+killers\b/i,
-    naturalWorlds: ["nostalgia_warm_world", "older_sibling_world", "britpop_world", "indie_dream_world"],
+    naturalWorlds: ["nostalgia_warm_world", "older_sibling_world", "britpop_world", "indie_dream_world", "pub_singalong_world", "road_trip_singalong_world"],
   },
   {
     id: "mitski",
@@ -375,7 +376,9 @@ const GRUNGE_IDENTITY: WorldIdentityProfile = {
 const POP_PUNK_IDENTITY: WorldIdentityProfile = {
   id: "pop_punk_world",
   requireAny: [
-    /\b(?:pop\s*punk|punk\s*rock|emo|easycore|skate\s*punk|alt[-\s]?punk)\b/i,
+    // "punk rock" is the taxonomy label every punk-tagged song receives (The Hellacopters, The Business,
+    // Horrorpops), so it admitted garage punk and oi as "2000s emo". Pop punk / emo need their own tags.
+    /\b(?:pop\s*punk|emo|easycore|skate\s*punk|alt[-\s]?punk)\b/i,
     /\b(?:blink[-\s]?182|green\s+day|sum\s+41|paramore|jimmy\s+eat\s+world|all[-\s]?american\s+rejects|fall\s+out\s+boy|my\s+chemical|new\s+found\s+glory|good\s+charlotte|simple\s+plan|yellowcard|taking\s+back\s+sunday|the\s+used|avocado)\b/i,
   ],
   rejectAny: [
@@ -499,6 +502,8 @@ const RAINY_DRIVE_IDENTITY: WorldIdentityProfile = {
     /\b(?:the\s+national|war\s+on\s+drugs|beach\s+house|radiohead|bon\s+iver|phoebe\s+bridgers|sufjan|cinematic\s+orchestra|sigur|explosions\s+in\s+the\s+sky|m83|washes?|slow\s+pulp|real\s+estate|delta\s+sleep)\b/i,
   ],
   rejectAny: [
+    // Dancefloor club styles are not driving music (same reasoning as the UK garage / grime / dnb entries).
+    /\b(?:bassline|bass\s+house|g[-\s]?house|slap\s+house|tech\s+house|hypertechno)\b/i,
     /\b(?:hip[-\s]?hop|rap\b|trap\b|drill\b|metal|hard\s+rock|classic\s+rock|arena\s+rock|country|bluegrass|party\s+anthem|edm\b|trance|hardstyle|big\s+room|festival\s+edm|brostep|dubstep|uk\s*garage)\b/i,
     /\b(?:queen\b(?!\s+of\s+the\s+stone)|blondie|fleetwood\s+mac|led\s+zeppelin|ac\/?dc|dmx\b|highwaymen|johnny\s+cash|storm\s+queen|joel\s+corry|tiesto|tiësto|meat\s+loaf|joyner\s+lucas|drake\b|travis\s+scott|french\s+montana|suzi\s+quatro|jake\s+bugg|the\s+killers)\b/i,
   ],
@@ -613,6 +618,8 @@ const EVENING_DRIVE_IDENTITY: WorldIdentityProfile = {
     /\b(?:the\s+national|war\s+on\s+drugs|radiohead|m83|tame\s+impala|beach\s+house|the\s+1975|cinematic)\b/i,
   ],
   rejectAny: [
+    // Dancefloor club styles are not driving music (same reasoning as the UK garage / grime / dnb entries).
+    /\b(?:bassline|bass\s+house|g[-\s]?house|slap\s+house|tech\s+house|hypertechno)\b/i,
     /\b(?:hard\s+techno|tekkno|drill\b|death\s+metal|brostep|christmas|uk\s*garage|ukg|grime|riddim|squat\s+rave|drum\s*(?:and|&)\s*bass|\bdnb\b)\b/i,
     /\b(?:non\s+stop\s+edit|turning\s+japanese)\b/i,
     /\b(?:tiesto|storm\s+queen|dmx\b|meat\s+loaf)\b/i,
@@ -804,7 +811,9 @@ const BRITPOP_IDENTITY: WorldIdentityProfile = {
     REMIX_EDIT_BAIT_TITLE,
   ],
   energy: { min: 0.38 },
-  valence: { min: 0.38 },
+  // No valence floor: Britpop is a genre world reached only from genre prompts, and its canon is
+  // measured low-valence (Champagne Supernova 0.12, Don't Look Back In Anger 0.21, Slide Away 0.23,
+  // The Drugs Don't Work 0.18) — a 0.38 floor rejected 16 of the library's 33 in-era Britpop songs.
 };
 
 const FILM_ENDING_IDENTITY: WorldIdentityProfile = {
@@ -855,6 +864,8 @@ const NIGHT_DRIVE_IDENTITY: WorldIdentityProfile = {
     /\b(?:the\s+national|war\s+on\s+drugs|m83|chromatics|kavinsky|the\s+midnight|tame\s+impala|beach\s+house|radiohead)\b/i,
   ],
   rejectAny: [
+    // Dancefloor club styles are not driving music (same reasoning as the UK garage / grime / dnb entries).
+    /\b(?:bassline|bass\s+house|g[-\s]?house|slap\s+house|tech\s+house|hypertechno)\b/i,
     /\b(?:metal|hardcore|trap\b|drill\b|country|bluegrass|arena\s+rock|classic\s+rock|reggae|dancehall|hip[-\s]?hop|rap\b|moomba?hton)\b/i,
     /\b(?:french\s+montana|mungo'?s?\s+hi\s+fi|dmx\b|50\s+cent|central\s+cee|tion\s+wayne|arrdee)\b/i,
     /\b(?:miku|vocaloid|jump\s+up|brostep|hardstyle|uk\s*garage|ukg|grime|riddim|squat\s+rave|drum\s*(?:and|&)\s*bass|\bdnb\b)\b/i,
@@ -1214,6 +1225,11 @@ const IDENTITY_BY_LOCK_ID: Record<string, WorldIdentityProfile> = {
   },
 };
 
+/** The world's identity profile as defined (no prompt-specific overrides), or null. */
+export function identityProfileForWorld(worldId: string): WorldIdentityProfile | null {
+  return IDENTITY_BY_LOCK_ID[worldId] ?? null;
+}
+
 /** Title/artist tokens that must never alone admit a track into a locked world. */
 const LEXICAL_BAIT_REJECT =
   /\b(?:ruin|ruins|slow|goth(?:am)?|bedroom|home|house|dark|sad|rage|quiet|soft|hard|love|heart|dream|fire|blood|shadow|ghost|angel|devil|party|dance|sleep|alone|lost|blue|black|war|fight|battle|boss|game|play|run|escape|free|rain|rainy|highway|motorway|road|drive|driving|night|storm|cloud|clouds|city|neon)\b/i;
@@ -1298,7 +1314,8 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   if (/\breggae\b/i.test(p)) {
     ids.push("reggae_world");
   }
-  if (/\bpop[-\s]?punk\b|\b2000s?\s+punk\b|\bemo\s+pop\b/i.test(p)) ids.push("pop_punk_world");
+  // Emo is pop_punk_world's own genre evidence (Paramore, Fall Out Boy, MCR, Jimmy Eat World…).
+  if (/\bpop[-\s]?punk\b|\b2000s?\s+punk\b|\bemo\b/i.test(p)) ids.push("pop_punk_world");
   if (/\b(?:hard\s+techno|industrial\s+techno|warehouse\s+techno|schranz|tekk\b|tekno)\b/i.test(p)) {
     ids.push("gym_energy_world");
   }
@@ -1319,7 +1336,7 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   ) {
     ids.push("rainy_motorway_world");
   } else if (
-    /\brain(?:y|ing)?\b.*\b(?:driv|highway|motorway|road)\b|\b(?:driv|highway|motorway)\b.*\brain/i.test(p)
+    /\brain(?:y|ing)?\b.*\b(?:driv\w*|highway|motorway|road)\b|\b(?:driv\w*|highway|motorway)\b.*\brain/i.test(p)
   ) {
     ids.push("rainy_drive_world");
   }
@@ -1447,7 +1464,7 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   ) {
     if (!ids.includes("rainy_motorway_world")) ids.push("rainy_motorway_world");
   } else if (
-    /\brain(?:y|ing)?\b.*\b(?:driv|highway|motorway|road)\b|\b(?:driv|highway|motorway)\b.*\brain/i.test(p)
+    /\brain(?:y|ing)?\b.*\b(?:driv\w*|highway|motorway|road)\b|\b(?:driv\w*|highway|motorway)\b.*\brain/i.test(p)
   ) {
     if (!ids.includes("rainy_motorway_world")) ids.push("rainy_drive_world");
   } else if (/\b(?:cozy|chill|calm|soft)\b.*\brain|\brain(?:y|ing)?\b.*\b(?:cozy|chill|calm|night\s+chill)\b/i.test(p)) {
@@ -1464,7 +1481,9 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
     ids.push("night_drive_world");
   }
   if (
-    /\b(?:motorway|highway)\s+at\s+(?:night|midnight)\b|\b(?:empty|night)\s+(?:motorway|highway)\b|\bmotorway\s+at\s+midnight\b/i.test(p)
+    /\b(?:motorway|highway)\s+at\s+(?:night|midnight)\b|\bnight\s+(?:motorway|highway)\b|\bmotorway\s+at\s+midnight\b/i.test(p) ||
+    // "Empty motorway" is nocturnal only when the user did not say when ("…at sunrise" is not night).
+    (/\bempty\s+(?:motorway|highway)\b/i.test(p) && !statesNonNightTime(p))
   ) {
     if (!ids.includes("rainy_motorway_world") && !ids.includes("rainy_drive_world")) ids.push("night_drive_world");
   }
@@ -1509,7 +1528,7 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   if (/\b90s?\s+r&b\b|\bslow\s+jams?\b.*\blate\s+night\b/i.test(p)) {
     ids.push("rnb_night_world");
   }
-  if (/\bbritpop\b/i.test(p)) {
+  if (/\bbritpop\b|\b(?:british|uk|english)\s+indie\b/i.test(p)) {
     ids.push("britpop_world");
   }
   if (/\b(?:film ending|feels like a film ending|expensive and cinematic)\b/i.test(p)) {
@@ -1536,7 +1555,8 @@ export function inferWorldIdentityIdsFromPrompt(prompt: string | null | undefine
   } else if (/\bindie\s+rock\b|\bindie\s+pop\b/i.test(p)) {
     if (!ids.includes("indie_dream_world")) ids.push("indie_dream_world");
   } else if (
-    /\bindie\b/i.test(p) &&
+    // "British indie" is Britpop (above), not a second, dream-pop "indie" request.
+    /\bindie\b/i.test(p.replace(/\b(?:british|uk|english)\s+indie\b/gi, "")) &&
     !/\b(?:sunday|cozy\s+morning|coffee\s+shop|lo-?fi\s+study)\b/i.test(p)
   ) {
     if (!ids.includes("indie_dream_world")) ids.push("indie_dream_world");
@@ -2053,9 +2073,14 @@ export function passesWorldIdentity(
     return false;
   }
 
+  // An artist the identity map places in one of these worlds is not rejected by a genre word in its
+  // own name: "disco" in "Panic! At The Disco" rejected all four of its 2005 emo songs for "2000s emo".
+  const naturalArtist = artistSupportsWorld(track.artistName, activeIds);
+  const rejectBlob = naturalArtist ? genresBlob({ ...track, artistName: null }) : blob;
+  const rejectText = naturalArtist ? title : titleArtist;
   for (const profile of profiles) {
     for (const re of profile.rejectAny) {
-      if (re.test(blob) || re.test(titleArtist)) return false;
+      if (re.test(rejectBlob) || re.test(rejectText)) return false;
     }
   }
 

@@ -30,7 +30,8 @@ test("vague lifestyle prompts auto-commit one everyday world", () => {
     ["need energy for the gym", "gym_energy_world"],
     ["i just got dumped be gentle", "soft_sad_world"],
     ["coffee shop laptop session", "coffee_soft_focus_world"],
-    ["driving home after work", "evening_drive_world"],
+    // Finishing work is release/familiarity, not melancholy evening driving (situation routing).
+    ["driving home after work", "nostalgia_warm_world"],
     ["nostalgic driving", "evening_drive_world"],
     ["nostalgic", "nostalgia_warm_world"],
     ["cozy Sunday morning", "sunday_chill_world"],
@@ -291,7 +292,8 @@ const UNMATCHED_PROMPTS = [
 ];
 
 test("calm genre-less mood prompts keep the soft sunday_chill default", () => {
-  for (const prompt of ["melancholic", "Sunday anxiety", "just vibes"]) {
+  // "Sunday anxiety" is a recognised situation (Sunday dread) and now routes by situation.
+  for (const prompt of ["melancholic", "just vibes"]) {
     const commit = resolveVagueWorldCommit(prompt);
     assert.equal(commit.worldId, "sunday_chill_world", prompt);
     assert.equal(commit.reason, "vague_default_sunday_chill", prompt);

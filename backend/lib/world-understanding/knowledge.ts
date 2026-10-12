@@ -11,6 +11,7 @@ import scenesData from "../../data/world-knowledge/scenes.json";
 import musicBehavioursData from "../../data/world-knowledge/music_behaviours.json";
 import fuzzyConceptsData from "../../data/world-knowledge/fuzzy_concepts.json";
 import type { ConceptCategory, KnowledgeConcept } from "./types";
+import { cueIndex } from "./text-match";
 
 type ConceptFile = { concepts: KnowledgeConcept[] };
 
@@ -99,7 +100,7 @@ export function matchIndexedCues(text: string): Array<{
   const usedSpans: Array<[number, number]> = [];
 
   for (const entry of ALL_INDEXED_CUES) {
-    const idx = lower.indexOf(entry.cue);
+    const idx = cueIndex(lower, entry.cue);
     if (idx < 0) continue;
     if (isNegatedCue(lower, idx)) continue;
     const end = idx + entry.cue.length;

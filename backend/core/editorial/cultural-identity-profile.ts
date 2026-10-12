@@ -1,3 +1,5 @@
+import { identityProfileForWorld } from "./world-identity-gate";
+
 /**
  * Cultural world profiles — anchor artists + forbidden lists, not Spotify genres alone.
  * Wired from CommittedWorld via getCulturalProfile(worldId).
@@ -48,6 +50,12 @@ export type CulturalWorldProfile = {
     anchorBeatsAdjacent?: boolean;
     sequencing?: "cinematic_to_reflective" | "high_energy_cooldown";
   };
+  /** Genre/style evidence patterns (genre + artist blob) — instrumentation-tier evidence. */
+  genreEvidence?: RegExp[];
+  /** Patterns that betray the world when found in the track's genres. */
+  forbiddenGenrePatterns?: RegExp[];
+  /** True when derived from the world identity profile rather than hand-written. */
+  derivedFromIdentity?: boolean;
 };
 
 /** Profile id aliases — resolve prompt/world ids to canonical profiles. */
@@ -256,9 +264,27 @@ export function matchesArtistInNameList(artistName: string, names: string[]): bo
 }
 
 /** Roster-tier floor aligned with retrieval layers — used by purity scoring only. */
+// Pure in (artist, profile) but called per track on every library scan (world anchor retrieval,
+// world verification, deliverable ranking): ~2.4 s of a "2000s emo" generation (profiled).
+const rosterTierFloorCache = new WeakMap<CulturalWorldProfile, Map<string, number | null>>();
+
 export function rosterTierScoreFloor(artistName: string, profile: CulturalWorldProfile): number | null {
   const artist = String(artistName ?? "").trim();
   if (!artist) return null;
+  let byArtist = rosterTierFloorCache.get(profile);
+  if (!byArtist) {
+    byArtist = new Map();
+    rosterTierFloorCache.set(profile, byArtist);
+  }
+  const cached = byArtist.get(artist);
+  if (cached !== undefined) return cached;
+  const value = computeRosterTierScoreFloor(artist, profile);
+  if (byArtist.size > 20_000) byArtist.clear();
+  byArtist.set(artist, value);
+  return value;
+}
+
+function computeRosterTierScoreFloor(artist: string, profile: CulturalWorldProfile): number | null {
 
   if (profile.anchorArtists.some((re) => re.test(artist))) return 0.82;
   if (matchesArtistInNameList(artist, profile.anchorArtistNames ?? [])) return 0.82;
@@ -1063,7 +1089,9 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
     anchorTracks: [/\bamerican\s+idiot\b/i, /\bwhat'?s\s+my\s+age\s+again\b/i, /\bstill\s+waiting\b/i],
     preferredEras: { min: 1998, max: 2012 },
     energyRange: { min: 0.62, max: 0.98 },
-    instrumentation: ["pop punk", "punk rock", "emo", "easycore"],
+    // Not "punk rock": the genre taxonomy labels every punk-tagged song "punk rock" (garage punk, oi,
+    // psychobilly), which scored them as pop punk / emo. Same reasoning as POP_PUNK_IDENTITY.
+    instrumentation: ["pop punk", "emo", "easycore", "skate punk"],
     vocalStyle: ["punk", "emo", "anthemic"],
     forbiddenArtists: [
       ...LANDFILL,
@@ -1294,6 +1322,42 @@ const CULTURAL_PROFILES: Record<string, CulturalWorldProfile> = {
   },
 };
 
+const derivedProfiles = new Map<string, CulturalWorldProfile | null>();
+
+/**
+ * Scoring profile for a world that only has an identity profile (situation worlds such as
+ * soft_sad_world / pub_singalong_world). Derived from that profile so candidates are RANKED by the
+ * same evidence tiers as curated worlds instead of a flat membership constant: named artists and
+ * genre words → evidence, rejects → forbidden; its musical character (audio bands) is applied as a
+ * song-level fit in world-identity-score.
+ *
+ * Deliberately NOT returned by getCulturalProfile: the purity / proof / opener gates are calibrated
+ * for curated profiles, and turning them on for derived ones would make this a new hard filter.
+ */
+export function identityDerivedCulturalProfile(worldId: string): CulturalWorldProfile | null {
+  if (derivedProfiles.has(worldId)) return derivedProfiles.get(worldId) ?? null;
+  const identity = identityProfileForWorld(worldId);
+  const profile: CulturalWorldProfile | null = identity
+    ? {
+        worldId,
+        anchorArtists: identity.requireAny.slice(1),
+        anchorTracks: [],
+        preferredEras: {},
+        energyRange: {},
+        instrumentation: [],
+        vocalStyle: [],
+        forbiddenArtists: [],
+        forbiddenPatterns: identity.rejectAny,
+        forbiddenGenrePatterns: identity.rejectAny,
+        genreEvidence: identity.requireAny.slice(0, 1),
+        openerRules: { minWorldIdentityScore: 0.6, preferAnchorArtist: true },
+        derivedFromIdentity: true,
+      }
+    : null;
+  derivedProfiles.set(worldId, profile);
+  return profile;
+}
+
 /** Resolve the cultural profile for a committed world id. */
 export function getCulturalProfile(worldId: string): CulturalWorldProfile | null {
   const resolvedId = CULTURAL_PROFILE_ALIASES[worldId] ?? worldId;
@@ -1323,7 +1387,11 @@ export function mergeCulturalProfiles(worldIds: string[]): CulturalWorldProfile 
   const avoidGenres: string[] = [];
   const avoidEnergyPatterns: CulturalWorldProfile["avoidEnergyPatterns"] = [];
   const avoidReasons: string[] = [];
+  const genreEvidence: RegExp[] = [];
+  const forbiddenGenrePatterns: RegExp[] = [];
   for (const p of profiles) {
+    if (p.genreEvidence) genreEvidence.push(...p.genreEvidence);
+    if (p.forbiddenGenrePatterns) forbiddenGenrePatterns.push(...p.forbiddenGenrePatterns);
     anchorArtists.push(...p.anchorArtists);
     anchorTracks.push(...p.anchorTracks);
     forbiddenArtists.push(...p.forbiddenArtists);
@@ -1359,6 +1427,8 @@ export function mergeCulturalProfiles(worldIds: string[]): CulturalWorldProfile 
     anchorTracks,
     forbiddenArtists,
     forbiddenPatterns,
+    ...(genreEvidence.length > 0 ? { genreEvidence } : {}),
+    ...(forbiddenGenrePatterns.length > 0 ? { forbiddenGenrePatterns } : {}),
   };
 }
 

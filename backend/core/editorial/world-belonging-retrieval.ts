@@ -15,7 +15,7 @@ import {
   matchesAdjacentArtist,
   matchesAcceptableAdjacency,
 } from "./cultural-identity-profile";
-import { scoreTrackWorldIdentity, type WorldIdentityTrack } from "./world-identity-score";
+import { decomposeTrackWorldIdentity, scoreTrackWorldIdentity, type WorldIdentityTrack } from "./world-identity-score";
 import {
   atmosphericLexicalHackPenalty,
   resolveAtmosphericContext,
@@ -84,6 +84,11 @@ export function trackMatchesWorldInstrumentation(
 /**
  * Retrieval admission: imperfect but belongs in this cultural world.
  * Uses existing world-identity scoring — does not change score function or gate thresholds.
+ *
+ * "Belongs" needs some cultural evidence (artist, roster, genre/instrumentation, artist support).
+ * A song whose only agreement with the world is its release year or energy band ("era_energy") does
+ * not belong: in a 9.7k-song library that admitted 4,771 songs (The Sundays, Milky Chance, …) as
+ * "verified" 2000s emo, which made V3 search the whole library (~21 s) for nothing.
  */
 export function trackBelongsForWorldRetrieval(
   track: WorldIdentityTrack,
@@ -91,7 +96,9 @@ export function trackBelongsForWorldRetrieval(
 ): boolean {
   if (artistOnWorldRoster(track.artistName ?? "", profile)) return true;
   if (trackMatchesWorldInstrumentation(track, profile)) return true;
-  return scoreTrackWorldIdentity(track, profile) >= WORLD_BELONGING_RETRIEVAL_MIN;
+  const identity = decomposeTrackWorldIdentity(track, profile);
+  if (identity.evidenceTier === "era_energy" || identity.evidenceTier === "weak") return false;
+  return identity.score >= WORLD_BELONGING_RETRIEVAL_MIN;
 }
 
 export function scoreWorldBelongingRank(

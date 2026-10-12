@@ -9,7 +9,12 @@ import {
   demoteRemixBaitOpeners,
   hasExplicitSadIndieMood,
 } from "../core/editorial/opener-hygiene";
-import { applyFinalApiOpenerHygiene, demoteOpenerFillerTracks } from "../core/editorial/world-identity-gate";
+import {
+  applyFinalApiOpenerHygiene,
+  demoteOpenerFillerTracks,
+  inferWorldIdentityIdsFromPrompt,
+  stripRetrievalFillerTracks,
+} from "../core/editorial/world-identity-gate";
 
 test("maxPsychIndieOpenersForWorlds is zero for film-ending and dad-secret worlds", () => {
   assert.equal(maxPsychIndieOpenersForWorlds(["film_ending_world"]), 0);
@@ -66,7 +71,8 @@ test("indie belonging worlds keep Arctic Monkeys openers; hard landfill still de
 
 test("shouldSuppressVagueLandfillOpeners blocks landfill on lifestyle prompts without sad mood", () => {
   assert.equal(shouldSuppressVagueLandfillOpeners("just vibes"), true);
-  assert.equal(shouldSuppressVagueLandfillOpeners("windows-down road trip singalong energy"), true);
+  // A recognised situation (road trip) lets its committed world decide instead of a blanket strip.
+  assert.equal(shouldSuppressVagueLandfillOpeners("windows-down road trip singalong energy"), false);
   assert.equal(shouldSuppressVagueLandfillOpeners("90s grunge dark cloudy night"), false);
   assert.equal(shouldSuppressVagueLandfillOpeners("i just got dumped be gentle"), false);
   assert.ok(hasExplicitSadIndieMood("i just got dumped be gentle"));
@@ -111,4 +117,23 @@ test("applyFinalApiOpenerHygiene combines vague landfill and remix demotion", ()
   });
   assert.ok(!/bon iver/i.test(String(out.tracks[0]!.artistName)));
   assert.ok(!/club mix/i.test(out.tracks.slice(0, 3).map((t) => t.trackName).join(" ")));
+});
+
+test("recognised situations keep artists that belong to their world and strip ones that do not", () => {
+  const strip = (prompt: string, artists: string[]) =>
+    stripRetrievalFillerTracks(
+      artists.map((artist) => ({ artist })),
+      inferWorldIdentityIdsFromPrompt(prompt),
+      { prompt, minKeep: 0 },
+    ).tracks.map((t) => t.artist);
+
+  // Funeral → soft_sad_world: Bon Iver / Sufjan / Mitski are the world, not landfill.
+  assert.deepEqual(
+    strip("going to a funeral", ["Bon Iver", "Sufjan Stevens", "Mitski"]),
+    ["Bon Iver", "Sufjan Stevens", "Mitski"],
+  );
+  // Road trip singalong keeps Arctic Monkeys but still strips Bon Iver.
+  assert.deepEqual(strip("road trip with old mates", ["Arctic Monkeys", "Bon Iver"]), ["Arctic Monkeys"]);
+  // Unrecognised vague prompts keep the blanket landfill suppression.
+  assert.deepEqual(strip("just vibes", ["Bon Iver", "Arctic Monkeys"]), []);
 });

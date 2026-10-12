@@ -10,6 +10,7 @@ import sensoryLanguageData from "../../data/world-knowledge/sensory-language.jso
 import musicDescriptorsData from "../../data/world-knowledge/music-descriptors.json";
 import ukContextData from "../../data/world-knowledge/uk-context.json";
 import type { WorldConceptTaxonomy } from "./types";
+import { containsCue } from "./text-match";
 
 export type MusicDirection = {
   energy: string;
@@ -87,7 +88,7 @@ function matchEntries(
     const cues = [...(entry.cues ?? [])].sort((a, b) => b.length - a.length);
     for (const cue of cues) {
       const needle = cue.toLowerCase();
-      if (!needle || !lower.includes(needle)) continue;
+      if (!needle || !containsCue(lower, needle)) continue;
       matches.push({
         source,
         entry,

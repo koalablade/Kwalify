@@ -73,6 +73,24 @@ export function detectTimeOfDay(text: string): string | null {
   return candidates[0]!.value;
 }
 
+const NIGHT_TIMES: ReadonlySet<string> = new Set(["late_night", "night"]);
+
+/**
+ * True when the text states a time of day that is not night ("sunrise", "7am", "afternoon",
+ * "sunset"). A place that is usually nocturnal in a prompt ("empty motorway") must not be read as
+ * night when the user said when it is.
+ */
+export function statesNonNightTime(text: string): boolean {
+  const time = detectTimeOfDay(text);
+  return time != null && !NIGHT_TIMES.has(time);
+}
+
+/** True when the text states a night-time ("2am", "midnight", "late night", "night"). */
+export function statesNightTime(text: string): boolean {
+  const time = detectTimeOfDay(text);
+  return time != null && NIGHT_TIMES.has(time);
+}
+
 /** Weather/atmosphere beats generic "city". */
 export function detectEnvironment(text: string): string | null {
   const lower = text.toLowerCase();

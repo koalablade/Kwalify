@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SemanticFingerprint, WorldConceptTaxonomy } from "./types";
+import { containsCue } from "./text-match";
 
 /** Raw atlas JSON — V2 fields plus optional legacy V1 fields. */
 export interface AtlasEntryRaw {
@@ -219,7 +220,7 @@ function tokenOverlap(text: string, cue: string): number {
   const lower = text.toLowerCase();
   let hits = 0;
   for (const t of cueTokens) {
-    if (lower.includes(t)) hits += 1;
+    if (containsCue(lower, t)) hits += 1;
   }
   return hits / Math.max(cueTokens.length, 1);
 }
@@ -230,10 +231,10 @@ function countMisleadingDominance(prompt: string, entry: AtlasEntry): number {
   let phraseHits = 0;
 
   for (const kw of entry.misleading_keywords) {
-    if (lower.includes(kw.toLowerCase())) misleadingHits += 1;
+    if (containsCue(lower, kw)) misleadingHits += 1;
   }
   for (const phrase of entry.common_phrases) {
-    if (lower.includes(phrase.toLowerCase())) phraseHits += 1;
+    if (containsCue(lower, phrase)) phraseHits += 1;
   }
 
   if (misleadingHits === 0) return 0;
@@ -250,7 +251,7 @@ function scoreHumanMeaning(prompt: string, entry: AtlasEntry): { score: number; 
   const meaningTokens = entry.human_meaning.toLowerCase().split(/\s+/).filter((t) => t.length > 4);
   let hits = 0;
   for (const t of meaningTokens) {
-    if (lower.includes(t)) hits += 1;
+    if (containsCue(lower, t)) hits += 1;
   }
   if (hits >= 2) {
     return { score: hits * 0.06, reason: "meaning overlap" };
@@ -262,7 +263,7 @@ function scoreHiddenEmotions(prompt: string, fingerprint: SemanticFingerprint, e
   const lower = prompt.toLowerCase();
   let score = 0;
   for (const hidden of entry.hidden_emotions) {
-    if (lower.includes(hidden.toLowerCase())) score += 0.12;
+    if (containsCue(lower, hidden)) score += 0.12;
     if (fingerprint.emotionalSignals.some((e) => e.toLowerCase().includes(hidden.toLowerCase()))) {
       score += 0.08;
     }
@@ -283,7 +284,7 @@ function scoreRelatedChain(
     const related = allEntries.find((e) => e.id === relatedId);
     if (!related) continue;
     for (const phrase of related.common_phrases.slice(0, 6)) {
-      if (lower.includes(phrase.toLowerCase())) {
+      if (containsCue(lower, phrase)) {
         score += 0.1;
         reasons.push(`chain ${related.name}`);
         break;
@@ -306,7 +307,7 @@ function scoreEntry(
 
   for (const phrase of entry.common_phrases) {
     const phraseLower = phrase.toLowerCase();
-    if (lower.includes(phraseLower)) {
+    if (containsCue(lower, phraseLower)) {
       score += 0.5 + phraseLower.length / 180;
       reasons.push(`phrase "${phrase}"`);
     } else {
@@ -329,7 +330,7 @@ function scoreEntry(
   if (chain.reason) reasons.push(chain.reason);
 
   for (const concept of entry.nearbyConcepts) {
-    if (lower.includes(concept.toLowerCase())) {
+    if (containsCue(lower, concept)) {
       score += 0.07;
       reasons.push(`concept ${concept}`);
     }
@@ -337,7 +338,7 @@ function scoreEntry(
 
   const envBoost = entry.domain === "activities" ? 0.12 : 0.06;
   for (const env of entry.environment) {
-    if (lower.includes(env.toLowerCase())) {
+    if (containsCue(lower, env)) {
       score += envBoost;
       reasons.push(`environment ${env}`);
     }
@@ -345,7 +346,7 @@ function scoreEntry(
 
   const actBoost = entry.domain === "activities" ? 0.14 : 0.06;
   for (const act of entry.activity) {
-    if (lower.includes(act.toLowerCase())) {
+    if (containsCue(lower, act)) {
       score += actBoost;
       reasons.push(`activity ${act}`);
     }
@@ -426,7 +427,7 @@ export function enrichTaxonomyFromAtlas(prompt: string, taxonomy: WorldConceptTa
 
     let matched = false;
     for (const phrase of entry.common_phrases) {
-      if (phrase.length >= 6 && lower.includes(phrase.toLowerCase())) {
+      if (phrase.length >= 6 && containsCue(lower, phrase)) {
         matched = true;
         break;
       }
@@ -462,6 +463,22 @@ export function consultAtlas(
     matchScore: s.score,
     reason: s.reason,
   }));
+}
+
+/**
+ * Whether the prompt itself names this experience: one of its phrases (whole, or most of its words),
+ * environments or activities. Fingerprint and emotion overlaps, and loose associations such as
+ * motorway_at_night's "rain", are not enough on their own ("rain in bed" is not a motorway drive).
+ */
+export function promptNamesAtlasEntry(prompt: string, entryId: string): boolean {
+  const entry = ENTRY_BY_ID.get(entryId);
+  if (!entry) return false;
+  const lower = prompt.toLowerCase();
+  return (
+    entry.common_phrases.some((phrase) => containsCue(lower, phrase) || tokenOverlap(lower, phrase) >= 0.65) ||
+    entry.environment.some((env) => containsCue(lower, env)) ||
+    entry.activity.some((act) => containsCue(lower, act))
+  );
 }
 
 export function getAtlasEntry(id: string): AtlasEntry | undefined {

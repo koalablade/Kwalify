@@ -208,12 +208,32 @@ export function trackSubgenreIsExplicitlyExcluded(
   );
 }
 
+// The accepted-term list depends only on the intent, but this check runs once per track: rebuilding
+// the graph each time was ~2 s of a "2000s emo" generation (profiled). Read-only, keyed by intent.
+const acceptableTermsCache = new Map<string, readonly string[]>();
+const ACCEPTABLE_TERMS_CACHE_MAX = 500;
+
+function acceptableTermsFor(intent: SubgenreIntentContext): readonly string[] {
+  const key = [
+    intent.primarySubgenre ?? "",
+    intent.secondarySubgenre ?? "",
+    intent.subgenreTerms.join(","),
+    intent.genreFamilies.join(","),
+  ].join("|");
+  const cached = acceptableTermsCache.get(key);
+  if (cached) return cached;
+  const acceptable = Object.freeze([...buildSubgenreEvidenceGraph(intent).acceptable]);
+  if (acceptableTermsCache.size >= ACCEPTABLE_TERMS_CACHE_MAX) acceptableTermsCache.clear();
+  acceptableTermsCache.set(key, acceptable);
+  return acceptable;
+}
+
 export function trackMatchesAdjacentSubgenreEvidence(
   trackTerms: string[],
   intent: SubgenreIntentContext,
 ): boolean {
   if (trackSubgenreIsExplicitlyExcluded(trackTerms, intent)) return false;
-  const graph = buildSubgenreEvidenceGraph(intent);
-  if (graph.acceptable.length === 0) return false;
-  return trackTermsMatchSubgenreList(trackTerms, graph.acceptable);
+  const acceptable = acceptableTermsFor(intent);
+  if (acceptable.length === 0) return false;
+  return trackTermsMatchSubgenreList(trackTerms, acceptable as string[]);
 }

@@ -485,7 +485,9 @@ function applyInterpretationBudget(
       (dimension === "activity" && !!out.activity) ||
       (dimension === "energy" && !!out.energy);
     if (!active) continue;
-    if (kept.length < maxDimensions) {
+    // An era the user typed ("2000s emo") is never budgeted away: dropping it here while the controller
+    // still enforced it made the pipeline build an all-era playlist that the era guard then emptied.
+    if (kept.length < maxDimensions || (dimension === "era" && explicitEra)) {
       keep(dimension);
     } else {
       drop(dimension);
@@ -648,7 +650,33 @@ type SubgenreIntentMatch = {
   terms: string[];
   confidence: number;
   firstIndex: number;
+  /** [start, end) of every prompt span this subgenre matched. */
+  spans: Array<[number, number]>;
 };
+
+function patternMatchSpan(input: string, pattern: string): [number, number] | null {
+  const match = new RegExp(pattern, "i").exec(input);
+  return match ? [match.index, match.index + match[0].length] : null;
+}
+
+function termMatchSpan(input: string, term: string): [number, number] | null {
+  const match = termRegex([term]).exec(input);
+  return match ? [match.index, match.index + match[0].length] : null;
+}
+
+/**
+ * A subgenre matched only inside a longer phrase another subgenre matched is not its own request:
+ * "british indie" names Britpop, so the bare "indie" inside it must not outvote it.
+ */
+function isSubsumedMatch(match: SubgenreIntentMatch, all: SubgenreIntentMatch[]): boolean {
+  if (match.spans.length === 0) return false;
+  return match.spans.every(([start, end]) =>
+    all.some((other) =>
+      other.id !== match.id &&
+      other.spans.some(([s, e]) => s <= start && e >= end && e - s > end - start),
+    ),
+  );
+}
 
 function normalizedSubgenreLabel(value: string): string {
   return value.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
@@ -683,6 +711,10 @@ function parseSubgenreIntent(input: string): {
       if (matchedPatternIndexes.length === 0 && matchedPlainTerms.length === 0) continue;
 
       const firstIndex = Math.min(...matchedPatternIndexes, ...matchedPlainIndexes);
+      const spans = [
+        ...subgenre.patterns.map((pattern) => patternMatchSpan(input, pattern)),
+        ...matchedPlainTerms.map((term) => termMatchSpan(input, term)),
+      ].filter((span): span is [number, number] => span !== null);
       const specificityBoost = normalizedSubgenreLabel(subgenre.id) === String(familyDef.family)
         ? 0
         : Math.min(1.5, subgenre.id.split("_").length * 0.35);
@@ -692,6 +724,7 @@ function parseSubgenreIntent(input: string): {
         terms: [subgenre.id, ...matchedPlainTerms],
         confidence: matchedPatternIndexes.length * 2 + matchedPlainTerms.length + specificityBoost,
         firstIndex,
+        spans,
       });
     }
   }
@@ -700,6 +733,7 @@ function parseSubgenreIntent(input: string): {
     .filter((match, index, all) =>
       all.findIndex((other) => other.id === match.id && other.family === match.family) === index
     )
+    .filter((match, _index, all) => !isSubsumedMatch(match, all))
     .sort((a, b) =>
       b.confidence - a.confidence ||
       b.id.length - a.id.length ||

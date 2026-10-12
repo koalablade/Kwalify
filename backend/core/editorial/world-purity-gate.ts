@@ -4,6 +4,7 @@
  */
 
 import type { CommittedWorld } from "../committed-world";
+import type { ArtistCapLimiter } from "../../lib/playlist-artist-cap";
 import type { CulturalWorldProfile } from "./cultural-identity-profile";
 import { matchesAvoidArtist, rosterTierScoreFloor } from "./cultural-identity-profile";
 import type { CoverageLevel, CoverageTier } from "./world-coverage";
@@ -118,6 +119,30 @@ export function evidenceAlignedPurityThreshold(
   if (compositionPosition <= 2) return positionThreshold;
   const evidenceCeiling = Math.max(58, Math.min(62, scorePercent));
   return Math.min(positionThreshold, evidenceCeiling);
+}
+
+/**
+ * Library songs a scene world needs before a hard lock can open a playlist: positions 1–5 require
+ * 85–95 purity, which only anchor / roster / natural-world evidence reaches (genre-token evidence
+ * tops out at 58–62). With fewer than this, the hard lock can only strip the playlist to a few songs
+ * or refuse it ("night drive" on a 9.7k library: 0 such songs → 2-track result).
+ */
+export const SCENE_WORLD_OPENING_SUPPLY_MIN = 5;
+
+/** Count library songs that pass this world's purity bar at an opening position (stops at `limit`). */
+export function countWorldOpeningSupply(
+  library: readonly WorldIdentityTrack[],
+  profile: CulturalWorldProfile,
+  limit = SCENE_WORLD_OPENING_SUPPLY_MIN,
+): number {
+  let count = 0;
+  for (const track of library) {
+    if (trackPassesWorldPurity(track, profile, 1)) {
+      count += 1;
+      if (count >= limit) break;
+    }
+  }
+  return count;
 }
 
 /** Estimate purity survival for hard-lock compose depth scaling. */
@@ -481,6 +506,8 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
     /** Genre evidence gate for hard-lock explicit genre refill paths. */
     isGenreVerified?: (track: T) => boolean;
     enrichTrack?: (track: T) => T;
+    /** The delivery artist cap — refill never pushes an artist past it. */
+    artistLimiter?: ArtistCapLimiter;
   },
 ): WorldPurityResult & { tracks: T[] } {
   const requested = Math.max(1, opts?.requestedLength ?? 25);
@@ -573,6 +600,7 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
       isGenreVerified: opts?.isGenreVerified,
       enrichTrack: opts?.enrichTrack,
       maxPoolSize: REPLACEMENT_POOL_CAP,
+      artistLimiter: opts?.artistLimiter,
     });
     deliverableDepthRefill = refilled.diagnostics;
     if (refilled.tracks.length > working.length) {
@@ -617,6 +645,7 @@ export function applyWorldPurityGate<T extends WorldIdentityTrack>(
       isGenreVerified: opts?.isGenreVerified,
       enrichTrack: opts?.enrichTrack,
       maxPoolSize: REPLACEMENT_POOL_CAP,
+      artistLimiter: opts?.artistLimiter,
     });
     if (postStripRefill.diagnostics.refilledCount > 0) {
       deliverableDepthRefill = {

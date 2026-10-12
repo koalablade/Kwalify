@@ -2,6 +2,8 @@
  * End-to-end playlist build — scoring → composition → genre post-enforcement.
  */
 
+import { traceSelectionEvent, traceSelectionStage } from "../lib/selection-trace";
+import { isNamedWorldArtist, promptMusicalCharacter, scoreMusicalFit, type MusicalFitTrack } from "./editorial/world-musical-character";
 import { runScoringPipeline } from "./scoring-engine";
 import { tasteGraphV2RetrievalBoost, type TasteGraphV2 } from "../lib/taste-graph-v2";
 import { cultureRetrievalBoost } from "../lib/scene-culture-graph";
@@ -4449,8 +4451,12 @@ export async function buildPlaylistPipeline<T extends {
       anchors: worldBoundary.lockAnchors,
       prompt: opts.vibe,
     });
+  // The scan reads only fixed inputs (worldBoundary, the scan library, classMap), so its result never
+  // changes within a request; it was run three times (~0.5 s each on a 9.7k-song library).
+  let worldVerifiedScanDone = false;
   const scanWorldVerifiedFromLibrary = (): void => {
-    if (!worldBoundary.hardLock) return;
+    if (!worldBoundary.hardLock || worldVerifiedScanDone) return;
+    worldVerifiedScanDone = true;
     const profiles = worldIdentityProfiles();
     if (profiles.length === 0) return;
     const culturalProfile = culturalProfileForCommittedWorld(
@@ -5450,6 +5456,20 @@ export async function buildPlaylistPipeline<T extends {
     classMap,
     explicitPromptGenreFamilies,
   );
+  // An explicit era ("90s British indie") is a MUST the era-evidence guard enforces at delivery.
+  // Post-V3 recovery stages (quality lock, critic, world-constraint rebuild, freshness resample)
+  // replace picks from pools that ignored it, swapping in-era picks for out-of-era ones that are
+  // then stripped. Restrict those pools to the era when the in-era supply can fill a playlist.
+  const explicitEra = v3LockedIntent?.eraRange ?? null;
+  const inExplicitEra = (track: unknown): boolean => {
+    const year = (track as { releaseYear?: number | null }).releaseYear;
+    return !!explicitEra && typeof year === "number" && year >= explicitEra.start && year <= explicitEra.end;
+  };
+  function restrictToExplicitEra<P>(pool: P[]): P[] {
+    if (!explicitEra) return pool;
+    const inEra = pool.filter(inExplicitEra);
+    return inEra.length >= Math.max(12, opts.playlistLength) ? inEra : pool;
+  }
   const libraryFingerprint = opts.libraryFingerprint ?? computeLibraryFingerprint(
     opts.likedSongs.map((track) => ({
       trackId: track.trackId,
@@ -6268,6 +6288,7 @@ export async function buildPlaylistPipeline<T extends {
   // V3 output is the selected candidate list. Post-V3 recovery guards are bounded
   // to the existing candidate pool and never re-enter retrieval, scoring, or V3.
   let finalTracksList = v3.finalTracks as V3MetadataTrack<T>[];
+  traceSelectionStage("pipeline.v3Output", finalTracksList);
   let contractRebalanceApplied = false;
   const contractCoverageForRebalance =
     (selectedCandidate.candidatePool.contractCoveragePool?.length ?? 0) > 0
@@ -6290,6 +6311,22 @@ export async function buildPlaylistPipeline<T extends {
     clusterId: (track as V3MetadataTrack<T>).clusterId ?? genreFamilyForTrack(track, classMap),
     clusterIds: (track as V3MetadataTrack<T>).clusterIds ?? [genreFamilyForTrack(track, classMap)].filter((value): value is string => !!value),
   })) as ScoredLibraryTrack<V3MetadataTrack<T>>[];
+  // Contract recovery fills by mood / energy coverage. A filler whose own genre tags place it outside
+  // the world (country, doo-wop, trance for "rainy drive") is merely available, not compatible.
+  // Untagged songs carry no evidence either way. Only fill pools pass through here; V3's own picks
+  // (finalTracksList) are never filtered.
+  const dropTaggedOffWorldFillers = <U extends { trackId: string }>(pool: U[]): U[] => {
+    if (!opts.contractComposition?.enabled || !worldBoundary.active) return pool;
+    const tagged = pool.filter((t) => {
+      const genres = (t as { spotifyArtistGenres?: unknown }).spotifyArtistGenres;
+      return !(t as { selectedByV3?: boolean }).selectedByV3 && Array.isArray(genres) && genres.length > 0;
+    });
+    const offWorld = new Set(
+      hardRejectOffWorldTracks(tagged as unknown as ScoredLibraryTrack<T>[], worldBoundary, classMap).rejected.map((t) => t.trackId),
+    );
+    return offWorld.size > 0 ? pool.filter((t) => !offWorld.has(t.trackId)) : pool;
+  };
+  qualityRecoveryCandidatePool = dropTaggedOffWorldFillers(qualityRecoveryCandidatePool);
   if (opts.contractComposition?.enabled) {
     const contract = opts.contractComposition.contract;
     const enrichedPool = enrichContractCompositionTracks(
@@ -6312,6 +6349,7 @@ export async function buildPlaylistPipeline<T extends {
     );
     finalTracksList = rebalanced.tracks as V3MetadataTrack<T>[];
     contractRebalanceApplied = rebalanced.diagnostics.rebalanced === true;
+    traceSelectionStage("pipeline.contractRebalance", finalTracksList, rebalanced.diagnostics);
     qualityRecoveryCandidatePool = enrichedPool;
     let rebalanceDiagnostics: Record<string, unknown> = rebalanced.diagnostics;
     let poolOnlyRecovery = false;
@@ -6326,6 +6364,7 @@ export async function buildPlaylistPipeline<T extends {
       );
       if (poolOnly.tracks.length > 0) {
         finalTracksList = poolOnly.tracks as V3MetadataTrack<T>[];
+        traceSelectionStage("pipeline.contractRebalancePoolOnly", finalTracksList);
         contractRebalanceApplied = poolOnly.diagnostics.rebalanced === true;
         rebalanceDiagnostics = poolOnly.diagnostics;
         poolOnlyRecovery = true;
@@ -6350,12 +6389,23 @@ export async function buildPlaylistPipeline<T extends {
       classMap,
     );
     qualityRecoveryCandidatePool = purified.kept as ScoredLibraryTrack<V3MetadataTrack<T>>[];
+    const recoveryPoolBeforeEra = qualityRecoveryCandidatePool.length;
+    qualityRecoveryCandidatePool = restrictToExplicitEra(qualityRecoveryCandidatePool);
+    if (explicitEra) {
+      traceSelectionEvent("pipeline.recoveryPoolEra", {
+        era: explicitEra,
+        pool: recoveryPoolBeforeEra,
+        kept: qualityRecoveryCandidatePool.length,
+        applied: qualityRecoveryCandidatePool.length !== recoveryPoolBeforeEra,
+      });
+    }
     const finalPurified = hardRejectOffWorldTracks(
       finalTracksList.map((track) => enrichWorldIdentity(track)),
       worldBoundary,
       classMap,
     );
     finalTracksList = finalPurified.kept as V3MetadataTrack<T>[];
+    traceSelectionStage("pipeline.worldBoundaryPurify", finalTracksList);
   }
   const qualityRecoveryDiagnostics: Record<string, unknown> = {
     candidatePoolSize: qualityRecoveryCandidatePool.length,
@@ -6376,6 +6426,7 @@ export async function buildPlaylistPipeline<T extends {
       opts.playlistLength,
     );
     finalTracksList = qualityLocked.tracks;
+    traceSelectionStage("pipeline.qualityLock", finalTracksList, qualityLocked.diagnostics);
     qualityRecoveryDiagnostics["qualityLock"] = {
       ...qualityLocked.diagnostics,
       executed: true,
@@ -6396,6 +6447,7 @@ export async function buildPlaylistPipeline<T extends {
     if (criticRepaired.diagnostics.afterQuality >= criticRepaired.diagnostics.beforeQuality) {
       finalTracksList = criticRepaired.tracks;
     }
+    traceSelectionStage("pipeline.criticRepair", finalTracksList, criticRepaired.diagnostics);
     qualityRecoveryDiagnostics["criticRepair"] = {
       ...criticRepaired.diagnostics,
       executed: true,
@@ -6437,6 +6489,7 @@ export async function buildPlaylistPipeline<T extends {
       if (reranked.diagnostics.applied) {
         finalTracksList = reranked.tracks;
       }
+      traceSelectionStage("pipeline.expectationRerank", finalTracksList, reranked.diagnostics);
       qualityRecoveryDiagnostics["expectationRerank"] = {
         ...reranked.diagnostics,
         world: interpretation.candidates[0]?.label ?? null,
@@ -6467,6 +6520,17 @@ export async function buildPlaylistPipeline<T extends {
       ),
       score: track.score,
     }));
+    traceSelectionEvent(
+      "pipeline.constraintPool",
+      qualityRecoveryCandidatePool.map((t) => `${t.trackId} | ${t.artistName} — ${t.trackName} | e${t.energy} v${t.valence}`),
+    );
+    // The world's musical character (real audio features only) so the constraint build ranks songs
+    // by how they sound in this world, not by a generic energy constant.
+    const constraintCharacter = promptMusicalCharacter(
+      opts.vibe,
+      worldBoundary.lockAnchors[0] ?? worldBoundary.dominantScene ?? null,
+    );
+    const constraintTrackById = new Map(qualityRecoveryCandidatePool.map((t) => [t.trackId, t]));
     const constrained = buildPlaylistByWorldConstraints({
       candidates: constraintCandidates,
       intent: v3LockedIntent,
@@ -6474,6 +6538,13 @@ export async function buildPlaylistPipeline<T extends {
       playlistLength: opts.playlistLength,
       scenePrediction: opts.postScore.scenePrediction,
       maxPerArtist: opts.maxPerArtist,
+      musicalFit: constraintCharacter
+        ? (trackId) => {
+            const track = constraintTrackById.get(trackId);
+            return track ? scoreMusicalFit(track as unknown as MusicalFitTrack, constraintCharacter) : null;
+          }
+        : undefined,
+      isWorldArtist: (artistName) => isNamedWorldArtist(artistName, worldBoundary.lockAnchors),
     });
     if (constrained.tracks.length >= Math.min(opts.playlistLength, 8)) {
       const trackById = new Map(qualityRecoveryCandidatePool.map((t) => [t.trackId, t]));
@@ -6498,6 +6569,7 @@ export async function buildPlaylistPipeline<T extends {
         finalTracksList = constrained.tracks
           .map((track) => trackById.get(track.trackId))
           .filter((track): track is NonNullable<typeof track> => !!track) as V3MetadataTrack<T>[];
+        traceSelectionStage("pipeline.constraintRebalance", finalTracksList, constrained.diagnostics);
         worldBoundaryDiagnostics = {
           ...worldBoundaryDiagnostics,
           constraintBuild: {
@@ -6521,6 +6593,7 @@ export async function buildPlaylistPipeline<T extends {
     );
     if (postRecoveryPurified.rejected.length > 0) {
       finalTracksList = postRecoveryPurified.kept as V3MetadataTrack<T>[];
+      traceSelectionStage("pipeline.postRecoveryPurity", finalTracksList);
       qualityRecoveryDiagnostics["postRecoveryWorldPurity"] = postRecoveryPurified.diagnostics;
     }
   }
@@ -6538,7 +6611,17 @@ export async function buildPlaylistPipeline<T extends {
   };
 
   const fallbackResolveLimit = Math.max(50, opts.playlistLength * 3);
+  // Pure per track for this request, but called from sort comparators (O(n log n) times) and it
+  // decomposes world identity each call — the profiled top post-V3 cost. Memoised per track object.
+  const fallbackCandidateScoreCache = new WeakMap<object, number>();
   const fallbackCandidateScore = (track: ScoredLibraryTrack<T>): number => {
+    const cached = fallbackCandidateScoreCache.get(track as object);
+    if (cached !== undefined) return cached;
+    const value = computeFallbackCandidateScore(track);
+    fallbackCandidateScoreCache.set(track as object, value);
+    return value;
+  };
+  const computeFallbackCandidateScore = (track: ScoredLibraryTrack<T>): number => {
     const origin = softGuardOriginFor(track);
     const recentTrackPenalty = upstreamRecentTrackPenalty?.get(track.trackId) ?? 0;
     const artistPenalty = 1 - artistMemoryPenalty(effectiveSessionArtistMemory, track.artistName);
@@ -6560,10 +6643,10 @@ export async function buildPlaylistPipeline<T extends {
     .slice(0, fallbackResolveLimit);
 
   const trackByIdForStructural = new Map(opts.likedSongs.map((song) => [song.trackId, song]));
-  const structuralCandidatePool = orderFallbackPool([
+  const structuralCandidatePool = restrictToExplicitEra(orderFallbackPool([
     ...(qualityRecoveryCandidatePool as ScoredLibraryTrack<T>[]),
     ...contractGuardedScoredPool,
-  ]) as T[];
+  ])) as T[];
   const guardStructuralDiversity = (tracks: T[]): T[] => {
     if (tracks.length < 6) return tracks;
     const guarded = applyStructuralDiversityGuards(tracks, {
@@ -6588,10 +6671,17 @@ export async function buildPlaylistPipeline<T extends {
   function resolveFinalTracks(
     pool: ScoredLibraryTrack<T>[],
     fallbackLabel: string,
+    /** Keep the first N pool entries (already-selected tracks) in place; only the rest is re-ordered. */
+    preserveLeading = 0,
   ): BuildPlaylistPipelineResult<T> | null {
     if (!pool.length) return null;
 
-    const resolvedPool = orderFallbackPool(pool).slice(0, fallbackResolveLimit);
+    const leading = pool.slice(0, preserveLeading);
+    const leadingIds = new Set(leading.map((track) => track.trackId));
+    const resolvedPool = [
+      ...leading,
+      ...orderFallbackPool(pool.slice(preserveLeading)).filter((track) => !leadingIds.has(track.trackId)),
+    ].slice(0, fallbackResolveLimit);
     const enforcedResolved = enforceFinalPlaylistGenres({
       finalTracks: resolvedPool,
       sortedPool: contractGuardedScoredPool,
@@ -6616,6 +6706,7 @@ export async function buildPlaylistPipeline<T extends {
       [...resolvedPool, ...contractGuardedScoredPool] as Array<ScoredLibraryTrack<T>>,
     );
     const resolvedFinalTracks = guardStructuralDiversity(antiBlandness.tracks);
+    traceSelectionStage(`pipeline.resolveFinalTracks:${fallbackLabel}`, resolvedFinalTracks);
     const resolvedMomentMemory = updateMomentMemory({
       unifiedIntent: memoryAdjustedUnifiedIntent,
       finalPlaylistEmbedding: buildPlaylistEmbedding(resolvedFinalTracks).centroidVector,
@@ -6823,6 +6914,7 @@ export async function buildPlaylistPipeline<T extends {
       finalPlaylistEmbedding: buildPlaylistEmbedding(enforcedFallback.tracks).centroidVector,
       memoryKey: opts.momentMemoryKey,
     });
+    traceSelectionStage("pipeline.fallbackCompose", enforcedFallback.tracks);
     return {
       finalTracks: guardStructuralDiversity(enforcedFallback.tracks),
       sorted: scoring.sorted,
@@ -6916,10 +7008,17 @@ export async function buildPlaylistPipeline<T extends {
     const resolvedUnderfill = resolveFinalTracks(
       [
         ...(finalTracksList as unknown as ScoredLibraryTrack<T>[]),
-        ...lastResortPool,
-        ...emergencyScoredPool,
+        // Same compatibility rule as the contract recovery pool: these fillers reach delivery as
+        // pipeline picks, past the delivery world check.
+        ...(contractRebalanceApplied
+          ? dropTaggedOffWorldFillers([...lastResortPool, ...emergencyScoredPool])
+          : [...lastResortPool, ...emergencyScoredPool]),
       ],
       "final_underfill_completion",
+      // Underfill completion adds to what V3 (and the critic) selected; re-sorting those picks
+      // together with the generic fallback pool by hybrid score evicted them (traced:
+      // psychedelic picks replaced by top-scored classic-rock staples).
+      finalTracksList.length,
     );
     if (resolvedUnderfill && resolvedUnderfill.finalTracks.length > finalTracksList.length) {
       return resolvedUnderfill;
@@ -6927,17 +7026,28 @@ export async function buildPlaylistPipeline<T extends {
   }
   // Hard world lock: deepen only with in-world candidates; never pad to length with off-world.
   if (finalTracksList.length < opts.playlistLength && worldBoundary.hardLock) {
+    // Fill adds to the current selection; re-sorting it together with the fallback pool evicted it
+    // (traced: the era-built Pulp/Oasis/Blur set replaced wholesale by top-scored 2000s fallback).
+    const seenFillIds = new Set(finalTracksList.map((track) => track.trackId));
+    const fillAdditions = orderFallbackPool([...lastResortPool, ...emergencyScoredPool]).filter((track) => {
+      if (seenFillIds.has(track.trackId)) return false;
+      seenFillIds.add(track.trackId);
+      return true;
+    });
     const inWorldFill = hardRejectOffWorldTracks(
-      orderFallbackPool([
+      [
         ...(finalTracksList as unknown as ScoredLibraryTrack<T>[]),
-        ...lastResortPool,
-        ...emergencyScoredPool,
-      ]),
+        // An explicit era is a MUST the era-evidence guard enforces later: offer in-era fill first.
+        ...(explicitEra
+          ? [...fillAdditions.filter(inExplicitEra), ...fillAdditions.filter((t) => !inExplicitEra(t))]
+          : fillAdditions),
+      ],
       worldBoundary,
       classMap,
     ).kept;
     if (inWorldFill.length > finalTracksList.length) {
       finalTracksList = inWorldFill.slice(0, opts.playlistLength) as V3MetadataTrack<T>[];
+      traceSelectionStage("pipeline.inWorldUnderfillFill", finalTracksList);
       qualityRecoveryDiagnostics["inWorldUnderfill"] = {
         before: finalTracksList.length,
         pool: inWorldFill.length,
@@ -6958,6 +7068,7 @@ export async function buildPlaylistPipeline<T extends {
       finalTracksList = finalAntiBlandness.tracks as T[];
     }
     finalTracksList = guardStructuralDiversity(finalTracksList);
+    traceSelectionStage("pipeline.antiBlandness+structuralDiversity", finalTracksList, finalAntiBlandness.diagnostics);
     // Absolute last purity strip — structural/anti-bland swaps must not reintroduce off-world.
     if (worldBoundary.active && finalTracksList.length > 0) {
       finalTracksList = hardRejectOffWorldTracks(
@@ -6965,6 +7076,7 @@ export async function buildPlaylistPipeline<T extends {
         worldBoundary,
         classMap,
       ).kept as V3MetadataTrack<T>[];
+      traceSelectionStage("pipeline.finalPurityStrip", finalTracksList);
     }
     qualityRecoveryDiagnostics["antiBlandness"] = {
       ...finalAntiBlandness.diagnostics,
@@ -7035,6 +7147,7 @@ export async function buildPlaylistPipeline<T extends {
   };
   const scoredAttributionById = new Map(scoring.sorted.map((track) => [track.trackId, track]));
   finalTracksList = attachScoreAttribution(finalTracksList, scoredAttributionById);
+  traceSelectionStage("pipeline.final", finalTracksList);
   return {
     finalTracks: finalTracksList as V3MetadataTrack<T>[],
     sorted: scoring.sorted,

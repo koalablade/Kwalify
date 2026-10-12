@@ -123,3 +123,14 @@ test("lo-fi study focus stays hard lock when world matches", () => {
   const decision = gate("lo-fi study focus");
   assert.equal(decision.deferHardLock, false);
 });
+
+test("2000s emo stays hard-locked to pop_punk_world (emo is that world's own genre)", () => {
+  setPlaylistContractWorldGateEnabled(true);
+  for (const prompt of ["2000s emo", "2000s emo for driving home at night"]) {
+    const decision = gate(prompt);
+    assert.equal(decision.deferHardLock, false, prompt);
+    assert.equal(decision.effectiveWorld?.id, "pop_punk_world", prompt);
+    assert.equal(decision.effectiveWorld?.hardLock, true, prompt);
+  }
+  setPlaylistContractWorldGateEnabled(null);
+});

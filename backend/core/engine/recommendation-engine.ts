@@ -105,18 +105,6 @@ export function normalizeMemoryScore(value: number, values: number[]): number {
   return normalizeDomain(value, values);
 }
 
-function normalizeFreshnessScore(value: number, values: number[]): number {
-  return normalizeDomain(value, values);
-}
-
-function normalizeRepetitionPressure(value: number, values: number[]): number {
-  return normalizeDomain(value, values);
-}
-
-function normalizeGenreAlignment(value: number, values: number[]): number {
-  return normalizeDomain(value, values);
-}
-
 function memoryResonance(unifiedIntent: UnifiedIntent, memory: MomentMemory | null | undefined): number {
   if (!memory || memory.recentStates.length === 0) {
     return clamp01(0.5 + unifiedIntent.latentContext.memoryActivation * 0.25);
@@ -193,24 +181,40 @@ export function computeFinalDecision(
   };
 }
 
+/**
+ * Min-max normaliser for one domain, with min/max computed once. Same result as normalizeDomain,
+ * which recomputes min/max over the whole array per call — O(n²) when called once per track.
+ */
+export function domainNormalizer(values: number[]): (value: number) => number {
+  if (values.length <= 1) return clamp01;
+  let min = Infinity;
+  let max = -Infinity;
+  for (const value of values) {
+    if (value < min) min = value;
+    if (value > max) max = value;
+  }
+  if (Math.abs(max - min) < 0.0001) return clamp01;
+  return (value) => clamp01((value - min) / (max - min));
+}
+
 function normalizeSignals(signals: SignalBundle[]): NormalizedSignalBundle[] {
-  const embeddingValues = signals.map((signal) => signal.embeddingAffinity);
-  const sceneValues = signals.map((signal) => signal.sceneAffinity);
-  const tasteValues = signals.map((signal) => signal.tasteAffinity);
-  const memoryValues = signals.map((signal) => signal.memoryAffinity);
-  const freshnessValues = signals.map((signal) => signal.freshnessScore);
-  const repetitionValues = signals.map((signal) => signal.repetitionPressure);
-  const genreValues = signals.map((signal) => signal.genreAlignment);
+  const embedding = domainNormalizer(signals.map((signal) => signal.embeddingAffinity));
+  const scene = domainNormalizer(signals.map((signal) => signal.sceneAffinity));
+  const taste = domainNormalizer(signals.map((signal) => signal.tasteAffinity));
+  const memory = domainNormalizer(signals.map((signal) => signal.memoryAffinity));
+  const freshness = domainNormalizer(signals.map((signal) => signal.freshnessScore));
+  const repetition = domainNormalizer(signals.map((signal) => signal.repetitionPressure));
+  const genre = domainNormalizer(signals.map((signal) => signal.genreAlignment));
 
   return signals.map((signal) => ({
     ...signal,
-    normalizedEmbedding: normalizeEmbeddingScore(signal.embeddingAffinity, embeddingValues),
-    normalizedScene: normalizeSceneScore(signal.sceneAffinity, sceneValues),
-    normalizedTaste: normalizeTasteScore(signal.tasteAffinity, tasteValues),
-    normalizedMemory: normalizeMemoryScore(signal.memoryAffinity, memoryValues),
-    normalizedFreshness: normalizeFreshnessScore(signal.freshnessScore, freshnessValues),
-    normalizedRepetition: normalizeRepetitionPressure(signal.repetitionPressure, repetitionValues),
-    normalizedGenre: normalizeGenreAlignment(signal.genreAlignment, genreValues),
+    normalizedEmbedding: embedding(signal.embeddingAffinity),
+    normalizedScene: scene(signal.sceneAffinity),
+    normalizedTaste: taste(signal.tasteAffinity),
+    normalizedMemory: memory(signal.memoryAffinity),
+    normalizedFreshness: freshness(signal.freshnessScore),
+    normalizedRepetition: repetition(signal.repetitionPressure),
+    normalizedGenre: genre(signal.genreAlignment),
   }));
 }
 

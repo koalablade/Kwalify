@@ -22,6 +22,17 @@ export type WorldGateDecision = {
   contractWorldAgreement: boolean;
 };
 
+/**
+ * How many of the user's library songs can open a playlist in this world (pass its purity bar at an
+ * opening position). Only measured for scene worlds (night drive, rainy drive…): a genre the user
+ * named stays a hard lock however thin the library is.
+ */
+export type WorldLibrarySupply = {
+  worldId: string;
+  openingCapable: number;
+  minimum: number;
+};
+
 /** Genre token → retrieval families used for world alignment checks. */
 const GENRE_TOKEN_FAMILIES: Record<string, string[]> = {
   deep_house: ["house", "electronic"],
@@ -33,6 +44,7 @@ const GENRE_TOKEN_FAMILIES: Record<string, string[]> = {
   soul: ["soul", "rnb", "funk"],
   rock: ["rock", "metal"],
   pop_punk: ["rock", "indie", "punk"],
+  emo: ["rock", "indie", "punk"],
   punk: ["rock", "punk", "indie"],
   techno: ["electronic", "techno"],
   lofi_indie: ["indie", "electronic", "lofi"],
@@ -55,6 +67,7 @@ const WORLD_GENRE_FAMILIES: Record<string, string[]> = {
   party_prep_world: ["pop", "electronic", "disco", "hip_hop", "soul"],
   reggae_world: ["reggae", "world"],
   pop_punk_world: ["rock", "indie", "punk"],
+  britpop_world: ["rock", "indie"],
   uk_garage_world: ["electronic", "hip_hop", "grime"],
   gym_energy_world: ["electronic", "hip_hop", "pop", "techno"],
   dad_rock_world: ["rock", "pop"],
@@ -106,6 +119,8 @@ const GENRE_WORLD_STEM: Record<string, RegExp> = {
   reggae: /reggae/i,
   soul: /soul|feel_good|rnb/i,
   pop_punk: /punk|pop_punk/i,
+  // Emo is pop_punk_world's own genre (Paramore, Fall Out Boy, Jimmy Eat World…), not a mismatch.
+  emo: /punk|emo/i,
   punk: /punk/i,
   techno: /techno|energy/i,
   lofi_indie: /lofi|lo_fi/i,
@@ -117,7 +132,8 @@ const GENRE_WORLD_STEM: Record<string, RegExp> = {
   disco: /disco/i,
   pop: /pop|feel_good/i,
   electronic: /electronic|energy|neon|drive/i,
-  indie: /indie|dream|chill|sunday|soft/i,
+  // Britpop is British indie: an "indie" MUST genre agrees with britpop_world.
+  indie: /indie|dream|chill|sunday|soft|britpop/i,
 };
 
 function worldIdTokens(worldId: string): string[] {
@@ -186,6 +202,7 @@ export function evaluateWorldGate(input: {
   contract: PlaylistContract;
   world: CommittedWorld | null;
   disagreements?: ContractDisagreement[];
+  librarySupply?: WorldLibrarySupply | null;
 }): WorldGateDecision {
   const { contract, world } = input;
   const disagreements = input.disagreements ?? [];
@@ -215,8 +232,21 @@ export function evaluateWorldGate(input: {
     strongMustGenres.length > 0 &&
     world.source !== "explicit_genre";
   const activityConflict = activityIncompatibleAsMusicalAuthority(contract, world);
+  // The library cannot open a playlist in this scene world at its own purity bar, so a hard lock
+  // could only strip the result to a few songs or refuse it. Keep the scene as a soft hypothesis.
+  const librarySupplyThin =
+    input.librarySupply != null &&
+    input.librarySupply.worldId === world.id &&
+    input.librarySupply.openingCapable < input.librarySupply.minimum;
 
-  if (explicitMusical && !mustGenreMismatch && !unresolvedTension && !vagueFallback && !criticalDisagreement) {
+  if (
+    explicitMusical &&
+    !mustGenreMismatch &&
+    !unresolvedTension &&
+    !vagueFallback &&
+    !criticalDisagreement &&
+    !librarySupplyThin
+  ) {
     return {
       deferHardLock: false,
       reasons: ["explicit_musical_agreement"],
@@ -234,6 +264,7 @@ export function evaluateWorldGate(input: {
   if (criticalDisagreement) reasons.push("critical_contract_world_disagreement");
   if (lowWorldHighMust) reasons.push("low_confidence_world_strong_must");
   if (activityConflict) reasons.push("activity_incompatible_as_musical_authority");
+  if (librarySupplyThin) reasons.push("library_cannot_supply_scene_world");
 
   const deferHardLock = reasons.length > 0;
 

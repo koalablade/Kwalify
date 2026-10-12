@@ -9,6 +9,7 @@ import { matchesAvoidArtist } from "./cultural-identity-profile";
 import { scoreTrackWorldIdentity, type WorldIdentityTrack } from "./world-identity-score";
 import { trackPassesWorldPurity } from "./world-purity-gate";
 import { normalizeSessionArtist } from "../../lib/session-artist-gravity";
+import type { ArtistCapLimiter } from "../../lib/playlist-artist-cap";
 import { driveMomentContextPenalty, isSemanticSpamTrack } from "../playlist-contract/contract-axis-scoring";
 import {
   atmosphericLexicalHackPenalty,
@@ -45,6 +46,11 @@ export type DeliverableDepthRefillOpts<T extends WorldIdentityTrack> = {
   maxPoolSize?: number;
   preserveOpener?: boolean;
   enrichTrack?: (track: T) => T;
+  /**
+   * The delivery artist cap. When set, refill never adds a song whose artist is already at the cap
+   * (seeds are kept as they are). Without it a late refill re-added Paramore until it had 8 of 24.
+   */
+  artistLimiter?: ArtistCapLimiter;
 };
 
 export function trackIdentityKey(track: WorldIdentityTrack): string {
@@ -263,13 +269,27 @@ export function refillDeliverableDepth<T extends WorldIdentityTrack>(
   const output: T[] = [];
   let positionReplacements = 0;
   let tailAppends = 0;
+  const limiter = opts.artistLimiter;
+  const artistCounts = new Map<string, number>();
+  const countArtist = (track: T): void => {
+    if (!limiter) return;
+    const key = limiter.key(track.artistName);
+    if (key) artistCounts.set(key, (artistCounts.get(key) ?? 0) + 1);
+  };
+  const artistAtCap = (track: T): boolean => {
+    if (!limiter) return false;
+    const key = limiter.key(track.artistName);
+    return !!key && (artistCounts.get(key) ?? 0) >= limiter.limit(key);
+  };
 
   const takeNextRanked = (position: number): T | null => {
     for (const candidate of rankedPool) {
       const id = trackIdentityKey(candidate);
       if (usedIds.has(id)) continue;
+      if (artistAtCap(candidate)) continue;
       if (!passesDeliverableSlot(candidate, profile, position, opts)) continue;
       usedIds.add(id);
+      countArtist(candidate);
       return opts.enrichTrack ? opts.enrichTrack(candidate) : candidate;
     }
     return null;
@@ -281,6 +301,7 @@ export function refillDeliverableDepth<T extends WorldIdentityTrack>(
     const position = output.length;
     if (!usedIds.has(seedId) && passesDeliverableSlot(seed, profile, position, opts)) {
       usedIds.add(seedId);
+      countArtist(seed);
       output.push(opts.enrichTrack ? opts.enrichTrack(seed) : seed);
       continue;
     }

@@ -16,7 +16,14 @@
     "evening at the pub",
     "down the pub",
     "pint after work",
-    "quiet pint"
+    "quiet pint",
+    "beer with mates",
+    "pints with mates",
+    "drinks after work",
+    "after work drinks",
+    "pub with mates",
+    "closing time",
+    "last orders"
   ],
   "hidden_context": "Regular seat, familiar faces, day's edge blunted.",
   "emotional_states": [

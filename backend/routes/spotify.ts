@@ -402,12 +402,35 @@ export async function runSync(
         speechiness: number | null;
       }
     >();
-    if (!isIncremental) {
-      const existingRows = await db
-        .select()
-        .from(likedSongsTable)
-        .where(eq(likedSongsTable.spotifyUserId, userId));
+    // Artist genres are preserved the same way: the artist-genres endpoint 403s for this app, so a
+    // re-fetch returns [] and would wipe genres imported from the user's own library export.
+    const preservedGenres = new Map<string, unknown>();
+    const replacedIds = newTracks.map((t) => t.id);
+    if (!isIncremental || replacedIds.length > 0) {
+      const existingRows = isIncremental
+        ? (
+            await Promise.all(
+              Array.from({ length: Math.ceil(replacedIds.length / 500) }, (_, i) =>
+                db
+                  .select()
+                  .from(likedSongsTable)
+                  .where(
+                    and(
+                      eq(likedSongsTable.spotifyUserId, userId),
+                      inArray(likedSongsTable.trackId, replacedIds.slice(i * 500, i * 500 + 500)),
+                    ),
+                  ),
+              ),
+            )
+          ).flat()
+        : await db
+            .select()
+            .from(likedSongsTable)
+            .where(eq(likedSongsTable.spotifyUserId, userId));
       for (const row of existingRows) {
+        if (Array.isArray(row.spotifyArtistGenres) && row.spotifyArtistGenres.length > 0) {
+          preservedGenres.set(row.trackId, row.spotifyArtistGenres);
+        }
         if (row.energy != null || row.valence != null) {
           preservedFeatures.set(row.trackId, {
             energy: row.energy,
@@ -486,6 +509,10 @@ export async function runSync(
       }
       for (const track of newTracks) {
         const enriched = enrichTrackMetadata(track, artistGenreMap, albumMetadataMap);
+        const keptGenres = preservedGenres.get(track.id);
+        if ((enriched.spotifyArtistGenres?.length ?? 0) === 0 && Array.isArray(keptGenres)) {
+          enriched.spotifyArtistGenres = keptGenres.filter((g): g is string => typeof g === "string");
+        }
         let features = featuresMap.get(track.id);
         if (!features) {
           features = inferMetadataAudioFeatures({

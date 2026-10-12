@@ -49,6 +49,8 @@ export interface LaneScoredTrack<T extends ScorerTrack> {
     eraBonus: number;
     energyBandBonus: number;
     coreGenrePenalty: number;
+    /** Musical-fit ranking adjustment applied (0 when unjudgeable). */
+    musicalFit?: number;
   };
   era: EraBucket;
   genrePrimary: string;
@@ -178,6 +180,8 @@ export function scoreLane<T extends ScorerTrack>(
     noveltyByTrack?: (trackId: string) => number;
     /** Soft editorial pull toward genre prototype centres (Donna Summer neighbourhood). */
     prototypeBoostByTrack?: (trackId: string) => number;
+    /** Song-level fit to the world's musical character (−0.24 … +0.16; 0 when unjudgeable). */
+    musicalFitAdjustByTrack?: (trackId: string) => number;
   } = {}
 ): LaneScoredTrack<T>[] {
   const intentEmbedding: AudioVector = buildIntentEmbedding(intent.baseIntent);
@@ -228,6 +232,7 @@ export function scoreLane<T extends ScorerTrack>(
 
       const acousticBonus = acousticContinuityBonus(track, intent);
       const prototypeBoost = Math.max(0, Math.min(0.08, opts.prototypeBoostByTrack?.(track.trackId) ?? 0));
+      const musicalFitAdjust = Math.max(-0.24, Math.min(0.16, opts.musicalFitAdjustByTrack?.(track.trackId) ?? 0));
 
       const rawScore =
         w.ES  * ES  +
@@ -238,13 +243,13 @@ export function scoreLane<T extends ScorerTrack>(
         w.Nov * Nov;
 
       const laneScore = Math.max(0, Math.min(1.5,
-        rawScore + genreBonus + intentGenreModifier + coreGenrePenalty + eraBonus + energyBandBonus + acousticBonus + prototypeBoost
+        rawScore + genreBonus + intentGenreModifier + coreGenrePenalty + eraBonus + energyBandBonus + acousticBonus + prototypeBoost + musicalFitAdjust
       ));
 
       return {
         track,
         laneScore,
-        signals: { ES, SA, EM, Era, Act, Nov, genreBonus: genreBonus + intentGenreModifier, eraBonus, energyBandBonus: energyBandBonus + acousticBonus + prototypeBoost, coreGenrePenalty },
+        signals: { ES, SA, EM, Era, Act, Nov, genreBonus: genreBonus + intentGenreModifier, eraBonus, energyBandBonus: energyBandBonus + acousticBonus + prototypeBoost, coreGenrePenalty, musicalFit: musicalFitAdjust },
         era,
         genrePrimary: genre,
       };

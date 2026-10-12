@@ -25,6 +25,13 @@ import {
 import { buildLanes } from "./lane-router";
 import { generateAdaptiveLanes } from "./adaptive-lane-generator";
 import { scoreLane, type LaneScoredTrack } from "./lane-scorer";
+import {
+  musicalFitRankAdjust,
+  promptMusicalCharacter,
+  scoreMusicalFit,
+  steerIntentTowardMusicalCharacter,
+  type MusicalFitTrack,
+} from "../editorial/world-musical-character";
 import { buildClusters, type ClusteredPool } from "./cluster-candidate-engine";
 import { selectFromClusters, type SampledLaneResult, type SamplerInterpretation } from "./v3-sampler";
 import {
@@ -1060,6 +1067,13 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
       ),
     };
   }
+  // prompt → world / situation → musical target: steer the generic intent toward the musical
+  // character of the recognised world (e.g. a funeral is quiet and low, not neutral).
+  const musicalCharacter = promptMusicalCharacter(
+    vibe,
+    committedWorld?.musicalWorldId ?? committedWorld?.id ?? null,
+  );
+  editorialIntentVector = steerIntentTowardMusicalCharacter(editorialIntentVector, musicalCharacter);
   let activeEditorialIntentVector: EditorialIntentVector = editorialIntentVector;
   let samplerIntentContext: SamplerIntentContext = buildSamplerIntentContext(editorialIntentVector);
   let intentCollapseDiagnostics: IntentCollapseDiagnostics | null = buildIntentCollapseDiagnostics(
@@ -1864,6 +1878,13 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
     laneTarget: number;
   }> = [];
   const scoredLaneIds = new Set<string>();
+  // Song-level musical fit to the committed world + recognised situation (real features only).
+  const musicalFitAdjustById = new Map<string, number>();
+  if (musicalCharacter) {
+    for (const t of retrievedTracks) {
+      musicalFitAdjustById.set(t.trackId, musicalFitRankAdjust(scoreMusicalFit(t as MusicalFitTrack, musicalCharacter)));
+    }
+  }
   for (const lane of lanes) {
     await yieldV3();
     if (scoredLaneIds.has(lane.id)) {
@@ -1900,6 +1921,7 @@ export async function runV3Pipeline<T extends V3PipelineTrack>(
           );
           return Math.min(0.1, proto + eco);
         },
+        musicalFitAdjustByTrack: (trackId) => musicalFitAdjustById.get(trackId) ?? 0,
       }),
       recover: () => passThroughScored(retrievedTracks, lane.id),
     });

@@ -16,8 +16,14 @@ import {
 } from "./activity-profiles";
 import { inferWorldIdentityIdsFromPrompt, isSafetyBlanketOutsideWorld, estimateWorldMembership, passesWorldIdentity, worldIdentityProfilesForLock } from "../core/editorial/world-identity-gate";
 import { artistForbiddenInWorld } from "../core/editorial/artist-identity-map";
-import { culturalProfileForCommittedWorld } from "../core/editorial/cultural-identity-profile";
-import { scoreTrackWorldIdentity } from "../core/editorial/world-identity-score";
+import { culturalProfileForCommittedWorld, identityDerivedCulturalProfile } from "../core/editorial/cultural-identity-profile";
+import { decomposeTrackWorldIdentity, scoreTrackWorldIdentity } from "../core/editorial/world-identity-score";
+import {
+  MUSICAL_FIT_IDENTITY_WEIGHT,
+  musicalFitRankAdjust,
+  promptMusicalCharacter,
+  scoreMusicalFit,
+} from "../core/editorial/world-musical-character";
 import {
   assessWorldCoverage,
   classifyWorldCoverageTier,
@@ -522,39 +528,39 @@ function worldRetrievalFit(
   committedWorldId: string | null,
 ): number {
   if (retrievalWorldIds.length === 0) return 0.5;
-  const profile = culturalProfileForCommittedWorld(retrievalWorldIds, committedWorldId ?? retrievalWorldIds[0]!);
-  if (profile) {
-    return scoreTrackWorldIdentity(
-      {
-        trackName: track.trackName,
-        artistName: track.artistName,
-        albumName: track.albumName,
-        genreFamily: classification?.genreFamily ?? null,
-        genrePrimary: classification?.genrePrimary ?? null,
-        genres: classification?.subGenres ?? null,
-        energy: track.energy ?? null,
-        valence: track.valence ?? null,
-        danceability: track.danceability ?? null,
-        releaseYear: track.releaseYear ?? null,
-      },
-      profile,
-    );
-  }
+  const identityTrack = {
+    trackId: track.trackId,
+    trackName: track.trackName,
+    artistName: track.artistName,
+    albumName: track.albumName,
+    genreFamily: classification?.genreFamily ?? null,
+    genrePrimary: classification?.genrePrimary ?? null,
+    genres: classification?.subGenres ?? null,
+    spotifyArtistGenres: track.spotifyArtistGenres,
+    albumGenres: track.albumGenres,
+    energy: track.energy ?? null,
+    valence: track.valence ?? null,
+    danceability: track.danceability ?? null,
+    instrumentalness: track.instrumentalness ?? null,
+    tempo: track.tempo ?? null,
+    loudness: track.loudness ?? null,
+    releaseYear: track.releaseYear ?? null,
+  };
+  const primaryWorldId = committedWorldId ?? retrievalWorldIds[0]!;
+  const profile = culturalProfileForCommittedWorld(retrievalWorldIds, primaryWorldId);
+  if (profile) return scoreTrackWorldIdentity(identityTrack, profile);
   const profiles = worldIdentityProfilesForLock({ anchors: retrievalWorldIds });
-  return estimateWorldMembership(
-    {
-      trackName: track.trackName,
-      artistName: track.artistName,
-      albumName: track.albumName,
-      genrePrimary: classification?.genrePrimary ?? null,
-      genreFamily: classification?.genreFamily ?? null,
-      genres: classification?.subGenres ?? null,
-      energy: track.energy ?? null,
-      valence: track.valence ?? null,
-      danceability: track.danceability ?? null,
-    },
-    profiles,
-  );
+  const membership = estimateWorldMembership(identityTrack, profiles);
+  if (membership <= 0) return membership;
+  // Worlds without a curated profile (situation worlds): every track that passes the identity gate
+  // used to get the same membership value. Scale it by the song's own musical fit to the world
+  // (real audio features only), so artist/genre membership no longer stands in for song evidence.
+  const derived = identityDerivedCulturalProfile(primaryWorldId);
+  if (!derived) return membership;
+  const decomposition = decomposeTrackWorldIdentity(identityTrack, derived);
+  if (decomposition.evidenceTier === "forbidden") return 0;
+  const fit = decomposition.musicalFit;
+  return fit == null ? membership : membership * (1 - MUSICAL_FIT_IDENTITY_WEIGHT * (1 - fit));
 }
 
 function blendWorldOverEmotion(
@@ -960,15 +966,21 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
           const classification = classifyFor(track, opts.classMap);
           const culturalScore = scoreTrackWorldIdentity(
             {
+              trackId: track.trackId,
               trackName: track.trackName,
               artistName: track.artistName,
               albumName: track.albumName,
               genreFamily: classification?.genreFamily ?? null,
               genrePrimary: classification?.genrePrimary ?? null,
               genres: classification?.subGenres ?? null,
+              spotifyArtistGenres: track.spotifyArtistGenres,
+              albumGenres: track.albumGenres,
               energy: track.energy ?? null,
               valence: track.valence ?? null,
               danceability: track.danceability ?? null,
+              instrumentalness: track.instrumentalness ?? null,
+              tempo: track.tempo ?? null,
+              loudness: track.loudness ?? null,
               releaseYear: track.releaseYear ?? null,
             },
             culturalProfile,
@@ -1355,6 +1367,11 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
   const compoundConstraints = parseCompoundPromptConstraints(opts.vibe, opts.intent, opts.emotionProfile);
   const compoundActive = isCompoundPrompt(compoundConstraints);
 
+  // Song-level musical fit to the world + situation (real audio features only; neutral otherwise).
+  const musicalCharacter = promptMusicalCharacter(
+    opts.vibe,
+    committedWorld?.musicalWorldId ?? committedWorld?.id ?? retrievalProfile.committedWorldId ?? null,
+  );
   const scoreModifiersFor = (track: RetrievalTrackInput, baseScore: number) => {
     const classification = classifyFor(track, opts.classMap);
     const activityFit = retrievalProfile.activityProfile
@@ -1391,6 +1408,7 @@ export function retrieveScoringCandidates<T extends RetrievalTrackInput>(
     if (retrievalProfile.ukHipHopScene?.active) {
       score += ukHipHopRetrievalBoost(track, retrievalProfile.ukHipHopScene);
     }
+    score += musicalFitRankAdjust(scoreMusicalFit(track, musicalCharacter));
     return score;
   };
 

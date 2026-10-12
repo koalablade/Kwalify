@@ -1,6 +1,7 @@
 import { IDIOMS, PHRASES, SLANG } from "./knowledge";
 import humanPhrasesData from "../../data/world-knowledge/human-phrases.json";
 import type { PhraseMatch } from "./types";
+import { containsCue } from "./text-match";
 
 function normalize(text: string): string {
   return text.toLowerCase().replace(/\s+/g, " ").trim();
@@ -71,13 +72,13 @@ export function interpretPhrases(text: string): PhraseMatch[] {
   // Human experience phrases first (highest priority)
   for (const phrase of HUMAN_PHRASES) {
     const needle = phrase.phrase.toLowerCase();
-    if (!lower.includes(needle)) continue;
+    if (!containsCue(lower, needle)) continue;
     addMatch(toPhraseMatch(phrase));
   }
 
   for (const phrase of PHRASES) {
     const needle = phrase.phrase.toLowerCase();
-    if (!lower.includes(needle)) continue;
+    if (!containsCue(lower, needle)) continue;
     addMatch({
       id: phrase.id,
       phrase: phrase.phrase,
@@ -98,7 +99,7 @@ export function interpretPhrases(text: string): PhraseMatch[] {
 
   for (const idiom of IDIOMS) {
     const needle = idiom.phrase.toLowerCase();
-    if (!lower.includes(needle)) continue;
+    if (!containsCue(lower, needle)) continue;
     addMatch({
       id: `idiom_${idiom.phrase.replace(/\s+/g, "_")}`,
       phrase: idiom.phrase,

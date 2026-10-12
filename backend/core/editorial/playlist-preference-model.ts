@@ -17,6 +17,7 @@ import {
   computeHumanPlaylistFeatures,
   humanPlausibilityScore,
   scoreAgainstHumanPlaylistPatterns,
+  type HumanPlaylistFeatureSnapshot,
   type PatternScoringTrack,
 } from "./human-playlist-patterns";
 import { loadPlaylistGenome } from "./playlist-genome";
@@ -48,6 +49,10 @@ export type PairwisePlaylistCandidate = {
   tracks: PatternScoringTrack[];
   wouldISave: WouldISaveEvaluation;
   context: SceneWorldContext | null;
+  /** humanPlausibilityScore(tracks), when the caller already computed it for these exact tracks. */
+  precomputedPlausibility?: number;
+  /** The full-playlist pattern score of `tracks`, when the caller already computed it. */
+  precomputedPatterns?: { score: number; features: HumanPlaylistFeatureSnapshot };
 };
 
 export type PairwiseComparisonResult = {
@@ -174,10 +179,12 @@ export function dimensionVoteWeight(dimension: PairwiseDimension): number {
   return loadPreferenceModel().dimensionWeights[dimension] ?? 1;
 }
 
-function cringeScore(tracks: PatternScoringTrack[]): number {
+function cringeScore(
+  tracks: PatternScoringTrack[],
+  features: HumanPlaylistFeatureSnapshot = computeHumanPlaylistFeatures(tracks),
+): number {
   if (tracks.length <= 1) return 1;
   const thresholds = loadPlaylistGenome().pairwiseThresholds;
-  const features = computeHumanPlaylistFeatures(tracks);
   let penalty = 0;
   penalty += Math.max(0, features.maxArtistShare - thresholds.maxArtistShareCringe) * 3;
   penalty += Math.max(0, features.avgEnergyJump - thresholds.maxEnergyJumpCringe) * 2.5;
@@ -208,23 +215,22 @@ function openingShapeScore(tracks: PatternScoringTrack[]): number {
   return humanPlausibilityScore(opening);
 }
 
-function middleShapeScore(tracks: PatternScoringTrack[]): number {
-  if (tracks.length < 12) return scoreAgainstHumanPlaylistPatterns(tracks).score;
+function middleShapeScore(tracks: PatternScoringTrack[], fullPatternScore: number): number {
+  if (tracks.length < 12) return fullPatternScore;
   const midStart = Math.floor(tracks.length * 0.35);
   const midEnd = Math.floor(tracks.length * 0.65);
   return scoreAgainstHumanPlaylistPatterns(tracks.slice(midStart, midEnd)).score;
 }
 
-function endingShapeScore(tracks: PatternScoringTrack[]): number {
-  if (tracks.length < 8) return humanPlausibilityScore(tracks);
+function endingShapeScore(tracks: PatternScoringTrack[], fullPlausibility: number): number {
+  if (tracks.length < 8) return fullPlausibility;
   const tail = tracks.slice(-Math.min(8, Math.floor(tracks.length * 0.2)));
   return humanPlausibilityScore(tail);
 }
 
-function discoveryPacingScore(tracks: PatternScoringTrack[]): number {
+function discoveryPacingScore(tracks: PatternScoringTrack[], features: HumanPlaylistFeatureSnapshot): number {
   if (tracks.length < 6) return 0.5;
   const thresholds = loadPlaylistGenome().pairwiseThresholds;
-  const features = computeHumanPlaylistFeatures(tracks);
   const discoveryBand =
     features.discoveryRatio >= thresholds.discoveryRatioLow &&
     features.discoveryRatio <= thresholds.discoveryRatioHigh
@@ -234,13 +240,13 @@ function discoveryPacingScore(tracks: PatternScoringTrack[]): number {
   return clamp01(discoveryBand * 0.6 + spacing * 0.4);
 }
 
-function transitionFlowScore(tracks: PatternScoringTrack[]): number {
-  return clamp01(cringeScore(tracks) * 0.55 + scoreAgainstHumanPlaylistPatterns(tracks).score * 0.45);
+function transitionFlowScore(cringe: number, fullPatternScore: number): number {
+  return clamp01(cringe * 0.55 + fullPatternScore * 0.45);
 }
 
-function playlistPromptAlignmentScore(candidate: PairwisePlaylistCandidate): number {
+function playlistPromptAlignmentScore(candidate: PairwisePlaylistCandidate, fullPlausibility: number): number {
   return clamp01(
-    humanPlausibilityScore(candidate.tracks) * 0.55 +
+    fullPlausibility * 0.55 +
     candidate.wouldISave.combinedScore * 0.45,
   );
 }
@@ -249,17 +255,22 @@ export function extractPairwiseDimensionScores(
   candidate: PairwisePlaylistCandidate,
 ): PairwiseDimensionScores {
   const tracks = candidate.tracks;
-  const full = humanPlausibilityScore(tracks);
-  const mid = middleShapeScore(tracks);
+  // The full-playlist pattern score, its features, plausibility and cringe were each recomputed by
+  // several dimensions (5 pattern scorings of the same playlist per call, the top CPU cost in V3
+  // search). Compute each once; every dimension's arithmetic is unchanged.
+  const patterns = candidate.precomputedPatterns ?? scoreAgainstHumanPlaylistPatterns(tracks);
+  const full = candidate.precomputedPlausibility ?? humanPlausibilityScore(tracks, patterns.score);
+  const cringe = cringeScore(tracks, patterns.features);
+  const mid = middleShapeScore(tracks, patterns.score);
   return {
     human_saveable: candidate.wouldISave.combinedScore,
     opening_intention: openingShapeScore(tracks),
     full_playlist_shape: clamp01(full * 0.55 + mid * 0.45),
-    cringe_resistance: cringeScore(tracks),
-    prompt_alignment: playlistPromptAlignmentScore(candidate),
-    transition_flow: transitionFlowScore(tracks),
-    discovery_pacing: discoveryPacingScore(tracks),
-    ending_satisfaction: endingShapeScore(tracks),
+    cringe_resistance: cringe,
+    prompt_alignment: playlistPromptAlignmentScore(candidate, full),
+    transition_flow: transitionFlowScore(cringe, patterns.score),
+    discovery_pacing: discoveryPacingScore(tracks, patterns.features),
+    ending_satisfaction: endingShapeScore(tracks, full),
   };
 }
 
@@ -279,12 +290,16 @@ export function playlistPreferenceUtility(
 /** Whole-playlist human curation score — used by search, not track-level rank. */
 export function scorePlaylistForCuration(tracks: PatternScoringTrack[]): number {
   if (tracks.length === 0) return 0;
+  // Search calls this for every candidate playlist; reuse the full-playlist pattern score and the
+  // plausibility instead of recomputing them (7 → 3 pattern scorings per call; same arithmetic).
   const patterns = scoreAgainstHumanPlaylistPatterns(tracks);
-  const plausibility = humanPlausibilityScore(tracks);
+  const plausibility = humanPlausibilityScore(tracks, patterns.score);
   const combinedScore = clamp01(plausibility * 0.48 + patterns.score * 0.52);
   const utility = playlistPreferenceUtility({
     label: "curation",
     tracks,
+    precomputedPlausibility: plausibility,
+    precomputedPatterns: patterns,
     wouldISave: {
       wouldSaveScore: combinedScore,
       humanPatternScore: patterns.score,

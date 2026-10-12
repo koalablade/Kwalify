@@ -10,6 +10,7 @@ import musicLanguageGraphData from "../../data/world-knowledge/music-language/no
 import phrasePatternsData from "../../data/world-knowledge/phrase-patterns/nodes.json";
 import ukContextGraphData from "../../data/world-knowledge/uk-context/nodes.json";
 import type { WorldConceptTaxonomy } from "./types";
+import { cueIndex } from "./text-match";
 
 export interface ConceptGraphNode {
   id: string;
@@ -89,7 +90,7 @@ export function matchConceptGraph(text: string, limit = 10): GraphMatch[] {
   const usedSpans: Array<[number, number]> = [];
 
   for (const entry of INDEXED_CUES) {
-    const idx = lower.indexOf(entry.cue);
+    const idx = cueIndex(lower, entry.cue);
     if (idx < 0) continue;
     const end = idx + entry.cue.length;
     const overlaps = usedSpans.some(([s, e]) => !(end <= s || idx >= e));

@@ -25,6 +25,7 @@ import {
 } from "../lib/reference-playlist";
 import { eq, desc } from "drizzle-orm";
 import { parseEmotionalDestination } from "../lib/emotion-destination";
+import { identityTextMatcher, normalizeUniversalIdentityTerm } from "../lib/identity-term-match";
 import {
   buildAlbumAppearanceMap,
   buildArtistAppearanceMap,
@@ -175,6 +176,7 @@ import {
 } from "../lib/thin-library-policy";
 import {
   applyDeliveryPerPlaylistArtistCap,
+  createArtistCapLimiter,
   defaultPerPlaylistArtistCap,
   isNamedGenreEraArtistCapPrompt,
 } from "../lib/playlist-artist-cap";
@@ -343,6 +345,7 @@ import {
   termRegex,
 } from "../lib/expanded-intent-vocabulary";
 import { beginSpotifyApiAudit, getSpotifyApiAuditSnapshot } from "../lib/spotify-api-audit";
+import { beginSelectionTrace, getSelectionTraceSnapshot, traceSelectionStage } from "../lib/selection-trace";
 import { buildIntentSurvivalDiagnostics } from "../lib/intent-survival-diagnostics";
 import { buildGenerationTrustPayload } from "./generation-response";
 import { capAuditResponsePayload } from "../lib/audit-response-cap";
@@ -1879,7 +1882,9 @@ function trackIsChristmasTrack(track: ConstraintTrack, classMap: Map<string, {
   const genreTerms = trackGenreTerms(track, classMap).join(" ");
   if (/\b(?:christmas|xmas|holiday|carol|festive|noel|santa|jingle\s+bells|winter\s+wonderland)\b/i.test(genreTerms)) return true;
   const text = `${track.trackName ?? ""} ${track.albumName ?? ""}`.toLowerCase();
-  return /\b(?:christmas|xmas|holiday|festive|noel|santa|jingle\s+bells|winter\s+wonderland|mistletoe|snowman|sleigh|merry\s+christmas|christmastime|rudolph|frosty|feliz\s+navidad|baby\s+it'?s\s+cold\s+outside)\b/i.test(text);
+  // A bare "holiday" in a title is not Christmas ("Bonehead's Bank Holiday", "Dreadlock Holiday",
+  // "Roman Holiday", Green Day's "Holiday"); only seasonal holiday phrasings are.
+  return /\b(?:christmas|xmas|festive|noel|santa|jingle\s+bells|winter\s+wonderland|mistletoe|snowman|sleigh|merry\s+christmas|christmastime|rudolph|frosty|feliz\s+navidad|baby\s+it'?s\s+cold\s+outside|happy\s+holidays|holiday\s+(?:season|songs?|classics|special|album|collection|edition)|(?:christmas|winter)\s+holiday)\b/i.test(text);
 }
 
 function hasExplicitHolidayIntent(vibe: string): boolean {
@@ -3325,10 +3330,6 @@ const UNIVERSAL_IDENTITY_STOPWORDS = new Set([
   "best",
 ]);
 
-function normalizeUniversalIdentityTerm(value: string): string {
-  return value.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
-}
-
 function pushUniversalIdentityTerm(out: string[], seen: Set<string>, value: string): void {
   const term = normalizeUniversalIdentityTerm(value);
   if (term.length < 3 || seen.has(term) || UNIVERSAL_IDENTITY_STOPWORDS.has(term)) return;
@@ -3383,9 +3384,10 @@ function trackUniversalIdentityText(
   }>
 ): string {
   const classification = classMap.get(track.trackId);
+  // No artist name: a word in an artist's name is not evidence that a song fits the moment (the
+  // artist "late night drive home" was swapped into every night-drive playlist for its name alone).
   const metadata = [
     track.trackName,
-    track.artistName,
     track.albumName,
     track.genrePrimary,
     trackGenreFamily(track, classMap),
@@ -3425,7 +3427,7 @@ function intentCoherenceScore(
       ? opts.intent.genreFamilies
       : opts.constraints.hard.genres;
   const family = trackGenreFamily(track, opts.classMap);
-  const identityText = trackUniversalIdentityText(track, opts.classMap);
+  const hasTerm = identityTextMatcher(trackUniversalIdentityText(track, opts.classMap));
 
   if (expectedFamilies.length > 0) {
     if (hasFinalGenreEvidence(track, opts.classMap, expectedFamilies)) {
@@ -3454,7 +3456,7 @@ function intentCoherenceScore(
     .map(normalizeUniversalIdentityTerm)
     .filter((term, index, terms) => terms.indexOf(term) === index);
   if (structuredSubgenres.length > 0) {
-    const matchedSubgenres = structuredSubgenres.filter((term) => identityText.includes(term));
+    const matchedSubgenres = structuredSubgenres.filter(hasTerm);
     if (matchedSubgenres.length > 0) {
       score += Math.min(0.20, matchedSubgenres.length * 0.075);
     } else if (opts.intent.primaryGenre && family === opts.intent.primaryGenre) {
@@ -3464,7 +3466,7 @@ function intentCoherenceScore(
   }
 
   if (identityTerms.length > 0) {
-    const matchedTerms = identityTerms.filter((term) => identityText.includes(term));
+    const matchedTerms = identityTerms.filter(hasTerm);
     const specificIdentityActive = identityTerms.some((term) => !expectedFamilies.includes(term));
     if (matchedTerms.length >= Math.min(2, identityTerms.length)) {
       score += Math.min(0.18, matchedTerms.length * 0.05);
@@ -3646,6 +3648,24 @@ function applyFinalDeliveryArtistCap<T extends { artistName?: string | null }>(
     defaultCap: opts.defaultCap,
   });
 }
+
+/**
+ * Delivery stages that remove individual songs for failing quality / genre / era evidence; no other
+ * stage may bring those songs back. Not listed: the positional genre-mismatch cap (recorded as
+ * "genre_consistency_cap") and "world_purity_gate", whose removals include positional checkpoint
+ * cuts and which re-checks world purity itself when it refills.
+ */
+const QUALITY_GUARD_DELIVERY_STAGES = [
+  "human_quality_gate",
+  "genre_consistency",
+  "genre_evidence_guard",
+  "era_evidence_guard",
+] as const;
+/**
+ * Per-song off-world strips (world identity gate). Refill / repair / completion stages may not
+ * re-add these songs; the world purity gate may, because it re-checks world fit itself.
+ */
+const WORLD_IDENTITY_STRIP_STAGE = "world_identity_strip";
 
 function applyArtistCapAtCheckpoint<T extends { trackId: string; artistName?: string | null }>(
   delivery: PipelineDeliveryBuffer<T>,
@@ -5308,6 +5328,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       ? resolveAuditHardTimeoutMs(rawBody as Record<string, unknown>)
       : REQUEST_HARD_TIMEOUT_MS;
     beginSpotifyApiAudit();
+    if (auditMode) beginSelectionTrace();
     const auditUserIdRaw = typeof rawBody.spotifyUserId === "string"
       ? rawBody.spotifyUserId.trim()
       : typeof rawBody.auditSpotifyUserId === "string"
@@ -7154,6 +7175,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         lockedIntent: lockedIntent as LockedIntent,
         decomposedIntent,
         intentState,
+        library: noLibraryMode ? undefined : likedSongs,
       },
       isPlaylistContractWorldGateEvaluationEnabled() ? req.log : undefined,
     );
@@ -7919,12 +7941,16 @@ router.post("/generate", async (req, res): Promise<void> => {
       defaultCap: maxPerArtist,
       funnelObserver: candidateFunnelObserver,
     };
-    const delivery = createPipelineDeliveryBuffer<PlaylistTrack>(pipelineAuthority);
+    const delivery = createPipelineDeliveryBuffer<PlaylistTrack>(pipelineAuthority, {
+      guardStages: [...QUALITY_GUARD_DELIVERY_STAGES, WORLD_IDENTITY_STRIP_STAGE],
+      reEvaluatorStages: ["world_purity_gate"],
+    });
     delivery.init(
       "v3_handoff",
       "pipeline.finalTracks hydrated",
       (pipeline.finalTracks as PlaylistTrack[]).map(hydrateTrackGenre),
     );
+    const pipelineHandoffIds = new Set(delivery.tracks.map((track) => track.trackId));
     const assignFT = (stage: string, reason: string, next: PlaylistTrack[]): readonly PlaylistTrack[] =>
       delivery.replaceTracks(stage, reason, next);
     const deliveryWorldBoundaryRaw = resolveWorldBoundary({
@@ -7953,7 +7979,6 @@ router.post("/generate", async (req, res): Promise<void> => {
       ]),
     );
     const stripDeliveryOffWorld = (stage: string, reason: string): number => {
-      if (contractRebalanceDeliveryGuard) return 0;
       if (!deliveryWorldBoundary.active || delivery.tracks.length === 0) return 0;
       const enrichedForIdentity = delivery.tracks.map((track) => {
         const liked = likedIdentityForDelivery.get(track.trackId);
@@ -7976,8 +8001,18 @@ router.post("/generate", async (req, res): Promise<void> => {
             (track as { popularity?: number | null }).popularity ?? liked.popularity ?? null,
         };
       });
+      // Contract recovery keeps the pipeline's own picks (many library songs carry no genre tags, so a
+      // full strip would empty the playlist), but a song a later refill added must not carry genre
+      // evidence against the world (country / doo-wop / trance in "rainy drive").
+      const checked = contractRebalanceDeliveryGuard
+        ? enrichedForIdentity.filter((track) => {
+            const genres = (track as { spotifyArtistGenres?: unknown }).spotifyArtistGenres;
+            return !pipelineHandoffIds.has(track.trackId) && Array.isArray(genres) && genres.length > 0;
+          })
+        : enrichedForIdentity;
+      if (checked.length === 0) return 0;
       const purified = hardRejectOffWorldTracks(
-        enrichedForIdentity,
+        checked,
         deliveryWorldBoundary,
         userGenreProfile.trackClassifications,
       );
@@ -7985,16 +8020,16 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (auditMode) {
         hardRejectOffWorldSinceV3Composed += purified.rejected.length;
       }
-      const keptIds = new Set(purified.kept.map((track) => track.trackId));
+      const rejectedIds = new Set(purified.rejected.map((track) => track.trackId));
       assignFT(
         stage,
         reason,
-        delivery.tracks.filter((track) => keptIds.has(track.trackId)),
+        delivery.tracks.filter((track) => !rejectedIds.has(track.trackId)),
       );
       return purified.rejected.length;
     };
     if (!deliveryWorldBoundary.hardLock) {
-      stripDeliveryOffWorld("world_purity_gate", "strip off-world at v3 handoff");
+      stripDeliveryOffWorld("world_identity_strip", "strip off-world at v3 handoff");
     }
     const checkpointCtx = (extra?: {
       recoveryPoolSize?: number;
@@ -9114,7 +9149,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (!publication.published) return null;
       const { result, reason } = publication;
       assignFT("genre_evidence_guard", "constrained publish", result.tracks);
-      stripDeliveryOffWorld("world_purity_gate", "strip off-world after genre-evidence publish");
+      stripDeliveryOffWorld("world_identity_strip", "strip off-world after genre-evidence publish");
       const confidencePublication = (
         "confidenceAware" in publication && publication.confidenceAware === true
       ) ? publication as ConfidenceAwarePublication<PlaylistTrack> : null;
@@ -9206,7 +9241,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       if (!publication.published) return false;
       const { result } = publication;
       assignFT("genre_evidence_guard", "constrained publish", result.tracks);
-      stripDeliveryOffWorld("world_purity_gate", "strip off-world after honest constrained publish");
+      stripDeliveryOffWorld("world_identity_strip", "strip off-world after honest constrained publish");
       finalization = {
         tracks: delivery.tracks as PlaylistTrack[],
         diagnostics: {
@@ -9248,7 +9283,7 @@ router.post("/generate", async (req, res): Promise<void> => {
     };
     if (deliveryWorldBoundary.hardLock) {
       const beforeWorldPublish = delivery.tracks.length;
-      stripDeliveryOffWorld("world_purity_gate", "strip off-world before skipping genre-evidence republish");
+      stripDeliveryOffWorld("world_identity_strip", "strip off-world before skipping genre-evidence republish");
       if (controlledRecoveryReason === "world_hard_lock_blocks_underfill_recovery") {
         evidenceRelaxations.push("world_hard_lock_blocks_underfill_recovery");
       }
@@ -10199,6 +10234,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         : strictEraEvidenceDiagnostics.active ? "verified_only" : "inactive",
       relaxed: strictEraEvidenceRelaxed,
     };
+    // Set when a guard below removes songs for lacking explicit genre / era evidence; later
+    // completion must not re-add what it removed.
+    let explicitEvidenceGuardApplied = false;
     const hardValidationFailures = [
       !deliveryWorldBoundary.hardLock &&
         (lockedIntent.primaryGenres.length > 0 || constraintLayer.hard.genres.length > 0) &&
@@ -10222,9 +10260,23 @@ router.post("/generate", async (req, res): Promise<void> => {
         evidenceRelaxations.push("atmospheric_world_fit_genre_mismatch_survival");
       } else {
       const genreMismatchCap = Math.min(12, Math.ceil(requestedLength * 0.4));
-      if (delivery.tracks.length > genreMismatchCap) {
+      // With an explicit genre, keep the tracks that carry its evidence rather than the first N by
+      // position — the positional cut dropped Morrissey/James/The La's ("90s British indie") because
+      // in-world US grunge filler sat ahead of them. Unchanged for prompts without an explicit genre.
+      const genreEvidenceKept = hasExplicitGenreIntent(lockedIntent, constraintLayer)
+        ? delivery.tracks.filter((track) =>
+            finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications),
+          )
+        : [];
+      if (genreEvidenceKept.length >= genreMismatchCap && genreEvidenceKept.length < delivery.tracks.length) {
+        assignFT("genre_consistency", "hard lock genre mismatch: keep explicit-genre evidence", genreEvidenceKept);
+        evidenceRelaxations.push("world_hard_lock_genre_mismatch_evidence_filter");
+        explicitEvidenceGuardApplied = true;
+      } else if (delivery.tracks.length > genreMismatchCap) {
+        // A positional cap, not a per-song judgement: completion may restore these songs, so it is
+        // recorded under its own stage and does not count as a quality-guard removal.
         assignFT(
-          "genre_consistency",
+          "genre_consistency_cap",
           "hard lock genre mismatch honest partial",
           delivery.tracks.slice(0, genreMismatchCap),
         );
@@ -10251,6 +10303,26 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
       }
     }
+    // An explicit genre in a hard-locked (non-atmospheric) world is a per-song rule, not a ratio.
+    // The block above only runs when the genre ratio FAILS, so off-genre songs (US grunge in
+    // "90s British indie") were removed or kept depending on how many of them there happened to be.
+    if (
+      deliveryWorldBoundary.hardLock &&
+      finalValidation.genreConsistency === "PASS" &&
+      delivery.tracks.length > 0 &&
+      hasExplicitGenreIntent(lockedIntent, constraintLayer) &&
+      !isAtmosphericWorld(committedWorldPreRetrieval?.id ?? deliveryWorldBoundary.dominantScene ?? null)
+    ) {
+      const explicitGenreKept = delivery.tracks.filter((track) =>
+        finalTrackMatchesExplicitGenre(track, lockedIntent, constraintLayer, userGenreProfile.trackClassifications),
+      );
+      const explicitGenreMinKeep = Math.min(12, Math.ceil(requestedLength * 0.4));
+      if (explicitGenreKept.length >= explicitGenreMinKeep && explicitGenreKept.length < delivery.tracks.length) {
+        assignFT("genre_consistency", "hard lock explicit genre: keep genre evidence", explicitGenreKept);
+        evidenceRelaxations.push("world_hard_lock_explicit_genre_evidence_filter");
+        explicitEvidenceGuardApplied = true;
+      }
+    }
     if (delivery.tracks.length > 0 && hardValidationFailures.length > 0) {
       const validPrefix = explicitConstraintActive
         ? delivery.tracks.filter((track) =>
@@ -10260,6 +10332,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         : [];
       if (validPrefix.length > 0) {
         assignFT("era_evidence_guard", "era valid prefix", validPrefix.slice(0, length));
+        explicitEvidenceGuardApplied = true;
         finalization = {
           tracks: delivery.tracks as PlaylistTrack[],
           diagnostics: {
@@ -10377,7 +10450,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           assignFT("coherence_rebuild", "coherence swap repair", rebuild.tracks
             .map((track) => trackById.get(track.trackId))
             .filter((track): track is ConstraintTrack => !!track) as PlaylistTrack[]);
-          stripDeliveryOffWorld("world_purity_gate", "strip off-world after coherence rebuild");
+          stripDeliveryOffWorld("world_identity_strip", "strip off-world after coherence rebuild");
           executionHealth.repairPassCount += 1;
           evidenceRelaxations.push(rebuild.constraintBuildUsed ? "world_constraint_build" : "playlist_coherence_swap_repair");
           if (sceneLockStatus.active) evidenceRelaxations.push("scene_lock_repair_assist");
@@ -10414,7 +10487,7 @@ router.post("/generate", async (req, res): Promise<void> => {
             assignFT("coherence_rebuild", "coherence balanced retry", balancedRetry.tracks
               .map((track) => trackById.get(track.trackId))
               .filter((track): track is ConstraintTrack => !!track) as PlaylistTrack[]);
-            stripDeliveryOffWorld("world_purity_gate", "strip off-world after coherence balanced retry");
+            stripDeliveryOffWorld("world_identity_strip", "strip off-world after coherence balanced retry");
             evidenceRelaxations.push("balanced_coherence_soft_rebuild");
             publishPartialTracks(delivery.tracks, 5);
           }
@@ -11323,8 +11396,20 @@ router.post("/generate", async (req, res): Promise<void> => {
               ...likedSongs,
             ]
       );
+      // When an explicit genre / era guard removed songs above, completion may only add songs that
+      // guard would keep — it was re-adding the US grunge just removed from "90s British indie".
+      const completionNeedsExplicitEvidence = explicitEvidenceGuardApplied && explicitConstraintActive;
+      const completionCandidates = completionNeedsExplicitEvidence
+        ? finalResponseCompletionSources.filter((track) => {
+            const candidate = toEmergencyCompletionTrack(track as ConstraintTrack);
+            return (
+              finalTrackMatchesExplicitGenre(candidate, lockedIntent, constraintLayer, userGenreProfile.trackClassifications) &&
+              finalTrackMatchesExplicitEra(candidate, lockedIntent)
+            );
+          })
+        : finalResponseCompletionSources;
       let completionWorking = [...delivery.tracks];
-      for (const track of finalResponseCompletionSources) {
+      for (const track of completionCandidates) {
         if (completionWorking.length >= length) break;
         const candidate = toEmergencyCompletionTrack(track);
         if (emergencySeenIds.has(candidate.trackId)) continue;
@@ -11339,7 +11424,7 @@ router.post("/generate", async (req, res): Promise<void> => {
         finalResponseCompletionAdded += 1;
       }
       if (completionWorking.length < length) {
-        for (const track of finalResponseCompletionSources) {
+        for (const track of completionCandidates) {
           if (completionWorking.length >= length) break;
           const candidate = toEmergencyCompletionTrack(track);
           if (emergencySeenIds.has(candidate.trackId)) continue;
@@ -11578,6 +11663,8 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
     }
 
+    // Tracks the activity guard rejects must not come back through a later depth refill.
+    const activityGuardRejectedIds = new Set<string>();
     if (
       delivery.tracks.length >= 6 &&
       !latencyBudget.mustDeliverNow() &&
@@ -11591,6 +11678,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         Math.max(5, Math.ceil(length * 0.4)),
       );
       if (activityGuard.removed > 0) {
+        const keptIds = new Set(activityGuard.tracks.map((track) => track.trackId));
+        for (const track of delivery.tracks) if (!keptIds.has(track.trackId)) activityGuardRejectedIds.add(track.trackId);
         assignFT("activity_guard", "activity profile guard", activityGuard.tracks as unknown as PlaylistTrack[]);
         finalization = {
           tracks: delivery.tracks as PlaylistTrack[],
@@ -11724,7 +11813,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           },
         };
         publishPartialTracks(delivery.tracks, 5);
-        stripDeliveryOffWorld("world_purity_gate", "strip off-world after human taste repair");
+        stripDeliveryOffWorld("world_identity_strip", "strip off-world after human taste repair");
         req.log.info(
           {
             userId,
@@ -12154,7 +12243,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       };
       publishFinalTracksContext();
     }
-    stripDeliveryOffWorld("world_purity_gate", "strip off-world before API serialization");
+    stripDeliveryOffWorld("world_identity_strip", "strip off-world before API serialization");
     const endSerializationTiming = requestStageTiming.start("serialization");
     const endApiFormattingProfile = liveStageProfiler.start("controller.apiTrackFormatting", `${delivery.tracks.length} tracks`);
     assignFT("score_attribution", "attach score channels", attachScoreAttribution(
@@ -12366,7 +12455,7 @@ router.post("/generate", async (req, res): Promise<void> => {
       }
       if (apiRefillAdded > 0) {
         delivery.replaceTracks("api_refill", "api prune refill", apiRefillWorking);
-        stripDeliveryOffWorld("world_purity_gate", "strip off-world after api refill");
+        stripDeliveryOffWorld("world_identity_strip", "strip off-world after api refill");
         delivery.truncateTracks("playlist_length", "slice to requested length", length);
         finalApiTracks = formatTracksForApi(delivery.tracks, emotionProfile);
         finalization = {
@@ -12413,7 +12502,9 @@ router.post("/generate", async (req, res): Promise<void> => {
         const refillProfile = resolveCulturalProfileForCommitted(committedWorldPreRetrieval);
         const artistCapRefill = refillAfterArtistCap(
           delivery.tracks as PlaylistTrack[],
-          deliverableSurvivorPool,
+          activityGuardRejectedIds.size > 0
+            ? deliverableSurvivorPool.filter((track) => !activityGuardRejectedIds.has(track.trackId))
+            : deliverableSurvivorPool,
           {
             prompt: vibe,
             requestedLength,
@@ -12703,6 +12794,7 @@ router.post("/generate", async (req, res): Promise<void> => {
           ),
           isGenreVerified: strictGenreEvidenceDiagnostics?.active ? isGenreEvidenceVerified : undefined,
           enrichTrack: enrichForWorld,
+          artistLimiter: createArtistCapLimiter(artistCapOpts),
         });
         if (!contractRebalanceDeliveryGuard && puritySubFunnel && purityEarly.subFunnel) {
           mergePuritySubFunnelFromGate(
@@ -14049,18 +14141,27 @@ router.post("/generate", async (req, res): Promise<void> => {
     if (lateCommittedWorld?.hardLock && deliveredTracks.length > 0 && !contractRebalanceDeliveryGuard) {
       const enrichForWorldLate = (track: PlaylistTrack) =>
         enrichDeliverableTrack(track, likedIdentityForDelivery.get(track.trackId));
+      const guardRemovedTrackIds = delivery.trackIdsRemovedBy(QUALITY_GUARD_DELIVERY_STAGES);
       const purityLate = applyWorldPurityGate(deliveredTracks as PlaylistTrack[], lateCommittedWorld, {
         prompt: vibe,
         requestedLength,
         coverageLevel: worldCoverageAssessment?.score ?? null,
         coverageTier: candidateCoverageTier,
         preserveOpener: true,
+        // Never refill with a song a quality guard already removed from this playlist ("2000s emo
+        // driving home at night": the human-quality gate removed 7 garage-punk / psychobilly songs and
+        // this refill put all 7 back).
         replacementPool: mergeDeliverableCandidatePools(
           deliveredTracks as PlaylistTrack[],
           deliverableSurvivorPool,
           worldExpansionCandidates as PlaylistTrack[],
-        ),
+        ).filter((track) => !guardRemovedTrackIds.has(String((track as { trackId?: string }).trackId ?? ""))),
+        // Same refill rules as the pre-freeze purity gate: without them this late refill re-added
+        // the out-of-era / out-of-genre songs the era-evidence guard had just removed ("2000s emo":
+        // 11 of 24 outside 2000–09) and pushed one artist far past the cap (Paramore ×8).
+        isGenreVerified: strictGenreEvidenceDiagnostics?.active ? isGenreEvidenceVerified : undefined,
         enrichTrack: enrichForWorldLate,
+        artistLimiter: createArtistCapLimiter(artistCapOpts),
       });
       if (
         purityLate.removed > 0 ||
@@ -14765,6 +14866,8 @@ router.post("/generate", async (req, res): Promise<void> => {
         playlistId: savedPlaylistId,
         auditMode: true,
         spotifyApiAudit: getSpotifyApiAuditSnapshot(),
+        stageTrace: getSelectionTraceSnapshot(),
+        blockedGuardReAdds: delivery.blockedGuardReAdds(),
         sideEffects: {
           spotifyPlaylistCreate: "skipped",
           savedPlaylistWrites: "skipped",
@@ -15331,6 +15434,8 @@ router.post("/generate", async (req, res): Promise<void> => {
             userMessage: fatalErr.result.userMessage,
             ...(deliveryLossFunnel ? { deliveryLossFunnel } : {}),
             ...(puritySubFunnel ? { puritySubFunnel } : {}),
+            // Audit generations only (the trace is inactive otherwise).
+            ...(getSelectionTraceSnapshot() ? { stageTrace: getSelectionTraceSnapshot() } : {}),
           },
         );
         return;

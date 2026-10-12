@@ -4,6 +4,7 @@ import sensoryContextsData from "../../data/world-knowledge/sensory-contexts.jso
 import ukCulturalData from "../../data/world-knowledge/uk-cultural-context.json";
 import conceptRelationshipsData from "../../data/world-knowledge/concept-relationships.json";
 import type { WorldConceptTaxonomy } from "./types";
+import { containsCue } from "./text-match";
 
 export type SituationEntry = {
   id: string;
@@ -82,7 +83,7 @@ function matchByCues<T>(
     const cues = [...cueSelector(entry)].sort((a, b) => b.length - a.length);
     for (const cue of cues) {
       const needle = cue.toLowerCase();
-      if (!lower.includes(needle)) continue;
+      if (!containsCue(lower, needle)) continue;
       matches.push({ entry, matchedCue: cue, score: needle.length + (needle.includes(" ") ? 12 : 0) });
       break;
     }
@@ -132,7 +133,7 @@ export function propagateConceptRelationships(
   };
 
   for (const rel of CONCEPT_RELATIONSHIPS) {
-    if (!lower.includes(rel.concept)) continue;
+    if (!containsCue(lower, rel.concept)) continue;
     matched.push(`relationship:${rel.concept}`);
     pushUnique(next.emotion, rel.emotional_links);
     pushUnique(next.sensory, rel.sensory);

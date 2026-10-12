@@ -10,6 +10,7 @@ import {
 } from "../core/editorial/deliverable-depth-refill";
 import type { CommittedWorld } from "../core/committed-world";
 import { resolveCommittedWorld } from "../core/committed-world";
+import { createArtistCapLimiter } from "../lib/playlist-artist-cap";
 
 function reggaeHardLockWorld(): CommittedWorld {
   return resolveCommittedWorld({ prompt: "sunset beach reggae" })!;
@@ -71,6 +72,46 @@ describe("deliverable-depth-refill", () => {
     assert.ok(result.diagnostics.refilledCount > 0);
     assert.ok(result.diagnostics.tailAppends > 0 || result.diagnostics.positionReplacements > 0);
     assert.ok(!result.tracks.some((t) => String(t.artistName).includes("Arctic")));
+  });
+
+  it("refill respects the delivery artist cap when given one", () => {
+    // Traced: a late refill with no cap re-added one artist until it had 8 of 24 tracks.
+    const profile = getCulturalProfile("reggae_world");
+    assert.ok(profile);
+    const song = (id: string, artist: string) => ({
+      trackId: id,
+      artistName: artist,
+      trackName: `Song ${id}`,
+      energy: 0.55,
+      releaseYear: 1978,
+      genres: ["reggae"],
+      genrePrimary: "reggae",
+    });
+    const seed = [song("s1", "Bob Marley")];
+    const pool = [
+      ...Array.from({ length: 10 }, (_, i) => song(`m${i}`, "Bob Marley")),
+      ...Array.from({ length: 10 }, (_, i) => song(`o${i}`, `Other Artist ${i}`)),
+    ];
+    const limiter = createArtistCapLimiter({ vibe: "sunset beach reggae", playlistSize: 12, defaultCap: 3 });
+    const capped = refillDeliverableDepth(seed, pool, {
+      requestedLength: 12,
+      committed: reggaeHardLockWorld(),
+      profile,
+      artistLimiter: limiter,
+    });
+    const marley = capped.tracks.filter((t) => t.artistName === "Bob Marley").length;
+    assert.equal(marley, 3, `expected the cap of 3 Bob Marley tracks, got ${marley}`);
+    assert.equal(capped.tracks.length, 12, "the other artists fill the remaining slots");
+
+    const uncapped = refillDeliverableDepth(seed, pool, {
+      requestedLength: 12,
+      committed: reggaeHardLockWorld(),
+      profile,
+    });
+    assert.ok(
+      uncapped.tracks.filter((t) => t.artistName === "Bob Marley").length > 3,
+      "without a limiter the refill behaves as before",
+    );
   });
 
   it("rankDeliverableCandidates orders by world identity score", () => {

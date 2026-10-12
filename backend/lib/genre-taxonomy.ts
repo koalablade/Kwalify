@@ -174,14 +174,14 @@ function spotifyGenreRoot(track: {
 
 function classificationFromTaxon(
   taxon: GenreTaxon,
-  opts: { patternMatched: string; confidence?: number }
+  opts: { patternMatched: string; confidence?: number; secondary?: GenreTaxon | null }
 ): TrackGenreClassification {
   return {
     genrePrimary: taxon.root,
     genreFamily: taxon.root,
     genreSecondary: null,
     primarySubgenre: taxon.subgenre,
-    secondarySubgenre: null,
+    secondarySubgenre: opts.secondary?.subgenre ?? null,
     subGenres: [taxon.subgenre, ...taxon.microStyles],
     microStyle: taxon.microStyles[0] ?? null,
     confidenceScore: opts.confidence ?? 0.98,
@@ -242,11 +242,16 @@ function spotifyGenreTaxon(track: {
     }
     if (score > 0 && patternMatched) hits.push({ taxon, score, patternMatched });
   }
-  const best = hits.sort((a, b) => b.score - a.score)[0];
+  hits.sort((a, b) => b.score - a.score);
+  const best = hits[0];
+  // A second Spotify tag naming another subgenre is real evidence too (Blur: "alternative rock" wins,
+  // "britpop" was dropped, so a Britpop prompt's evidence check rejected Song 2). Keep it as secondary.
+  const secondary = best ? hits.find((hit) => hit.taxon.subgenre !== best.taxon.subgenre)?.taxon ?? null : null;
   return best
     ? classificationFromTaxon(best.taxon, {
         patternMatched: `spotify_genre_metadata:${best.patternMatched}`,
         confidence: 0.98,
+        secondary,
       })
     : null;
 }

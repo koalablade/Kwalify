@@ -668,7 +668,12 @@ export function preCoherenceWorldFilter<T extends CoherenceAuditTrack>(
   tracks: T[],
   world: WorldBoundary,
   intent: LockedIntent,
-  opts?: { maxPerCluster?: number; minFitScore?: number },
+  opts?: {
+    maxPerCluster?: number;
+    minFitScore?: number;
+    /** Extra ordering signal (e.g. song-level musical fit); does not change the admission threshold. */
+    rankBonus?: (track: T) => number;
+  },
 ): T[] {
   if (!world.active || tracks.length === 0) return tracks;
 
@@ -682,7 +687,8 @@ export function preCoherenceWorldFilter<T extends CoherenceAuditTrack>(
       family: trackGenreFamilyForBoundary(track) ?? "unknown",
     }))
     .filter(({ fit }) => fit.total >= minFitScore && fit.worldDriftRisk < 0.62)
-    .sort((a, b) => b.fit.total - a.fit.total);
+    .map((entry) => ({ ...entry, rank: entry.fit.total + (opts?.rankBonus?.(entry.track) ?? 0) }))
+    .sort((a, b) => b.rank - a.rank);
 
   const clusterCounts = new Map<string, number>();
   const out: T[] = [];
@@ -711,6 +717,16 @@ function marginalCoherenceGain(
   return withCandidate - base;
 }
 
+/**
+ * Weight of song-level musical fit in the world-constraint build. Measured marginal coherence gains
+ * between candidates differ by ~0.01, so 0.2 × (fit − 0.6) lets the world's musical character decide
+ * between in-world candidates while coherence still breaks ties.
+ */
+const CONSTRAINT_MUSICAL_FIT_WEIGHT = 0.2;
+const CONSTRAINT_MUSICAL_FIT_PIVOT = 0.6;
+/** Lift for the world's own named artists when their song also fits (see musicalBonus). */
+const CONSTRAINT_WORLD_ARTIST_BONUS = 0.05;
+
 export function buildPlaylistByWorldConstraints<T extends CoherenceAuditTrack>(opts: {
   candidates: T[];
   intent: LockedIntent;
@@ -718,13 +734,29 @@ export function buildPlaylistByWorldConstraints<T extends CoherenceAuditTrack>(o
   playlistLength: number;
   scenePrediction?: Record<string, number>;
   maxPerArtist?: number;
+  /**
+   * Song-level fit (0–1) to the world's musical character, or null when it cannot be judged (no
+   * real audio features). Without it the builder's only musical target is a generic constant, so it
+   * gathers the pool's middle-energy cluster around whichever track scores best on genre family.
+   */
+  musicalFit?: (trackId: string) => number | null;
+  /** Artists the world's identity profile names as its own (e.g. Bon Iver for soft_sad_world). */
+  isWorldArtist?: (artistName: string | null | undefined) => boolean;
 }): { tracks: T[]; coherenceScore: PlaylistCoherenceScore; diagnostics: Record<string, unknown> } {
   const maxPerArtist = opts.maxPerArtist ?? 3;
+  const musicalBonus = (track: CoherenceAuditTrack): number => {
+    const fit = opts.musicalFit?.(track.trackId);
+    if (fit == null) return 0;
+    // A named world artist leads only when the song itself also fits — artist membership never
+    // outranks song-level evidence.
+    const worldArtist = fit >= CONSTRAINT_MUSICAL_FIT_PIVOT && opts.isWorldArtist?.(track.artistName) === true;
+    return (fit - CONSTRAINT_MUSICAL_FIT_PIVOT) * CONSTRAINT_MUSICAL_FIT_WEIGHT + (worldArtist ? CONSTRAINT_WORLD_ARTIST_BONUS : 0);
+  };
   const filtered = preCoherenceWorldFilter(
     hardRejectOffWorldTracks(opts.candidates, opts.world).kept,
     opts.world,
     opts.intent,
-    { maxPerCluster: Math.max(10, Math.ceil(opts.playlistLength * 1.5)) },
+    { maxPerCluster: Math.max(10, Math.ceil(opts.playlistLength * 1.5)), rankBonus: musicalBonus },
   );
 
   if (filtered.length === 0) {
@@ -737,8 +769,8 @@ export function buildPlaylistByWorldConstraints<T extends CoherenceAuditTrack>(o
 
   const artistCounts = new Map<string, number>();
   const seed = [...filtered].sort((a, b) => {
-    const fitA = scoreWorldCandidateFit(a, opts.world, opts.intent).total;
-    const fitB = scoreWorldCandidateFit(b, opts.world, opts.intent).total;
+    const fitA = scoreWorldCandidateFit(a, opts.world, opts.intent).total + musicalBonus(a);
+    const fitB = scoreWorldCandidateFit(b, opts.world, opts.intent).total + musicalBonus(b);
     return fitB - fitA;
   })[0]!;
 
@@ -762,7 +794,7 @@ export function buildPlaylistByWorldConstraints<T extends CoherenceAuditTrack>(o
       if (worldFit.worldDriftRisk > 0.55) continue;
 
       const gain = marginalCoherenceGain(playlist, candidate, opts.intent, opts.scenePrediction);
-      const combined = gain + worldFit.total * 0.12;
+      const combined = gain + worldFit.total * 0.12 + musicalBonus(candidate);
       if (combined > bestGain) {
         bestGain = combined;
         bestIndex = i;

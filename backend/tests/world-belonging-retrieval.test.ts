@@ -54,6 +54,26 @@ describe("world belonging retrieval", () => {
     assert.equal(trackBelongsForWorldRetrieval(track, profile), true);
   });
 
+  it("does not admit a song whose only agreement with the world is era and energy", () => {
+    // Traced: era/energy-only admission marked 4,771 of 9,735 library songs (The Sundays, Milky
+    // Chance, …) as "verified" 2000s emo / pop punk, and V3 then searched the whole library.
+    const profile = getCulturalProfile("pop_punk_world")!;
+    const eraEnergyOnly = {
+      artistName: "Some Indie Band",
+      trackName: "Summertime",
+      genreFamily: "rock",
+      genrePrimary: "rock",
+      genres: ["dream pop", "jangle pop"],
+      releaseYear: 2005,
+      energy: 0.8,
+    };
+    assert.equal(trackBelongsForWorldRetrieval(eraEnergyOnly, profile), false);
+    const taggedPopPunk = { ...eraEnergyOnly, genres: ["pop punk"], spotifyArtistGenres: ["pop punk", "emo"] };
+    assert.equal(trackBelongsForWorldRetrieval(taggedPopPunk, profile), true);
+    const rosterArtist = { ...eraEnergyOnly, artistName: "Taking Back Sunday" };
+    assert.equal(trackBelongsForWorldRetrieval(rosterArtist, profile), true);
+  });
+
   it("layered retrieval includes belonging layer hits beyond anchors", () => {
     const prompt = "80s night drive";
     const world = resolveCommittedWorld({ prompt })!;

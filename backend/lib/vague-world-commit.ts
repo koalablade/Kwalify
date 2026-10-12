@@ -8,6 +8,8 @@
 import { analyzeVibe } from "./emotion";
 import { resolveHumanScene } from "./human-scene-knowledge";
 import { promptHasExplicitGenreConstraint } from "./vibe-genre-bias";
+import { resolveSituationWorld } from "./world-understanding/situation-world-router";
+import { statesNonNightTime } from "./emotion-scene-layers";
 
 export type VagueCommitAction = "commit" | "clarify" | "passthrough";
 
@@ -32,6 +34,8 @@ type EverydayWorld = {
   /** Higher = preferred when multiple match. */
   priority: number;
   patterns: RegExp[];
+  /** The world does not apply when this holds, whatever the patterns say. */
+  unless?: (prompt: string) => boolean;
 };
 
 /**
@@ -200,6 +204,8 @@ export const EVERYDAY_WORLD_MAP: EverydayWorld[] = [
     patterns: [
       /\b(?:late night drive|late.?night.*\bdriv|night drive|midnight drive|motorway at (?:night|midnight)|empty (?:motorway|highway))\b/i,
     ],
+    // "Empty motorway at sunrise" is not a night drive; a stated night time ("…at 2am") still is.
+    unless: (prompt) => statesNonNightTime(prompt) && !/\bnight\b|\bmidnight\b/i.test(prompt),
   },
   {
     worldId: "evening_drive_world",
@@ -304,6 +310,7 @@ const NAMED_WORLD_RE =
   /\b(?:goth|grunge|disco|synthwave|retrowave|neon|lo-?fi|lofi|ambient|metal|pop[-\s]?punk|uk\s*garage|ukg|grime|shoegaze|darkwave|post[-\s]?punk|boss\s+fight|classic\s+rock|red\s+dirt|drum\s+and\s+bass|dnb|britpop|r&b|hyperpop|jazz|folk|emo|reggaeton|salsa|bachata|cumbia|garage\s+workshop|indie(?:\s+rock|\s+pop)?|alternative\s+rock|alt(?:ernative)?\s+rock|2000s?\s+indie|noughties\s+indie)\b/i;
 
 function scoreMatch(prompt: string, world: EverydayWorld): number {
+  if (world.unless?.(prompt)) return 0;
   let hits = 0;
   for (const re of world.patterns) {
     if (re.test(prompt)) hits += 1;
@@ -351,6 +358,23 @@ export function resolveVagueWorldCommit(
       confidence: 1,
       reason: "named_world_language",
       label: "",
+      alternatives: [],
+    };
+  }
+
+  // The recognised situation decides the world before any keyword pattern does, so the
+  // moment that defines the prompt ("…from a funeral") outranks the circumstance ("driving
+  // home") and unknown-to-regex situations no longer fall to the sunday_chill default.
+  const situation = resolveSituationWorld(p);
+  if (situation) {
+    const everyday = EVERYDAY_WORLD_MAP.find((w) => w.worldId === situation.worldId);
+    return {
+      action: "commit",
+      worldId: situation.worldId,
+      sceneId: everyday?.sceneId ?? null,
+      confidence: Math.min(0.95, Math.max(0.7, situation.weightedScore)),
+      reason: `situation_world:${situation.experienceId}`,
+      label: everyday?.label ?? situation.experienceId.replace(/_/g, " "),
       alternatives: [],
     };
   }

@@ -18,7 +18,7 @@ import {
   resolveArtistWorldIdentity,
 } from "./artist-identity-map";
 import type { CommittedWorld } from "../committed-world";
-import { passesWorldIdentity, worldIdentityProfilesForLock } from "./world-identity-gate";
+import { MUSICAL_FIT_IDENTITY_WEIGHT, scoreMusicalFit, worldMusicalCharacter } from "./world-musical-character";
 
 export type WorldIdentityTrack = {
   trackName?: string | null;
@@ -35,7 +35,18 @@ export type WorldIdentityTrack = {
   instrumentalness?: number | null;
   popularity?: number | null;
   releaseYear?: number | null;
+  /** Needed to tell real audio features from metadata-inferred ones (musical fit). */
+  trackId?: string | null;
+  tempo?: number | null;
+  loudness?: number | null;
 };
+
+/**
+ * Identity-derived profiles: a named artist and a genre match are the same kind of evidence ("this
+ * could belong"), scored like the old flat situation-world score. What separates candidates is the
+ * song-level musical fit applied in decomposeTrackWorldIdentity, not artist membership.
+ */
+const DERIVED_EVIDENCE_SCORE = 0.66;
 
 /** Primary evidence driving world identity — used for purity threshold alignment. */
 export type WorldIdentityEvidenceTier =
@@ -54,6 +65,8 @@ export type WorldIdentityDecomposition = {
   score: number;
   evidenceTier: WorldIdentityEvidenceTier;
   instrumentationTokenHit: string | null;
+  /** 0–1 song-level fit to the world's musical character; null when it cannot be judged (no real features). */
+  musicalFit?: number | null;
 };
 
 const EVIDENCE_TIER_RANK: Record<WorldIdentityEvidenceTier, number> = {
@@ -89,6 +102,10 @@ function buildGenreBlob(track: WorldIdentityTrack): string {
     .toLowerCase();
 }
 
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
 function matchesAny(patterns: RegExp[], text: string): boolean {
   if (!text) return false;
   return patterns.some((p) => p.test(text));
@@ -104,7 +121,10 @@ function trackMatchesAnchor(profile: CulturalWorldProfile, trackName: string, ar
 }
 
 function trackForbidden(profile: CulturalWorldProfile, artistName: string, trackName: string, track?: WorldIdentityTrack): boolean {
-  const blob = `${artistName} ${trackName}`;
+  // A genre word in the name of an artist the identity map places in this world is not evidence
+  // against it: "disco" in "Panic! At The Disco" scored all its 2005 emo songs 0 for pop punk.
+  const naturalArtist = !!artistName && resolveArtistWorldIdentity(artistName)?.naturalWorlds.includes(profile.worldId) === true;
+  const blob = naturalArtist ? trackName : `${artistName} ${trackName}`;
   if (artistName && matchesAvoidArtist(artistName, profile)) return true;
   if (artistName && matchesAny(profile.forbiddenArtists, artistName)) return true;
   if (blob && matchesAny(profile.forbiddenPatterns, blob)) return true;
@@ -118,13 +138,35 @@ function trackForbidden(profile: CulturalWorldProfile, artistName: string, track
         : []),
     ].join(" ");
     if (matchesAvoidGenre(genreBlob, profile)) return true;
+    if (profile.forbiddenGenrePatterns && matchesAny(profile.forbiddenGenrePatterns, genreBlob.toLowerCase())) return true;
     if (matchesAvoidEnergy(track.energy, profile)) return true;
   }
   return false;
 }
 
-/** Decompose world identity into score + evidence tier for downstream calibration. */
+/**
+ * Decompose world identity into score + evidence tier for downstream calibration.
+ *
+ * Cultural/artist evidence says the song COULD belong; its own (real) audio features say how well it
+ * actually sounds like the world. For identity-derived profiles a complete musical mismatch scales the score by
+ * (1 − MUSICAL_FIT_IDENTITY_WEIGHT), so artist-level membership cannot override song-level evidence,
+ * while a strong anchor that is only slightly off still clears every world threshold.
+ */
 export function decomposeTrackWorldIdentity(
+  track: WorldIdentityTrack,
+  profile: CulturalWorldProfile,
+): WorldIdentityDecomposition {
+  const base = decomposeTrackWorldIdentityEvidence(track, profile);
+  // Curated profiles keep their calibrated scores (purity / proof gates depend on them); their
+  // musical fit is applied in ranking (retrieval + V3 lanes) instead.
+  if (base.evidenceTier === "forbidden" || !profile.derivedFromIdentity) return { ...base, musicalFit: null };
+  const musicalFit = scoreMusicalFit(track, worldMusicalCharacter(profile.worldId));
+  if (musicalFit == null) return { ...base, musicalFit: null };
+  const score = base.score * (1 - MUSICAL_FIT_IDENTITY_WEIGHT * (1 - musicalFit));
+  return { ...base, score: Math.min(1, Math.max(0, score)), musicalFit };
+}
+
+function decomposeTrackWorldIdentityEvidence(
   track: WorldIdentityTrack,
   profile: CulturalWorldProfile,
 ): WorldIdentityDecomposition {
@@ -139,6 +181,11 @@ export function decomposeTrackWorldIdentity(
   }
 
   if (artist && artistMatchesAnchor(profile, artist)) {
+    // Identity-derived "anchors" are the artists a world's identity profile names as evidence, not a
+    // curated canon.
+    if (profile.derivedFromIdentity) {
+      return { score: DERIVED_EVIDENCE_SCORE, evidenceTier: "anchor", instrumentationTokenHit: null };
+    }
     return {
       score: Math.min(1, 0.84 + sceneAnchorIdentityBonus(profile, artist)),
       evidenceTier: "anchor",
@@ -177,6 +224,13 @@ export function decomposeTrackWorldIdentity(
   }
 
   const genreBlob = buildGenreBlob(track);
+  if (profile.genreEvidence?.length) {
+    const evidenceBlob = `${genreBlob} ${stringList(track.albumGenres).join(" ")} ${artist}`.toLowerCase();
+    if (matchesAny(profile.genreEvidence, evidenceBlob)) {
+      score = Math.max(score, profile.derivedFromIdentity ? DERIVED_EVIDENCE_SCORE : 0.62);
+      evidenceTier = strongerEvidenceTier(evidenceTier, "instrumentation_token");
+    }
+  }
   for (const token of profile.instrumentation) {
     const needle = token.toLowerCase();
     if (genreBlob.includes(needle)) {
@@ -184,6 +238,12 @@ export function decomposeTrackWorldIdentity(
       evidenceTier = strongerEvidenceTier(evidenceTier, "instrumentation_token");
       instrumentationTokenHit ??= token;
     }
+  }
+
+  // Derived (identity-based) profiles carry no era/energy evidence tiers: their musical character is
+  // applied as a song-level fit in decomposeTrackWorldIdentity instead.
+  if (profile.derivedFromIdentity) {
+    return { score: Math.min(1, Math.max(0, score)), evidenceTier, instrumentationTokenHit };
   }
 
   const year = track.releaseYear;
@@ -221,25 +281,6 @@ export function scoreTrackWorldIdentity(
   profile: CulturalWorldProfile,
 ): number {
   return decomposeTrackWorldIdentity(track, profile).score;
-}
-
-export function scoreTrackCommittedWorldIdentity(
-  track: WorldIdentityTrack,
-  committed: CommittedWorld | null,
-): number {
-  if (!committed) return 0.5;
-  const primaryId = committed.musicalWorldId ?? committed.id;
-  const profile = culturalProfileForCommittedWorld([primaryId], primaryId);
-  if (!profile) {
-    const profiles = worldIdentityProfilesForLock({
-      prompt: committed.reason,
-      anchors: committed.worldIds,
-      reason: committed.reason,
-    });
-    if (!passesWorldIdentity(track, profiles, { hardLock: true })) return 0;
-    return 0.65;
-  }
-  return scoreTrackWorldIdentity(track, profile);
 }
 
 export function isAnchorArtistForProfile(

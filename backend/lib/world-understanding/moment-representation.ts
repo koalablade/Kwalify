@@ -15,6 +15,7 @@ import type {
   MusicBehaviourModel,
   WorldConceptTaxonomy,
 } from "./types";
+import { containsCue } from "./text-match";
 
 export interface DimensionSignal {
   values: string[];
@@ -317,8 +318,8 @@ function buildRelationshipChains(
 
   const tryChain = (rel: ConceptRelationship) => {
     const concept = rel.concept.toLowerCase();
-    if (!lower.includes(concept) && !used.has(concept)) {
-      const partial = rel.children?.some((c) => lower.includes(c.toLowerCase()));
+    if (!containsCue(lower, concept) && !used.has(concept)) {
+      const partial = rel.children?.some((c) => containsCue(lower, c));
       if (!partial) return;
     }
     used.add(concept);

@@ -382,10 +382,10 @@ export function scoreAgainstHumanPlaylistPatterns(
   return { score, features, breakdown };
 }
 
-export function humanPlausibilityScore(tracks: PatternScoringTrack[]): number {
+export function humanPlausibilityScore(tracks: PatternScoringTrack[], fullPatternScore?: number): number {
   if (tracks.length === 0) return 0;
   const blend = loadPlaylistGenome().segmentBlend;
-  const full = scoreAgainstHumanPlaylistPatterns(tracks).score;
+  const full = fullPatternScore ?? scoreAgainstHumanPlaylistPatterns(tracks).score;
   const opening = tracks.length >= 5 ? scoreAgainstHumanPlaylistPatterns(tracks.slice(0, 5)).score : full;
   const ending = tracks.length >= 8
     ? scoreAgainstHumanPlaylistPatterns(tracks.slice(-Math.min(8, tracks.length))).score

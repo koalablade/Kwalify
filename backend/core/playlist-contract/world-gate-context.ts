@@ -17,7 +17,11 @@ import {
   evaluateWorldGate,
   type WorldGateAuditDiagnostics,
   type WorldGateDecision,
+  type WorldLibrarySupply,
 } from "./world-gate";
+import { isAtmosphericWorld } from "../editorial/atmospheric-context-scoring";
+import { resolveCulturalProfileForCommitted, type WorldIdentityTrack } from "../editorial/world-identity-score";
+import { countWorldOpeningSupply, SCENE_WORLD_OPENING_SUPPLY_MIN } from "../editorial/world-purity-gate";
 
 export interface WorldGateLogger {
   info(obj: Record<string, unknown>, msg: string): void;
@@ -33,7 +37,27 @@ export type WorldGateContextInput = {
   sceneAliases?: string[];
   scenePrediction?: Record<string, number>;
   primaryGenres?: string[];
+  /** The user's library — lets the gate check a scene world can actually be supplied from it. */
+  library?: readonly WorldIdentityTrack[];
 };
+
+/**
+ * Opening supply for a hard-locked scene world with a curated profile; null for everything else
+ * (genre worlds, worlds without a profile, no library).
+ */
+export function measureSceneWorldLibrarySupply(
+  world: CommittedWorld | null,
+  library: readonly WorldIdentityTrack[] | undefined,
+): WorldLibrarySupply | null {
+  if (!world?.hardLock || !library?.length || !isAtmosphericWorld(world.id)) return null;
+  const profile = resolveCulturalProfileForCommitted(world);
+  if (!profile || profile.worldId !== world.id) return null;
+  return {
+    worldId: world.id,
+    openingCapable: countWorldOpeningSupply(library, profile, SCENE_WORLD_OPENING_SUPPLY_MIN),
+    minimum: SCENE_WORLD_OPENING_SUPPLY_MIN,
+  };
+}
 
 export type WorldGateContextResult = {
   contract: ReturnType<typeof buildPlaylistContract>;
@@ -42,6 +66,7 @@ export type WorldGateContextResult = {
   gateDecision: WorldGateDecision | null;
   diagnostics: WorldGateAuditDiagnostics | null;
   shadowDiagnostics: ContractShadowDiagnostics | null;
+  librarySupply?: WorldLibrarySupply | null;
 };
 
 export function resolveWorldGateContext(
@@ -82,7 +107,8 @@ export function resolveWorldGateContext(
     };
   }
 
-  const gateDecision = evaluateWorldGate({ contract, world: rawWorld, disagreements });
+  const librarySupply = measureSceneWorldLibrarySupply(rawWorld, input.library);
+  const gateDecision = evaluateWorldGate({ contract, world: rawWorld, disagreements, librarySupply });
   const diagnostics = buildWorldGateAuditDiagnostics(gateDecision, contract);
   const logGate = isPlaylistContractWorldGateEnabled() || isPlaylistContractWorldGateEvaluationEnabled();
   if (logGate) {
@@ -99,6 +125,7 @@ export function resolveWorldGateContext(
     gateDecision,
     diagnostics,
     shadowDiagnostics,
+    librarySupply,
   };
 }
 

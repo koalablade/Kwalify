@@ -7,6 +7,7 @@ import type { SceneLockStatus } from "./scene-lock-mode";
 import { resolveWorldBoundary, type WorldBoundary } from "./world-boundary";
 import { inferWorldIdentityIdsFromPrompt } from "./editorial/world-identity-gate";
 import { isAtmosphericWorld } from "./editorial/atmospheric-context-scoring";
+import { statesNonNightTime } from "../lib/emotion-scene-layers";
 import {
   culturalProfileForCommittedWorld,
   type CulturalWorldProfile,
@@ -421,7 +422,7 @@ const PRIMARY_MUSICAL_WORLD: Array<{ pattern: RegExp; id: string }> = [
   { pattern: /\bclassic\s+rock\b|\b70s?\s+rock\b|\b80s?\s+rock\b/i, id: "classic_rock_world" },
   { pattern: /\b(?:70s?|seventies)\s+disco\b|\bdisco\b.*\b(?:party|rooftop|dance)\b/i, id: "disco_1970s_world" },
   { pattern: /\b(?:madchester|stone\s+roses|happy\s+mondays|baggy)\b/i, id: "madchester_world" },
-  { pattern: /\b(?:madchester|britpop)\b/i, id: "britpop_world" },
+  { pattern: /\b(?:madchester|britpop)\b|\b(?:british|uk|english)\s+indie\b/i, id: "britpop_world" },
   {
     pattern: /\broad\s+trip\b.*\b(?:nostalg|90s|indie|singalong|anthem)\b|\b(?:90s|indie|nostalg)\b.*\broad\s+trip\b/i,
     id: "road_trip_singalong_world",
@@ -461,6 +462,13 @@ const PRIMARY_MUSICAL_WORLD: Array<{ pattern: RegExp; id: string }> = [
 
 /** Activity-only worlds — used when no primary musical identity is present. */
 const ACTIVITY_ONLY_WORLD: Array<{ pattern: RegExp; id: string }> = [
+  // A sleepy / chill gym session is its own world (scene lock, identity profile and the editorial
+  // "sleepy_gym_chill" world all know it). Without this row "sleepy gym workout" matched
+  // "gym workout" below and was hard-locked to heavy gym / metal, which then refused the request.
+  {
+    pattern: /\b(?:sleepy|tired|low[-\s]?energy)\s+(?:gym|workout)\b|\bchill\s+(?:gym|workout)\b|\b(?:gym|workout)\b.*\b(?:sleepy|tired|chill|low[-\s]?energy)\b/i,
+    id: "sleepy_gym_world",
+  },
   { pattern: /\bno\s+rap\b.*\b(?:gym|workout)\b|\b(?:gym|workout)\b.*\bno\s+rap\b/i, id: "gym_rock_world" },
   { pattern: /\bheavy\s+gym\s+workout\s+aggressive\b/i, id: "gym_rock_world" },
   {
@@ -511,7 +519,7 @@ const MUSICAL_WORLD_IDS = new Set([
   "feel_good_world",
 ]);
 
-const EXPLICIT_SCENE_WORLD: Array<{ pattern: RegExp; id: string }> = [
+const EXPLICIT_SCENE_WORLD: Array<{ pattern: RegExp; id: string; unless?: (prompt: string) => boolean }> = [
   {
     pattern:
       /\b(?:empty\s+)?motorway\b.*\b(?:midnight|rain|windscreen)\b|\b(?:midnight|rain)\b.*\b(?:empty\s+)?motorway\b|\bempty\s+motorway\s+at\s+midnight\b|\brain\b.*\bwindscreen\b/i,
@@ -522,8 +530,14 @@ const EXPLICIT_SCENE_WORLD: Array<{ pattern: RegExp; id: string }> = [
     id: "rainy_motorway_world",
   },
   {
-    pattern: /\b(?:late\s+night\s+drive|motorway|highway)\s+at\s+(?:night|midnight)\b|\bnight\s+drive\b|\b(?:empty|night)\s+(?:motorway|highway)\b/i,
+    pattern: /\b(?:late\s+night\s+drive|motorway|highway)\s+at\s+(?:night|midnight)\b|\bnight\s+drive\b|\bnight\s+(?:motorway|highway)\b/i,
     id: "night_drive_world",
+  },
+  {
+    // "Empty motorway" is nocturnal only when the user did not say when ("…at sunrise" is not night).
+    pattern: /\bempty\s+(?:motorway|highway)\b/i,
+    id: "night_drive_world",
+    unless: statesNonNightTime,
   },
 ];
 
@@ -577,7 +591,7 @@ function explicitGenreWorld(prompt: string): string | null {
 
 function explicitSceneWorld(prompt: string): string | null {
   for (const row of EXPLICIT_SCENE_WORLD) {
-    if (row.pattern.test(prompt)) return row.id;
+    if (row.pattern.test(prompt) && !row.unless?.(prompt)) return row.id;
   }
   return null;
 }

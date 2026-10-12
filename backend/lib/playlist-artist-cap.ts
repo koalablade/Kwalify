@@ -49,31 +49,54 @@ function artistIsCentral(
   return false;
 }
 
-export function enforcePerPlaylistArtistCap<T extends { artistName?: string | null }>(
-  tracks: T[],
-  opts: {
-    vibe: string;
-    playlistSize: number;
-    promptCentralArtists?: ReadonlySet<string>;
-    defaultCap?: number;
-  },
-): { tracks: T[]; dropped: number; cap: number; centralArtistCap: number } {
+export type ArtistCapOpts = {
+  vibe: string;
+  playlistSize: number;
+  promptCentralArtists?: ReadonlySet<string>;
+  defaultCap?: number;
+};
+
+/** Per-artist limit used by the delivery artist cap, for stages that add tracks one at a time. */
+export type ArtistCapLimiter = {
+  /** Normalised artist key ("" when there is no artist — never capped). */
+  key: (artistName: string | null | undefined) => string;
+  /** Maximum tracks allowed for that artist key. */
+  limit: (artistKey: string) => number;
+  cap: number;
+  centralArtistCap: number;
+};
+
+export function createArtistCapLimiter(opts: ArtistCapOpts): ArtistCapLimiter {
   const cap = opts.defaultCap ?? defaultPerPlaylistArtistCap(opts.playlistSize, opts.vibe);
   const centralArtists = opts.promptCentralArtists ?? detectPromptCentralArtists(opts.vibe);
   const centralArtistCap = cap >= Number.MAX_SAFE_INTEGER / 2
     ? Number.MAX_SAFE_INTEGER
     : Math.max(cap, Math.ceil(opts.playlistSize * 0.22));
+  return {
+    key: (artistName) => normalizeSessionArtist(artistName ?? ""),
+    limit: (artistKey) => (artistIsCentral(artistKey, centralArtists) ? centralArtistCap : cap),
+    cap,
+    centralArtistCap,
+  };
+}
+
+export function enforcePerPlaylistArtistCap<T extends { artistName?: string | null }>(
+  tracks: T[],
+  opts: ArtistCapOpts,
+): { tracks: T[]; dropped: number; cap: number; centralArtistCap: number } {
+  const limiter = createArtistCapLimiter(opts);
+  const { cap, centralArtistCap } = limiter;
   const counts = new Map<string, number>();
   const out: T[] = [];
   let dropped = 0;
 
   for (const track of tracks) {
-    const artist = normalizeSessionArtist(track.artistName ?? "");
+    const artist = limiter.key(track.artistName);
     if (!artist) {
       out.push(track);
       continue;
     }
-    const limit = artistIsCentral(artist, centralArtists) ? centralArtistCap : cap;
+    const limit = limiter.limit(artist);
     const current = counts.get(artist) ?? 0;
     if (current >= limit) {
       dropped += 1;
