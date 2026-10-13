@@ -1,0 +1,184 @@
+{
+  "industrial techno warehouse rave": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minSubgenreSurvival": 70
+  },
+  "hard techno gym": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minSubgenreSurvival": 60
+  },
+  "progressive trance journey": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minSubgenreSurvival": 65
+  },
+  "90s trance drive": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minSubgenreSurvival": 65,
+    "maxEraDrift": 0.3
+  },
+  "liquid drum and bass": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minSubgenreSurvival": 65
+  },
+  "dark jungle": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minSubgenreSurvival": 60
+  },
+  "old school dubstep": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minSubgenreSurvival": 65
+  },
+  "euphoric summer house": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minEmotionSurvival": 55,
+    "minSubgenreSurvival": 60
+  },
+  "shoegaze dreamscape": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minSubgenreSurvival": 60
+  },
+  "melancholic indie night drive": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minEmotionSurvival": 60
+  },
+  "rainy night walk": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minEmotionSurvival": 60
+  },
+  "late night city pop": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minSubgenreSurvival": 60
+  },
+  "underground hip hop": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minSubgenreSurvival": 65
+  },
+  "conscious rap classics": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minSubgenreSurvival": 60
+  },
+  "dark trap night drive": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minSubgenreSurvival": 60
+  },
+  "deep focus coding": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minEmotionSurvival": 50
+  },
+  "sunset beach reggae": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minSubgenreSurvival": 60
+  },
+  "sunday morning coffee": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minEmotionSurvival": 50
+  },
+  "late night studying": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minEmotionSurvival": 50
+  },
+  "road trip classics": {
+    "minTrackCount": 27,
+    "minCompletion": 0.9,
+    "minConfidence": 70,
+    "minSurvival": 70,
+    "maxLeaks": 2,
+    "maxConvergenceRisk": "medium",
+    "minEmotionSurvival": 20
+  }
+}
