@@ -297,7 +297,9 @@ EXPANDED_ACTIVITY_TERMS.workout.push(
 EXPANDED_ACTIVITY_TERMS.focus.push(
   "essay writing", "exam cram", "dissertation", "thesis", "revision session", "library grind", "deep work block", "programming",
   "debugging", "design work", "creative writing", "journaling", "paperwork", "admin", "emails", "planning", "notion setup",
-  "clean focus", "adhd focus", "pomodoro", "flow state", "reading fiction", "reading textbook"
+  "clean focus", "adhd focus", "pomodoro", "flow state", "reading fiction", "reading textbook",
+  // Thinking work, like "planning" — not a craft like painting or sewing.
+  "brainstorming"
 );
 EXPANDED_ACTIVITY_TERMS.party.push(
   "girls night", "boys night", "pres at mine", "uni pres", "freshers pres", "kitchen pres", "afters", "after party", "club queue",
@@ -336,7 +338,7 @@ EXPANDED_ACTIVITY_TERMS.social = [
 ];
 EXPANDED_ACTIVITY_TERMS.creative = [
   "painting", "drawing", "sketching", "making art", "photography", "editing photos", "video editing", "writing songs",
-  "producing music", "studio session", "crafting", "sewing", "designing", "brainstorming",
+  "producing music", "studio session", "crafting", "sewing", "designing",
 ];
 
 EXPANDED_PLACE_TERMS.rural.push("country pub", "country lane", "layby", "hills", "valley", "woods at night", "farm road", "lake district", "peak district", "yorkshire dales", "highlands");

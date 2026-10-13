@@ -41,13 +41,16 @@ test("a situation needs the prompt's own words, not an association", () => {
 });
 
 test("substring prompts no longer route to driving worlds", () => {
-  const driving = ["night_drive_world", "rainy_drive_world", "rainy_motorway_world", "evening_drive_world"];
+  const rainyOrNight = ["night_drive_world", "rainy_drive_world", "rainy_motorway_world"];
   for (const p of ["brainstorming playlist", "rainy day in bed", "rain in bed", "brain fog driving"]) {
-    assert.equal(driving.includes(resolveCommittedWorld({ prompt: p })?.id ?? ""), false, p);
+    assert.equal(rainyOrNight.includes(resolveCommittedWorld({ prompt: p })?.id ?? ""), false, p);
   }
-  // HEAD routing, before the situation router existed.
-  assert.equal(resolveCommittedWorld({ prompt: "brainstorming playlist" })?.id, "sunday_chill_world");
-  assert.equal(resolveCommittedWorld({ prompt: "brain fog driving" })?.id, "sunday_chill_world");
+  for (const p of ["brainstorming playlist", "rainy day in bed", "rain in bed"]) {
+    assert.notEqual(resolveCommittedWorld({ prompt: p })?.id, "evening_drive_world", p);
+  }
+  // No rain in either: brainstorming is focus work; brain fog driving is a plain (calm) drive.
+  assert.equal(resolveCommittedWorld({ prompt: "brainstorming playlist" })?.id, "focus_study_world");
+  assert.equal(resolveCommittedWorld({ prompt: "brain fog driving" })?.id, "evening_drive_world");
   // The everyday map's explicit "rainy day in bed" pattern.
   assert.equal(resolveCommittedWorld({ prompt: "rainy day in bed" })?.id, "rainy_reading_world");
   // Explicit evidence: "bed" is lying_awake's environment.

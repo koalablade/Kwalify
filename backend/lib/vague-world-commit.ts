@@ -10,6 +10,8 @@ import { resolveHumanScene } from "./human-scene-knowledge";
 import { promptHasExplicitGenreConstraint } from "./vibe-genre-bias";
 import { resolveSituationWorld } from "./world-understanding/situation-world-router";
 import { statesNonNightTime } from "./emotion-scene-layers";
+import { resolveActivityProfile } from "./activity-profiles";
+import { buildLockedIntent } from "../core/v3/intent";
 
 export type VagueCommitAction = "commit" | "clarify" | "passthrough";
 
@@ -423,6 +425,21 @@ export function resolveVagueWorldCommit(
         alternatives,
       };
     }
+    // A calm prompt that names what the listener is doing gets that activity's world rather than
+    // the sofa default: "studying" / "coding" / "brainstorming" were Sunday-chill acoustic playlists.
+    const activityWorld = activityFallbackWorld(p);
+    if (activityWorld) {
+      const everyday = EVERYDAY_WORLD_MAP.find((w) => w.worldId === activityWorld.worldId);
+      return {
+        action: "commit",
+        worldId: activityWorld.worldId,
+        sceneId: everyday?.sceneId ?? activityWorld.sceneId,
+        confidence: 0.62,
+        reason: `vague_default_activity:${activityWorld.reason}`,
+        label: everyday?.label ?? activityWorld.label,
+        alternatives,
+      };
+    }
     // Default commit for unmapped calm, genre-less mood language — one safe world.
     return {
       action: "commit",
@@ -475,6 +492,44 @@ export function shouldSuppressVagueWiden(commit: VagueWorldCommit): boolean {
 const SOFT_DEFAULT_MAX_ENERGY = 0.75;
 const SOFT_DEFAULT_MAX_SCENE_CONFIDENCE = 0.6;
 const softDefaultCache = new Map<string, boolean>();
+
+/**
+ * World for a calm prompt with no everyday match whose activity the intent layer already
+ * recognises (the same evidence the retrieval activity profiles use). Three cases only: reading gets
+ * the reading world, study / coding / focus work gets the focus world, and driving gets the
+ * evening-drive world that "music for driving" already uses. Anything else keeps the Sunday default.
+ */
+type ActivityFallback = { worldId: string; sceneId: string; label: string; reason: string };
+const activityFallbackCache = new Map<string, ActivityFallback | null>();
+
+export function activityFallbackWorld(prompt: string): ActivityFallback | null {
+  // Called for every world-identity lookup of a prompt, and the intent build is ~10 ms.
+  const key = prompt.trim().toLowerCase();
+  if (activityFallbackCache.has(key)) return activityFallbackCache.get(key) ?? null;
+  const result = resolveActivityFallback(prompt);
+  if (activityFallbackCache.size > 500) activityFallbackCache.clear();
+  activityFallbackCache.set(key, result);
+  return result;
+}
+
+function resolveActivityFallback(prompt: string): ActivityFallback | null {
+  // Garage / workshop vocabulary also reads as "focus" in the intent layer; that is not study music.
+  if (/\b(?:garage|workshop)\b/i.test(prompt)) return null;
+  const intent = buildLockedIntent(prompt);
+  const profile = resolveActivityProfile(prompt, intent)?.id;
+  if (profile === "study" || profile === "focus_coding") {
+    const readingOnly =
+      /\bread(?:ing)?\b/i.test(prompt) && !/\b(?:stud(?:y|ying)|homework|exam|revision|textbook)\b/i.test(prompt);
+    return readingOnly
+      ? { worldId: "rainy_reading_world", sceneId: "RAINY_WINDOW_READ", label: "reading", reason: "reading" }
+      : { worldId: "focus_study_world", sceneId: "STUDY_DEEP_FOCUS", label: "focus / study", reason: profile };
+  }
+  // "Songs that drive me crazy" is not driving.
+  if (intent.activity === "driving" && !/\bdrives?\s+(?:me|you|us|him|her|them)\b/i.test(prompt)) {
+    return { worldId: "evening_drive_world", sceneId: "EMPTY_MOTORWAY_NIGHT", label: "driving", reason: "driving" };
+  }
+  return null;
+}
 
 /** True when an unmatched prompt is calm, names no genre/era and no specific human scene. */
 export function allowsSoftSundayDefault(prompt: string): boolean {
