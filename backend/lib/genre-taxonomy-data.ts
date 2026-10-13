@@ -153,6 +153,9 @@ export const GENRE_FAMILIES: GenreFamilyDef[] = [
         ],
       },
       { id: "neo_soul", microStyles: ["alternative rnb"], patterns: ["neo soul", "neo-soul"], artistHints: ["sharon jones", "charles bradley", "lee fields", "amy winehouse"] },
+      // Spotify tags these "doo-wop"; with no entry the classifier fell back to audio features and filed
+      // The Flamingos as "deep acoustic folk", which passed folk worlds' genre evidence.
+      { id: "doo_wop", microStyles: ["vocal group"], patterns: ["doo-?wop"] },
       {
         id: "funk",
         microStyles: ["p funk", "funk soul"],
@@ -263,6 +266,8 @@ export const GENRE_FAMILIES: GenreFamilyDef[] = [
       { id: "afrobeats", microStyles: ["afropop"], patterns: ["afrobeats", "afrobeat", "afropop"], artistHints: ["burna boy", "wizkid", "davido"] },
       { id: "k_pop", microStyles: ["korean pop"], patterns: ["k-pop", "kpop", "korean pop"] },
       { id: "middle_eastern", microStyles: ["arabic pop"], patterns: ["arabic pop", "middle eastern", "turkish pop"] },
+      // Same fallback gap: Dalida ("chanson", "variété française") was classified as acoustic folk.
+      { id: "chanson", microStyles: ["french chanson"], patterns: ["\\bchanson\\b", "vari[eé]t[eé] fran[cç]aise"] },
     ],
   },
   {
