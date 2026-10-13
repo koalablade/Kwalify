@@ -503,7 +503,7 @@ const RAINY_DRIVE_IDENTITY: WorldIdentityProfile = {
   ],
   rejectAny: [
     // Dancefloor club styles are not driving music (same reasoning as the UK garage / grime / dnb entries).
-    /\b(?:bassline|bass\s+house|g[-\s]?house|slap\s+house|tech\s+house|hypertechno)\b/i,
+    /\b(?:bassline|bass\s+house|g[-\s]?house|slap\s+house|tech\s+house|hypertechno|jersey\s+club)\b/i,
     /\b(?:hip[-\s]?hop|rap\b|trap\b|drill\b|metal|hard\s+rock|classic\s+rock|arena\s+rock|country|bluegrass|party\s+anthem|edm\b|trance|hardstyle|big\s+room|festival\s+edm|brostep|dubstep|uk\s*garage)\b/i,
     /\b(?:queen\b(?!\s+of\s+the\s+stone)|blondie|fleetwood\s+mac|led\s+zeppelin|ac\/?dc|dmx\b|highwaymen|johnny\s+cash|storm\s+queen|joel\s+corry|tiesto|tiësto|meat\s+loaf|joyner\s+lucas|drake\b|travis\s+scott|french\s+montana|suzi\s+quatro|jake\s+bugg|the\s+killers)\b/i,
   ],
@@ -619,7 +619,7 @@ const EVENING_DRIVE_IDENTITY: WorldIdentityProfile = {
   ],
   rejectAny: [
     // Dancefloor club styles are not driving music (same reasoning as the UK garage / grime / dnb entries).
-    /\b(?:bassline|bass\s+house|g[-\s]?house|slap\s+house|tech\s+house|hypertechno)\b/i,
+    /\b(?:bassline|bass\s+house|g[-\s]?house|slap\s+house|tech\s+house|hypertechno|jersey\s+club)\b/i,
     /\b(?:hard\s+techno|tekkno|drill\b|death\s+metal|brostep|christmas|uk\s*garage|ukg|grime|riddim|squat\s+rave|drum\s*(?:and|&)\s*bass|\bdnb\b)\b/i,
     /\b(?:non\s+stop\s+edit|turning\s+japanese)\b/i,
     /\b(?:tiesto|storm\s+queen|dmx\b|meat\s+loaf)\b/i,
@@ -865,7 +865,7 @@ const NIGHT_DRIVE_IDENTITY: WorldIdentityProfile = {
   ],
   rejectAny: [
     // Dancefloor club styles are not driving music (same reasoning as the UK garage / grime / dnb entries).
-    /\b(?:bassline|bass\s+house|g[-\s]?house|slap\s+house|tech\s+house|hypertechno)\b/i,
+    /\b(?:bassline|bass\s+house|g[-\s]?house|slap\s+house|tech\s+house|hypertechno|jersey\s+club)\b/i,
     /\b(?:metal|hardcore|trap\b|drill\b|country|bluegrass|arena\s+rock|classic\s+rock|reggae|dancehall|hip[-\s]?hop|rap\b|moomba?hton)\b/i,
     /\b(?:french\s+montana|mungo'?s?\s+hi\s+fi|dmx\b|50\s+cent|central\s+cee|tion\s+wayne|arrdee)\b/i,
     /\b(?:miku|vocaloid|jump\s+up|brostep|hardstyle|uk\s*garage|ukg|grime|riddim|squat\s+rave|drum\s*(?:and|&)\s*bass|\bdnb\b)\b/i,

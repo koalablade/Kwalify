@@ -37,10 +37,14 @@ test("driving worlds reject dancefloor club styles; party worlds keep them", () 
     const profile = identityProfileForWorld(world)!;
     assert.equal(passesWorldIdentity(track(["bass house"]), [profile], { hardLock: true }), false, world);
     assert.equal(passesWorldIdentity(track(["g-house", "slap house"]), [profile], { hardLock: true }), false, world);
+    // Night-drive worlds are usually soft-locked, where only rejections apply ("leydown" came in via criticRepair).
+    assert.equal(passesWorldIdentity(track(["jersey club"]), [profile], { hardLock: false }), false, world);
+    assert.equal(passesWorldIdentity(track(["deep house"]), [profile], { hardLock: false }), true, world);
     assert.equal(passesWorldIdentity(track(["dream pop"]), [profile], { hardLock: true }), true, world);
   }
   const party = identityProfileForWorld("party_prep_world")!;
   assert.equal(passesWorldIdentity(track(["bass house"]), [party], { hardLock: true }), true);
+  assert.equal(passesWorldIdentity(track(["jersey club"]), [party], { hardLock: false }), true); // not rejected there
 });
 
 // The contract-recovery filter drops tagged fillers this check rejects (country / doo-wop / trance
